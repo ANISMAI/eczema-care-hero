@@ -1,17 +1,19 @@
-import { ROOMS, HALLWAY, WORLD_BOUNDS, type RoomId } from "../data/rooms";
+import { ROOMS, HALLWAY, WORLD_BOUNDS, type Rect, type RoomId } from "../data/rooms";
 import { shade, toCss } from "../art/palette";
 
-// CSS size of the mini-map. It shows the full width of the clinic and scrolls vertically to
-// follow the player, so it stays small and readable however long the building gets.
-const MAP_W = 74;
-const MAP_H = 106;
-const SCALE = MAP_W / WORLD_BOUNDS.width;
+// CSS size of the mini-map. The floor plan is turned 90° to fit a wide card (entrance on the
+// left, hallway running across, like the full map on a landscape screen). It shows the whole
+// width of the clinic and scrolls sideways to follow the player.
+const MAP_W = 120;
+const MAP_H = 66;
+const SCALE = MAP_H / WORLD_BOUNDS.width;
 
 /** Always-visible top-right mini-map: simplified room shapes + a moving player arrow. */
 export default class MiniMap {
   private ctx: CanvasRenderingContext2D;
   private dpr = Math.min(3, window.devicePixelRatio || 1);
   private pulse = 0;
+  private scrollX = 0;
 
   constructor(parent: HTMLElement) {
     const canvas = document.createElement("canvas");
@@ -24,33 +26,33 @@ export default class MiniMap {
     parent.prepend(canvas);
   }
 
-  private scrollY = 0;
+  /** World point -> map point (turned: world bottom = map left). */
+  private mx(y: number): number {
+    return (WORLD_BOUNDS.height - y) * SCALE - this.scrollX;
+  }
 
-  private sx(x: number): number {
+  private my(x: number): number {
     return x * SCALE;
   }
 
-  private sy(y: number): number {
-    return y * SCALE - this.scrollY;
-  }
-
-  private size(v: number): number {
-    return v * SCALE;
+  private rect(r: Rect): [number, number, number, number] {
+    return [this.mx(r.y + r.height), this.my(r.x), r.height * SCALE, r.width * SCALE];
   }
 
   draw(playerX: number, playerY: number, currentRoomId: RoomId, facingDeg: number): void {
     const ctx = this.ctx;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.clearRect(0, 0, MAP_W, MAP_H);
-    const maxScroll = Math.max(0, WORLD_BOUNDS.height * SCALE - MAP_H);
-    this.scrollY = Math.min(maxScroll, Math.max(0, playerY * SCALE - MAP_H / 2));
+    const maxScroll = Math.max(0, WORLD_BOUNDS.height * SCALE - MAP_W);
+    this.scrollX = Math.min(maxScroll, Math.max(0, (WORLD_BOUNDS.height - playerY) * SCALE - MAP_W / 2));
 
     ctx.fillStyle = "#93cf6f";
     ctx.fillRect(0, 0, MAP_W, MAP_H);
 
-    const box = (x: number, y: number, w: number, h: number, fill: string, stroke?: string) => {
+    const box = (r: Rect, fill: string, stroke?: string) => {
+      const [x, y, w, h] = this.rect(r);
       ctx.beginPath();
-      ctx.roundRect(this.sx(x) + 0.5, this.sy(y) + 0.5, this.size(w) - 1, this.size(h) - 1, 2);
+      ctx.roundRect(x + 0.5, y + 0.5, w - 1, h - 1, 2);
       ctx.fillStyle = fill;
       ctx.fill();
       if (stroke) {
@@ -60,17 +62,16 @@ export default class MiniMap {
       }
     };
 
-    box(HALLWAY.x, HALLWAY.y, HALLWAY.width, HALLWAY.height, "#f3e9db");
+    box(HALLWAY, "#f3e9db");
     for (const room of ROOMS) {
-      const { x, y, width, height } = room.bounds;
       const isHere = room.id === currentRoomId;
-      box(x, y, width, height, toCss(isHere ? room.color : shade(room.color, 0.6)), isHere ? "#ffffff" : undefined);
+      box(room.bounds, toCss(isHere ? room.color : shade(room.color, 0.6)), isHere ? "#ffffff" : undefined);
     }
 
     // player arrow with a soft pulsing halo
     this.pulse = (this.pulse + 0.06) % (Math.PI * 2);
-    const px = this.sx(playerX);
-    const py = this.sy(playerY);
+    const px = this.mx(playerY);
+    const py = this.my(playerX);
     ctx.beginPath();
     ctx.arc(px, py, 5.5 + Math.sin(this.pulse) * 1.2, 0, Math.PI * 2);
     ctx.fillStyle = "rgba(232, 51, 63, 0.3)";
@@ -78,7 +79,8 @@ export default class MiniMap {
 
     ctx.save();
     ctx.translate(px, py);
-    ctx.rotate(((facingDeg + 90) * Math.PI) / 180);
+    // the arrow points up at 0; +90 turns a world angle into it, +90 more for the turned plan
+    ctx.rotate(((facingDeg + 180) * Math.PI) / 180);
     ctx.beginPath();
     ctx.moveTo(0, -5);
     ctx.lineTo(4, 4);

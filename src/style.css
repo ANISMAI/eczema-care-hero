@@ -178,7 +178,7 @@ button {
 
 .hud-toast {
   position: absolute;
-  top: calc(60px + var(--safe-top));
+  top: calc(110px + var(--safe-top));
   left: 50%;
   transform: translate(-50%, -12px);
   padding: 8px 16px;
@@ -760,4 +760,496 @@ button {
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.03em;
+}
+
+/* ---------- HUD right column (mini-map + side buttons) ---------- */
+
+.hud-right {
+  position: absolute;
+  top: calc(12px + var(--safe-top));
+  right: calc(12px + var(--safe-right));
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.hud-pills {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hud-pills .hud-pill {
+  min-height: 30px;
+}
+
+.hud-right .hud-minimap {
+  position: static;
+}
+
+.hud-side-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 54px;
+  padding: 0;
+  border: 2px solid var(--panel-edge);
+  border-radius: 14px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  color: #fff;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.hud-side-btn span:first-child {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #ece4f7;
+  font-size: 17px;
+  line-height: 1;
+}
+
+.hud-side-btn span:last-child {
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hud-side-btn:active {
+  transform: scale(0.95);
+}
+
+/* ---------- Staff directory (ID cards) ---------- */
+
+.staff-overlay {
+  overflow-y: auto;
+}
+
+.staff-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: min(390px, 100%);
+  margin: auto;
+}
+
+.staff-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 0 6px;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.staff-counter {
+  margin-left: auto;
+  font-size: 13px;
+  opacity: 0.85;
+}
+
+.staff-stage {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 34px;
+}
+
+.staff-card-host {
+  touch-action: pan-y;
+}
+
+.staff-arrow {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: var(--shadow-sm);
+  color: var(--ink);
+  font-size: 26px;
+  font-weight: 900;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.staff-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.staff-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+  transition: width 0.15s ease, background 0.15s ease;
+}
+
+.staff-dot.active {
+  width: 20px;
+  background: #fff;
+}
+
+.staff-actions {
+  width: min(330px, 100%);
+}
+
+.id-card {
+  --accent-dark: color-mix(in srgb, var(--accent) 65%, #23364f);
+  position: relative;
+  width: min(280px, 72vw);
+  padding-bottom: 12px;
+  border: 2px solid #e6e1f2;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 16px 36px rgba(18, 28, 44, 0.45);
+  text-align: center;
+  user-select: none;
+}
+
+.id-card.enter-right {
+  animation: id-in-right 0.22s ease-out;
+}
+
+.id-card.enter-left {
+  animation: id-in-left 0.22s ease-out;
+}
+
+@keyframes id-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(40px) rotate(2deg);
+  }
+}
+
+@keyframes id-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-40px) rotate(-2deg);
+  }
+}
+
+.id-lanyard {
+  position: absolute;
+  top: -40px;
+  left: 50%;
+  z-index: -1;
+  width: 24px;
+  height: 48px;
+  transform: translateX(-50%);
+  background: repeating-linear-gradient(180deg, var(--accent) 0 8px, var(--accent-dark) 8px 10px);
+  border-radius: 3px;
+}
+
+.id-clip {
+  position: absolute;
+  top: -9px;
+  left: 50%;
+  z-index: 1;
+  width: 36px;
+  height: 16px;
+  transform: translateX(-50%);
+  border: 2px solid #7d8ba0;
+  border-radius: 6px;
+  background: linear-gradient(#f4f7fa, #b9c2cf);
+}
+
+.id-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 14px 44px;
+  border-radius: 16px 16px 0 0;
+  background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+  color: #fff;
+  text-align: left;
+}
+
+.id-logo {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #fff;
+  color: #f0679e;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.id-org {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.id-org span {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.9;
+}
+
+.id-org strong {
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.id-photo {
+  position: relative;
+  width: 116px;
+  height: 120px;
+  margin: -36px auto 8px;
+  overflow: hidden;
+  border: 4px solid #fff;
+  border-radius: 18px;
+  background: radial-gradient(circle at 50% 35%, #fff, #ece4f7 70%);
+  box-shadow: 0 4px 12px rgba(18, 28, 44, 0.25);
+}
+
+.id-portrait {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  padding-top: 6px;
+}
+
+.id-badge {
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.id-badge.you {
+  background: var(--gold);
+  color: var(--ink);
+}
+
+.id-badge.off {
+  background: rgba(35, 54, 79, 0.85);
+  color: #fff;
+}
+
+.id-name {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.id-role {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.id-meta {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin: 8px 14px 4px;
+  padding-bottom: 8px;
+  border-bottom: 2px dashed #e6e1f2;
+  color: var(--ink-soft);
+  font-size: 11.5px;
+  font-weight: 800;
+}
+
+.id-section {
+  margin: 8px 16px 4px;
+  color: var(--accent-dark);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.id-helps {
+  margin: 0 16px;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+
+.id-helps li {
+  position: relative;
+  margin: 3px 0;
+  padding-left: 20px;
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.id-helps li::before {
+  content: "\2713";
+  position: absolute;
+  left: 2px;
+  color: var(--accent);
+  font-weight: 900;
+}
+
+.id-about {
+  margin: 0 16px;
+  color: var(--ink-soft);
+  font-size: 12.5px;
+  font-style: italic;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: left;
+}
+
+.id-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 10px 16px 0;
+}
+
+.id-barcode {
+  width: 110px;
+  height: 22px;
+  background: repeating-linear-gradient(
+    90deg,
+    #23364f 0 2px,
+    transparent 2px 4px,
+    #23364f 4px 5px,
+    transparent 5px 8px,
+    #23364f 8px 11px,
+    transparent 11px 13px
+  );
+}
+
+.id-valid {
+  color: var(--ink-soft);
+  font-size: 9.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+/* Landscape phones: the card turns into a wide ID card (photo left, details right). */
+@media (orientation: landscape) and (max-height: 500px) {
+  .hud-side-btn {
+    width: 50px;
+  }
+
+  .staff-wrap {
+    width: min(760px, 100%);
+    gap: 6px;
+  }
+
+  .staff-title {
+    font-size: 14px;
+  }
+
+  .staff-stage {
+    padding-top: 0;
+  }
+
+  .id-lanyard,
+  .id-clip {
+    display: none;
+  }
+
+  .id-card {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    column-gap: 14px;
+    width: min(580px, 74vw);
+    padding-bottom: 8px;
+    text-align: left;
+  }
+
+  .id-card > * {
+    grid-column: 2;
+  }
+
+  .id-head {
+    grid-column: 1 / -1;
+    padding: 8px 14px;
+  }
+
+  .id-org strong {
+    font-size: 15px;
+  }
+
+  .id-photo {
+    grid-column: 1;
+    grid-row: 2 / span 7;
+    margin: 10px 0 0 14px;
+  }
+
+  .id-name {
+    margin-top: 8px;
+    font-size: 18px;
+  }
+
+  .id-role {
+    justify-self: start;
+  }
+
+  .id-meta {
+    justify-content: flex-start;
+    margin: 6px 14px 2px 0;
+    padding-bottom: 6px;
+  }
+
+  .id-section {
+    margin: 4px 0 2px;
+  }
+
+  .id-helps,
+  .id-about {
+    margin-left: 0;
+    margin-right: 14px;
+  }
+
+  .id-helps li {
+    margin: 1px 0;
+    font-size: 11.5px;
+  }
+
+  .id-about {
+    font-size: 11.5px;
+  }
+
+  .id-foot {
+    grid-column: 1 / -1;
+    margin: 6px 14px 0;
+  }
 }

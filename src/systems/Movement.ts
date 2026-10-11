@@ -25,7 +25,18 @@ export default class MovementSystem {
     this.joystickVector = { x, y };
   }
 
+  /** True while the player is pushing the joystick or a movement key. */
+  hasInput(): boolean {
+    const { x, y } = this.read();
+    return x !== 0 || y !== 0;
+  }
+
   update(): void {
+    const { x, y } = this.read();
+    this.player.setVelocity(x * SPEED, y * SPEED);
+  }
+
+  private read(): { x: number; y: number } {
     let vx = this.joystickVector.x;
     let vy = this.joystickVector.y;
 
@@ -42,6 +53,6 @@ export default class MovementSystem {
       vy /= len;
     }
 
-    this.player.setVelocity(vx * SPEED, vy * SPEED);
+    return { x: vx, y: vy };
   }
 }

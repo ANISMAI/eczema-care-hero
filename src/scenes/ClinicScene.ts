@@ -8,6 +8,8 @@ import MiniMap from "../ui/MiniMap";
 import FullMap from "../ui/FullMap";
 import Dialog from "../ui/Dialog";
 import CharacterSelect from "../ui/CharacterSelect";
+import StaffDirectory from "../ui/StaffDirectory";
+import type { StaffCard } from "../data/staff";
 import { CHARACTERS, getCharacter, type CharacterId, type PlayableCharacter } from "../data/assets";
 import {
   ROOMS,
@@ -54,6 +56,7 @@ export default class ClinicScene extends Phaser.Scene {
   private fullMap!: FullMap;
   private dialog!: Dialog;
   private characterSelect!: CharacterSelect;
+  private staffDirectory!: StaffDirectory;
   private character: PlayableCharacter | undefined;
 
   private markers = new Map<string, Marker>();
@@ -92,7 +95,7 @@ export default class ClinicScene extends Phaser.Scene {
 
     this.movement = new MovementSystem(this, this.player);
     this.interaction = new InteractionSystem(this.interactables);
-    this.navigation = new NavigationSystem(this.player);
+    this.navigation = new NavigationSystem(this, this.player, this.npcSolids());
 
     this.buildUI();
     this.hud.showRoomToast(this.roomLabel(findRoomAt(this.player.x, this.player.y)?.id ?? null));
@@ -154,6 +157,15 @@ export default class ClinicScene extends Phaser.Scene {
     }
   }
 
+  /** Solid boxes around standing NPCs (also avoided by auto-walk). */
+  private npcSolids(): Rect[] {
+    return POSE_NPCS.flatMap((npc) => {
+      if (!npc.solid) return [];
+      const { w, h } = npc.solid;
+      return [{ x: npc.feet.x - w / 2, y: npc.feet.y - h, width: w, height: h }];
+    });
+  }
+
   private buildColliders(): Phaser.Physics.Arcade.StaticGroup {
     const group = this.physics.add.staticGroup();
     const addZone = (r: Rect) => {
@@ -164,11 +176,7 @@ export default class ClinicScene extends Phaser.Scene {
     };
     getAllWalls().forEach(addZone);
     getFurnitureSolids().forEach(addZone);
-    for (const npc of POSE_NPCS) {
-      if (!npc.solid) continue;
-      const { w, h } = npc.solid;
-      addZone({ x: npc.feet.x - w / 2, y: npc.feet.y - h, width: w, height: h });
-    }
+    this.npcSolids().forEach(addZone);
     return group;
   }
 
@@ -191,6 +199,7 @@ export default class ClinicScene extends Phaser.Scene {
       onInteract: () => this.handleInteract(),
       onMiniMapTap: () => this.openFullMap(),
       onAvatarTap: () => this.openCharacterSelect(false),
+      onStaffTap: () => this.openStaffDirectory(),
     });
     this.hud.setAvatar(this.character);
     this.miniMap = new MiniMap(this.hud.miniMapMount);
@@ -204,6 +213,10 @@ export default class ClinicScene extends Phaser.Scene {
       (id) => this.chooseCharacter(id),
       () => (this.inputLocked = false)
     );
+    this.staffDirectory = new StaffDirectory(uiRoot, {
+      onFind: (card) => this.findStaff(card),
+      onClose: () => (this.inputLocked = false),
+    });
     if (!this.character) this.openCharacterSelect(true);
 
     this.input.keyboard?.on("keydown-E", () => this.handleInteract());
@@ -239,6 +252,31 @@ export default class ClinicScene extends Phaser.Scene {
     this.persist();
   }
 
+  private openStaffDirectory(): void {
+    if (this.inputLocked) return;
+    this.inputLocked = true;
+    this.movement.setJoystickVector(0, 0);
+    this.player.setVelocity(0, 0);
+    this.staffDirectory.open(this.character?.id);
+  }
+
+  /** Card "Find" button: take the player to where that staff member is right now. */
+  private findStaff(card: StaffCard): void {
+    const spotId = card.meetAt ?? card.npcId;
+    const spot = spotId ? this.interactables.find((i) => i.id === spotId) : undefined;
+    const standing = POSE_NPCS.find((n) => n.id === card.npcId);
+    const firstName = card.name.split(" ")[0];
+    const arrived = () => {
+      this.hud.showRoomToast(`👋  Found ${firstName}!`);
+      this.persist();
+    };
+    // Walking nurses keep moving: aim for where they are now; they stop when the player is close.
+    if (spot) this.navigation.walkNear({ x: spot.x, y: spot.y }, card.room, arrived);
+    else if (standing) this.navigation.walkNear(standing.feet, card.room, arrived);
+    else this.navigation.walkToRoom(card.room, arrived);
+    this.hud.showRoomToast(`🚶  Going to ${firstName}…`);
+  }
+
   private openFullMap(): void {
     if (this.inputLocked) return;
     this.inputLocked = true;
@@ -250,11 +288,12 @@ export default class ClinicScene extends Phaser.Scene {
   }
 
   private handleGoHere(roomId: RoomId): void {
-    if (!this.navigation.travelTo(roomId)) return;
-    this.currentRoomId = roomId;
-    this.cameras.main.centerOn(this.player.x, this.player.y);
-    this.hud.showRoomToast(this.roomLabel(roomId));
-    this.persist();
+    const label = this.roomLabel(roomId);
+    const started = this.navigation.walkToRoom(roomId, () => {
+      this.hud.showRoomToast(label);
+      this.persist();
+    });
+    if (started) this.hud.showRoomToast(`🚶  Walking to ${label.replace(/^\S+\s+/, "")}…`);
   }
 
   private roomLabel(id: RoomId | null): string {
@@ -268,7 +307,11 @@ export default class ClinicScene extends Phaser.Scene {
   update(_time: number, delta: number): void {
     if (this.inputLocked) {
       this.player.setVelocity(0, 0);
+    } else if (this.navigation.walking && !this.movement.hasInput()) {
+      this.navigation.update(delta);
     } else {
+      // manual input always wins: it cancels any auto-walk in progress
+      if (this.navigation.walking) this.navigation.cancel();
       this.movement.update();
     }
     this.player.tick(delta);

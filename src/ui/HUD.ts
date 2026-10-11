@@ -8,6 +8,7 @@ export interface HUDCallbacks {
   onInteract: () => void;
   onMiniMapTap: () => void;
   onAvatarTap: () => void;
+  onStaffTap: () => void;
 }
 
 /** Mobile HUD: top-left stats, top-right mini-map mount, bottom-left joystick, bottom-right interact. */
@@ -46,7 +47,10 @@ export default class HUD {
     this.avatarFace.className = "hud-avatar-face";
     this.avatarBtn.appendChild(this.avatarFace);
     this.avatarBtn.addEventListener("click", callbacks.onAvatarTap);
-    statsBar.append(this.avatarBtn, this.pill("⭐", this.levelLabel), this.pill("🪙", this.coinsLabel));
+    const pills = document.createElement("div");
+    pills.className = "hud-pills";
+    pills.append(this.pill("⭐", this.levelLabel), this.pill("🪙", this.coinsLabel));
+    statsBar.append(this.avatarBtn, pills);
     this.setStats(1, 0);
 
     // Top-right: mini-map card
@@ -83,7 +87,17 @@ export default class HUD {
     this.interactBtn.append(this.interactIcon, textWrap);
     this.interactBtn.addEventListener("click", callbacks.onInteract);
 
-    this.root.append(statsBar, this.miniMapMount, this.toast, joystickBase, this.interactBtn);
+    // Top-right row: side buttons, then the mini-map in the corner
+    const right = document.createElement("div");
+    right.className = "hud-right";
+    const staffBtn = document.createElement("button");
+    staffBtn.className = "hud-side-btn";
+    staffBtn.setAttribute("aria-label", "Staff directory");
+    staffBtn.innerHTML = "<span>👥</span><span>Staff</span>";
+    staffBtn.addEventListener("click", callbacks.onStaffTap);
+    right.append(staffBtn, this.miniMapMount);
+
+    this.root.append(statsBar, right, this.toast, joystickBase, this.interactBtn);
     parent.appendChild(this.root);
 
     this.setupJoystick(joystickBase, callbacks.onJoystickMove);

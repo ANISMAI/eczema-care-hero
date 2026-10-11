@@ -779,6 +779,22 @@ function circleHitsRect(cx: number, cy: number, radius: number, rect: Rect): boo
 }
 
 /**
+ * True if a body of `radius` at (x, y) touches no wall or furniture, with its centre inside the
+ * building. Unlike isWalkable() the body may straddle a room and the hallway, i.e. stand in a
+ * doorway — used for path finding.
+ */
+export function bodyFits(x: number, y: number, radius = PLAYER_RADIUS): boolean {
+  const inside = [...ROOMS.map((rm) => rm.bounds), HALLWAY].some(
+    (b) => x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height
+  );
+  if (!inside) return false;
+  blockers ??= [...getAllWalls(), ...getFurnitureSolids()];
+  return !blockers.some((rect) => circleHitsRect(x, y, radius, rect));
+}
+
+let blockers: Rect[] | undefined;
+
+/**
  * True if a player standing at (x, y) would be inside the building and not overlapping
  * any wall or furniture. Used to validate saves and spawn points.
  */

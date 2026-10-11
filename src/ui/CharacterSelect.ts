@@ -1,19 +1,5 @@
-import { CHARACTERS, type CharacterId, type CharacterSheet } from "../data/assets";
-
-/**
- * Shows one frame (or, with the `walking` class, the front walk cycle) of a character
- * spritesheet in a DOM element, scaled so the frame is `height` CSS px tall.
- */
-export function applySpritePortrait(el: HTMLElement, sheet: CharacterSheet, height: number): void {
-  const s = height / sheet.frameHeight;
-  const fw = sheet.frameWidth * s;
-  el.style.setProperty("--fw", `${fw}px`);
-  el.style.width = `${fw}px`;
-  el.style.height = `${height}px`;
-  el.style.backgroundImage = `url("${sheet.url}")`;
-  el.style.backgroundSize = `${fw * 3}px ${sheet.frameHeight * 4 * s}px`;
-  el.style.backgroundPosition = `0 ${-sheet.rows.down * sheet.frameHeight * s}px`;
-}
+import { CHARACTERS, type CharacterId } from "../data/assets";
+import { spritePortrait } from "./spritePortrait";
 
 /** Character picker. On first launch it must be answered; later it can be cancelled. */
 export default class CharacterSelect {
@@ -52,7 +38,7 @@ export default class CharacterSelect {
       stage.className = "cs-stage";
       const portrait = document.createElement("span");
       portrait.className = "cs-portrait";
-      applySpritePortrait(portrait, c.sheet, 132);
+      spritePortrait(portrait, c.sheet, c.sheet.rows.down * 3, 132);
       stage.appendChild(portrait);
       const label = document.createElement("span");
       label.className = "cs-label";

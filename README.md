@@ -30,7 +30,7 @@ toolbar (or visit from a phone on the same network via `npm run dev -- --host`) 
 
 Launch → spawn at Reception → walk the clinic with the joystick/keys → approach an
 object/NPC to reveal **Interact** → tap to see placeholder dialogue → close → tap the
-mini-map → pick a room in the full map → **Go Here** teleports to that room's entrance →
+mini-map → pick a room in the full map → **Go Here** makes the doctor walk there on their own (through doors, around furniture) →
 reload the page → player position and current room are restored from `localStorage`.
 
 ## Project structure
@@ -47,7 +47,8 @@ src/
   entities/Player.ts      Player avatar: physics body, 8-direction facing, walk bob, depth sort
   systems/Movement.ts     Joystick + keyboard input -> player velocity
   systems/Interaction.ts  Finds the nearest interactable within range (centre or edge distance)
-  systems/Navigation.ts   travelTo() — isolated so Phase 2 can add auto-walk/pathfinding
+  systems/Navigation.ts   Auto-walk to a room or person (Go Here / Find); cancelled by any manual input
+  systems/Pathfinding.ts  Grid A* over the floor + path straightening, used by auto-walk
   ui/HUD.ts               DOM overlay: stats, joystick, interact button, room toast, mini-map card
   ui/MiniMap.ts           Canvas mini-map (always visible, tap to open full map)
   ui/FullMap.ts           Full map modal: scaled floor plan, select a room, Go Here / Close
@@ -80,14 +81,14 @@ back:
 
 Every room has one door onto the hallway; Toilet and Surau are half-height rooms sharing a slot.
 To move a room, change which `origin(col, row, half)` it uses near the top of the "Rooms"
-section of `src/data/rooms.ts`; the world size, mini-map (which scrolls with the player) and full
+section of `src/data/rooms.ts`; the world size, mini-map (turned sideways like the landscape full map, scrolling with the player) and full
 map follow automatically.
 
 **Room config — `src/data/rooms.ts`.** `ROOMS` is one typed list. Each room has:
 
 - `bounds` (x/y/width/height) and `doorSide` — walls and the door gap are generated from these.
 - `spawn` — the safe point just inside the door, used for the first spawn (Reception) and for
-  every "Go Here" teleport. On startup the game warns in the console if a spawn ends up inside
+  every "Go Here" auto-walk. On startup the game warns in the console if a spawn ends up inside
   a wall or furniture, so layout edits can't silently break travel.
 - `furniture` — list of `{ kind, x, y, variant }`. Collision boxes come from
   `src/data/furniture.ts`, so placing furniture automatically makes it solid.
@@ -143,6 +144,16 @@ Each person has a short, friendly, non-clinical line (`talk`). Their "…" bubbl
 when they are the nearest interactable, so the waiting room isn't covered in bubbles. If an NPC's
 sheet fails to load, seated visitors fall back to the vector drawing and others are left out.
 
+### Staff directory
+
+The **Staff** button under the mini-map opens a staff ID card for each team member
+(`src/data/staff.ts`): a sharp portrait photo (`public/assets/portraits/`, made from the full-size
+AI source sheet with `tools/make-portrait.py`, because the in-game sprites are too small to show
+this large), name, role, staff number,
+where to find them, what they can help with and a fun fact. Swipe or use the arrows to browse.
+**Find** takes the player to that person (front of the counter for the receptionist and
+pharmacist). The chosen doctor's card is marked "You"; the other doctor is "Off duty".
+
 ### Making spritesheets from AI images
 
 Any AI-generated grid of figures (any spacing, white or transparent background):
@@ -194,7 +205,8 @@ source art (they are not bundled).
 - [ ] The mini-map (top-right) tracks the player dot continuously while walking.
 - [ ] Tapping the mini-map opens the full map; tapping a room highlights it and shows its name.
 - [ ] Selecting the player's current room disables "Go Here"; selecting another room and
-      tapping "Go Here" teleports the player to that room's entrance and closes the map.
+      tapping "Go Here" closes the map and the player walks to that room's entrance (moving the
+      joystick / a key cancels the walk).
 - [ ] After any modal closes, joystick/keyboard movement and Interact continue to work.
 - [ ] Reload the page mid-game: the player reappears at the last saved position/room.
 - [ ] Clear `localStorage` (or corrupt the saved value) and reload: the game falls back to a
@@ -219,6 +231,4 @@ coding brief for the full list.
 - Mission list, career ranks and leaderboard in the Staff Office (local-only first, then backend).
 - Swapping the vector placeholder art for production art/sprites (see "Replacing placeholder
   art" above for the exact touch points).
-- Deciding teleport vs. auto-walk pathfinding for "Go Here" (currently instant teleport, kept
-  in `NavigationSystem.travelTo` so it's a drop-in replacement).
 - Backend-backed save, accounts, and production WebView integration in the host app.
