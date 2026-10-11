@@ -78,6 +78,25 @@ export default class Player extends Phaser.GameObjects.Container {
     if (this.vector) this.drawVector();
   }
 
+  /**
+   * For scripted moves (cut-scenes): face a direction, and optionally play the walk cycle
+   * while the avatar is moved by a tween rather than by physics.
+   */
+  face(dir: CharacterDirection, walking = false): void {
+    this.direction = dir;
+    this.lastFacingAngle = { down: 90, up: -90, left: 180, right: 0 }[dir];
+    if (this.vector) this.drawVector();
+    if (this.sprite && this.sheet) {
+      if (walking) {
+        this.sprite.anims.play(`${this.sheet.key}-walk-${dir}`, true);
+        this.sprite.anims.timeScale = 0.8;
+      } else {
+        this.sprite.anims.stop();
+        this.sprite.setFrame(this.sheet.rows[dir] * 3);
+      }
+    }
+  }
+
   private drawVector(): void {
     if (!this.vector) return;
     const facing: Facing = this.direction === "left" || this.direction === "right" ? "side" : this.direction;

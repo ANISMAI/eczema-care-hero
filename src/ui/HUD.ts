@@ -28,6 +28,7 @@ export default class HUD {
   private avatarFace: HTMLSpanElement;
   private levelLabel: HTMLSpanElement;
   private coinsLabel: HTMLSpanElement;
+  private clockLabel: HTMLSpanElement;
   private toast: HTMLDivElement;
   private toastTimer: number | undefined;
   private joystickThumb: HTMLDivElement;
@@ -54,7 +55,11 @@ export default class HUD {
     this.avatarBtn.addEventListener("click", callbacks.onAvatarTap);
     const pills = document.createElement("div");
     pills.className = "hud-pills";
-    pills.append(this.pill("⭐", this.levelLabel), this.pill("🪙", this.coinsLabel));
+    this.clockLabel = document.createElement("span");
+    this.clockLabel.textContent = "8:00 AM";
+    const clock = this.pill("🕘", this.clockLabel);
+    clock.classList.add("hud-clock");
+    pills.append(this.pill("⭐", this.levelLabel), this.pill("🪙", this.coinsLabel), clock);
     statsBar.append(this.avatarBtn, pills);
     this.setStats(1, 0);
 
@@ -227,6 +232,10 @@ export default class HUD {
     this.avatarFace.style.backgroundSize = `${fw * 3}px ${sheet.frameHeight * 4 * scale}px`;
     this.avatarFace.style.backgroundPosition = `${20 - fw / 2}px ${-sheet.rows.down * sheet.frameHeight * scale - 2}px`;
     this.avatarBtn.setAttribute("aria-label", `My profile (${character.label})`);
+  }
+
+  setClock(text: string): void {
+    if (this.clockLabel.textContent !== text) this.clockLabel.textContent = text;
   }
 
   setStats(level: number, coins: number): void {

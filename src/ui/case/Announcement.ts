@@ -16,30 +16,32 @@ export default class Announcement {
     parent.appendChild(this.root);
   }
 
-  show(message: string, ms = 4200): void {
+  /** `soft`: gentler chime and colour (prayer-time reminders). */
+  show(message: string, ms = 4200, soft = false): void {
+    this.root.classList.toggle("soft", soft);
     this.text.textContent = message;
     this.root.classList.remove("show");
     void this.root.offsetWidth;
     this.root.classList.add("show");
-    this.chime();
+    this.chime(soft);
     window.clearTimeout(this.timer);
     this.timer = window.setTimeout(() => this.root.classList.remove("show"), ms);
   }
 
   /** "Ding-dong" made with the Web Audio API (no sound file needed). */
-  private chime(): void {
+  private chime(soft = false): void {
     try {
       this.audio ??= new AudioContext();
       const ctx = this.audio;
       const now = ctx.currentTime;
-      [880, 698.5].forEach((freq, i) => {
+      (soft ? [523.3, 659.3] : [880, 698.5]).forEach((freq, i) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.type = "sine";
         osc.frequency.value = freq;
         const t0 = now + i * 0.42;
         gain.gain.setValueAtTime(0.0001, t0);
-        gain.gain.exponentialRampToValueAtTime(0.18, t0 + 0.02);
+        gain.gain.exponentialRampToValueAtTime(soft ? 0.08 : 0.18, t0 + 0.02);
         gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.9);
         osc.connect(gain).connect(ctx.destination);
         osc.start(t0);

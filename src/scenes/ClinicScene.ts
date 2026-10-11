@@ -11,6 +11,10 @@ import CharacterSelect from "../ui/CharacterSelect";
 import StaffDirectory from "../ui/StaffDirectory";
 import ProfileCard from "../ui/ProfileCard";
 import CaseRunner from "../mission/CaseRunner";
+import GameClock from "../systems/GameClock";
+import Amenities from "../systems/Amenities";
+import Announcement from "../ui/case/Announcement";
+import { runTap, stallSequence } from "../art/amenityFx";
 import type { StaffCard } from "../data/staff";
 import { CHARACTERS, getCharacter, type CharacterId, type PlayableCharacter } from "../data/assets";
 import {
@@ -46,6 +50,8 @@ import {
   type Marker,
 } from "../art/environment";
 
+/** Floating "!" / "…" bubbles over interactables. Off by design: players explore freely. */
+const SHOW_INTERACT_BUBBLES = false;
 const MARKER_LIFT = 62; // default height of an interaction bubble above its interactable
 
 export default class ClinicScene extends Phaser.Scene {
@@ -61,6 +67,9 @@ export default class ClinicScene extends Phaser.Scene {
   private staffDirectory!: StaffDirectory;
   private profile!: ProfileCard;
   private caseRunner!: CaseRunner;
+  private clock!: GameClock;
+  private amenities!: Amenities;
+  private announcer!: Announcement;
   private character: PlayableCharacter | undefined;
 
   private markers = new Map<string, Marker>();
@@ -242,6 +251,51 @@ export default class ClinicScene extends Phaser.Scene {
       setObjective: (text) => this.hud.setObjective(text),
       npcSolids: this.npcSolids(),
     });
+    this.announcer = new Announcement(uiRoot);
+    this.clock = new GameClock({
+      onPrayerTime: (p) => this.announcer.show(p.message, 4500, true),
+      onShiftOver: () => this.announcer.show("🌇  Shift over! A new shift begins", 4000, true),
+    });
+    this.amenities = new Amenities({
+      uiRoot,
+      lock: () => this.lockInput(),
+      unlock: () => (this.inputLocked = false),
+      toast: (text) => this.hud.showRoomToast(text),
+      setPlayerVisible: (v) => this.player.setVisible(v),
+      teleport: (p) => {
+        this.navigation.cancel();
+        this.player.teleportTo(p.x, p.y);
+      },
+      playStall: (enter) => {
+        const stall = this.interactables.find((i) => i.id === "toilet-stall")!;
+        const bottom = { x: stall.x, y: stall.y + (stall.area?.h ?? 0) / 2 };
+        return stallSequence(this, this.player, bottom, { x: stall.x, y: bottom.y + 26 }, enter);
+      },
+      playTap: (ms) => {
+        const sink = this.interactables.find((i) => i.id === "toilet-sink")!;
+        this.player.teleportTo(sink.x - 6, sink.y + (sink.area?.h ?? 0) / 2 + 22);
+        this.player.face("up"); // facing the sink
+        return runTap(this, { x: sink.x, y: sink.y + (sink.area?.h ?? 0) / 2 }, ms);
+      },
+      alert: (title, text, icon) => {
+        this.lockInput();
+        this.dialog.open(title, text, icon, () => (this.inputLocked = false));
+      },
+      showPrayPose: (at) => {
+        const sheet = (this.character ?? CHARACTERS[0]).pray;
+        if (!this.textures.exists(sheet.key)) return null;
+        const sprite = this.add
+          .sprite(at.x, at.y, sheet.key, 0)
+          .setOrigin(0.5, (sheet.frameHeight - sheet.padding) / sheet.frameHeight)
+          .setScale(sheet.displayHeight / sheet.contentHeight)
+          .setDepth(at.y + 5);
+        return {
+          setFrame: (f) => sprite.setFrame(f),
+          stop: () => sprite.destroy(),
+        };
+      },
+    });
+    window.addEventListener("beforeunload", () => this.clock.save());
     if (!this.character) this.openCharacterSelect(true);
 
     this.input.keyboard?.on("keydown-E", () => this.handleInteract());
@@ -254,6 +308,7 @@ export default class ClinicScene extends Phaser.Scene {
     const item = this.nearestInteractable;
     this.navigation.cancel();
     // the active patient case decides first; otherwise the item's own line
+    if (this.amenities.handle(item)) return;
     if (this.caseRunner.handle(item)) return;
     this.lockInput();
     this.dialog.open(item.dialogTitle, item.dialogText, item.icon, () => {
@@ -358,7 +413,12 @@ export default class ClinicScene extends Phaser.Scene {
     this.player.setVelocity(0, 0);
     // In the hallway no room is "current", so every room is a valid destination.
     const here = findRoomAt(this.player.x, this.player.y)?.id ?? null;
-    this.fullMap.open(here, { x: this.player.x, y: this.player.y }, this.caseRunner.questRoom());
+    this.fullMap.open(
+      here,
+      { x: this.player.x, y: this.player.y },
+      this.caseRunner.questRoom(),
+      this.clock.currentPrayer() ? "surau" : null
+    );
   }
 
   private handleGoHere(roomId: RoomId): void {
@@ -400,6 +460,9 @@ export default class ClinicScene extends Phaser.Scene {
     for (const npc of this.poseNpcs) npc.update(delta, playerPos);
     for (const walker of this.walkers) walker.update(delta, playerPos, this.inputLocked);
     this.caseRunner.update(delta);
+    if (!this.inputLocked) this.clock.tick(delta);
+    this.hud.setClock(this.clock.label());
+    this.amenities.update(room?.id ?? null);
     for (const item of [...WALKER_NPCS.map((d) => d.talk), ...this.dynamic]) {
       this.markers.get(item.id)?.setPosition(item.x, item.y - (item.markerLift ?? MARKER_LIFT));
     }
@@ -407,11 +470,13 @@ export default class ClinicScene extends Phaser.Scene {
     this.nearestInteractable = this.interaction.getNearest(this.player.x, this.player.y);
     this.markers.forEach((m, id) => m.setActive(id === this.nearestInteractable?.id));
     const near = this.inputLocked ? null : this.nearestInteractable;
-    const action = near ? this.caseRunner.actionLabel(near) : null;
+    const action = near ? (this.amenities.actionLabel(near) ?? this.caseRunner.actionLabel(near)) : null;
     this.hud.setInteractTarget(near && action ? { ...near, label: action } : near);
 
     const quest = this.caseRunner.questTarget();
-    this.markers.forEach((m, id) => m.setHidden(id === quest?.id));
+    // No "!" bubbles over objects: players explore and find things themselves; the Interact
+    // button appears when they are close. (Markers are kept so they can be switched back on.)
+    this.markers.forEach((m) => m.setHidden(SHOW_INTERACT_BUBBLES ? this.inputLocked : true));
     this.miniMap.draw(this.player.x, this.player.y, this.currentRoomId, this.player.lastFacingAngle, quest);
   }
 

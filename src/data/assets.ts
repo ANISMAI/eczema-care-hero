@@ -54,6 +54,8 @@ export interface PlayableCharacter {
   /** Shown on the character-select screen. */
   label: string;
   sheet: CharacterSheet;
+  /** Sitting in prayer (doa) on the surau mat: frame 0 hands raised, frame 1 hands in lap. */
+  pray: SheetDef;
 }
 
 /**
@@ -67,11 +69,13 @@ export const CHARACTERS: PlayableCharacter[] = [
     id: "doctor-hijab",
     label: "Female Doctor",
     sheet: { key: "char-doctor-hijab", url: "assets/characters/doctor-hijab-walk.webp", frameWidth: 110, ...WALKER },
+    pray: { key: "pray-doctor-hijab", url: "assets/characters/doctor-hijab-pray.webp", frameWidth: 110, ...FRAME, displayHeight: 50 },
   },
   {
     id: "doctor-man",
     label: "Male Doctor",
     sheet: { key: "char-doctor-man", url: "assets/characters/doctor-man-walk.webp", frameWidth: 112, ...WALKER },
+    pray: { key: "pray-doctor-man", url: "assets/characters/doctor-man-pray.webp", frameWidth: 100, ...FRAME, displayHeight: 50 },
   },
 ];
 
@@ -124,7 +128,7 @@ export const NPC_POSE_SHEETS = {
 
 /** Every spritesheet BootScene should load. */
 export const ALL_SHEETS: SheetDef[] = [
-  ...CHARACTERS.map((c) => c.sheet),
+  ...CHARACTERS.flatMap((c) => [c.sheet, c.pray]),
   ...Object.values(NPC_WALKER_SHEETS),
   ...Object.values(NPC_POSE_SHEETS),
 ];
