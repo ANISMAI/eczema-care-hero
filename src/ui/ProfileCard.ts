@@ -37,7 +37,12 @@ export default class ProfileCard {
     });
     actions.append(change);
 
-    wrap.append(title, stage, actions);
+    const notice = el(
+      "p",
+      "app-notice",
+      "Eczema Care Hero is an educational game, not a medical or diagnostic tool. Eczema differs for everyone; always follow a healthcare professional's advice."
+    );
+    wrap.append(title, stage, actions, notice);
     this.root.appendChild(wrap);
     this.root.addEventListener("click", (e) => {
       if (e.target === this.root) this.close();

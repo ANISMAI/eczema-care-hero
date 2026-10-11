@@ -10,6 +10,7 @@ import Dialog from "../ui/Dialog";
 import CharacterSelect from "../ui/CharacterSelect";
 import StaffDirectory from "../ui/StaffDirectory";
 import ProfileCard from "../ui/ProfileCard";
+import CaseRunner from "../mission/CaseRunner";
 import type { StaffCard } from "../data/staff";
 import { CHARACTERS, getCharacter, type CharacterId, type PlayableCharacter } from "../data/assets";
 import {
@@ -59,12 +60,15 @@ export default class ClinicScene extends Phaser.Scene {
   private characterSelect!: CharacterSelect;
   private staffDirectory!: StaffDirectory;
   private profile!: ProfileCard;
+  private caseRunner!: CaseRunner;
   private character: PlayableCharacter | undefined;
 
   private markers = new Map<string, Marker>();
   private poseNpcs: PoseNpc[] = [];
   private walkers: WalkerNpc[] = [];
   private interactables: InteractableDef[] = [];
+  /** Runtime interactables whose markers follow them each frame. */
+  private dynamic = new Set<InteractableDef>();
   private currentRoomId: RoomId = "reception";
   private nearestInteractable: InteractableDef | null = null;
   private inputLocked = false;
@@ -202,6 +206,7 @@ export default class ClinicScene extends Phaser.Scene {
       onMiniMapTap: () => this.openFullMap(),
       onAvatarTap: () => this.openProfile(),
       onStaffTap: () => this.openStaffDirectory(),
+      onObjectiveTap: () => this.goToObjective(),
     });
     this.hud.setAvatar(this.character);
     this.miniMap = new MiniMap(this.hud.miniMapMount);
@@ -224,6 +229,19 @@ export default class ClinicScene extends Phaser.Scene {
       onChangeCharacter: () => this.characterSelect.open(this.character?.id, false),
       onClose: () => (this.inputLocked = false),
     });
+    this.caseRunner = new CaseRunner({
+      scene: this,
+      uiRoot,
+      lock: () => this.lockInput(),
+      unlock: () => (this.inputLocked = false),
+      addInteractable: (item) => this.addInteractable(item),
+      removeInteractable: (id) => this.removeInteractable(id),
+      findInteractable: (id) => this.interactables.find((i) => i.id === id),
+      setNpcVisible: (id, visible) => this.poseNpcs.find((n) => n.id === id)?.setVisible(visible),
+      toast: (text) => this.hud.showRoomToast(text),
+      setObjective: (text) => this.hud.setObjective(text),
+      npcSolids: this.npcSolids(),
+    });
     if (!this.character) this.openCharacterSelect(true);
 
     this.input.keyboard?.on("keydown-E", () => this.handleInteract());
@@ -234,12 +252,51 @@ export default class ClinicScene extends Phaser.Scene {
   private handleInteract(): void {
     if (this.inputLocked || !this.nearestInteractable) return;
     const item = this.nearestInteractable;
-    this.inputLocked = true;
-    this.movement.setJoystickVector(0, 0);
-    this.player.setVelocity(0, 0);
+    this.navigation.cancel();
+    // the active patient case decides first; otherwise the item's own line
+    if (this.caseRunner.handle(item)) return;
+    this.lockInput();
     this.dialog.open(item.dialogTitle, item.dialogText, item.icon, () => {
       this.inputLocked = false;
     });
+  }
+
+  /** Freezes walking control (modal panels). Walking resumes when inputLocked is cleared. */
+  private lockInput(): void {
+    this.inputLocked = true;
+    this.movement.setJoystickVector(0, 0);
+    this.player.setVelocity(0, 0);
+  }
+
+  /** Interactables that come and go at runtime (e.g. the case patient). */
+  private addInteractable(item: InteractableDef): void {
+    if (this.interactables.includes(item)) return;
+    this.interactables.push(item);
+    const marker = createMarker(this, item.x, item.y - (item.markerLift ?? MARKER_LIFT), item.kind === "npc", item.markerOnlyWhenNear);
+    this.markers.set(item.id, marker);
+    this.dynamic.add(item);
+  }
+
+  private removeInteractable(id: string): void {
+    const i = this.interactables.findIndex((it) => it.id === id);
+    if (i >= 0) {
+      this.dynamic.delete(this.interactables[i]);
+      this.interactables.splice(i, 1);
+    }
+    this.markers.get(id)?.container.destroy();
+    this.markers.delete(id);
+  }
+
+  /** Objective banner: walk to whatever the active case needs next. */
+  private goToObjective(): void {
+    if (this.inputLocked) return;
+    const target = this.caseRunner.questTarget();
+    const room = this.caseRunner.questRoom();
+    if (!room) return;
+    const label = this.roomLabel(room);
+    if (target) this.navigation.walkNear({ x: target.x, y: target.y }, room, () => this.persist());
+    else this.navigation.walkToRoom(room, () => this.persist());
+    this.hud.showRoomToast(`🚶  Heading to ${label.replace(/^\S+\s+/, "")}…`);
   }
 
   /** `required` on first launch, when no character has been chosen yet. */
@@ -301,7 +358,7 @@ export default class ClinicScene extends Phaser.Scene {
     this.player.setVelocity(0, 0);
     // In the hallway no room is "current", so every room is a valid destination.
     const here = findRoomAt(this.player.x, this.player.y)?.id ?? null;
-    this.fullMap.open(here, { x: this.player.x, y: this.player.y });
+    this.fullMap.open(here, { x: this.player.x, y: this.player.y }, this.caseRunner.questRoom());
   }
 
   private handleGoHere(roomId: RoomId): void {
@@ -342,15 +399,20 @@ export default class ClinicScene extends Phaser.Scene {
     const playerPos = { x: this.player.x, y: this.player.y };
     for (const npc of this.poseNpcs) npc.update(delta, playerPos);
     for (const walker of this.walkers) walker.update(delta, playerPos, this.inputLocked);
-    for (const def of WALKER_NPCS) {
-      this.markers.get(def.talk.id)?.setPosition(def.talk.x, def.talk.y - (def.talk.markerLift ?? MARKER_LIFT));
+    this.caseRunner.update(delta);
+    for (const item of [...WALKER_NPCS.map((d) => d.talk), ...this.dynamic]) {
+      this.markers.get(item.id)?.setPosition(item.x, item.y - (item.markerLift ?? MARKER_LIFT));
     }
 
     this.nearestInteractable = this.interaction.getNearest(this.player.x, this.player.y);
     this.markers.forEach((m, id) => m.setActive(id === this.nearestInteractable?.id));
-    this.hud.setInteractTarget(this.inputLocked ? null : this.nearestInteractable);
+    const near = this.inputLocked ? null : this.nearestInteractable;
+    const action = near ? this.caseRunner.actionLabel(near) : null;
+    this.hud.setInteractTarget(near && action ? { ...near, label: action } : near);
 
-    this.miniMap.draw(this.player.x, this.player.y, this.currentRoomId, this.player.lastFacingAngle);
+    const quest = this.caseRunner.questTarget();
+    this.markers.forEach((m, id) => m.setHidden(id === quest?.id));
+    this.miniMap.draw(this.player.x, this.player.y, this.currentRoomId, this.player.lastFacingAngle, quest);
   }
 
   private persist(): void {

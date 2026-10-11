@@ -1,4 +1,4 @@
-import { ROOMS, HALLWAY, WORLD_BOUNDS, type Rect, type RoomId } from "../data/rooms";
+import { ROOMS, HALLWAY, WORLD_BOUNDS, type Point, type Rect, type RoomId } from "../data/rooms";
 import { shade, toCss } from "../art/palette";
 
 // CSS size of the mini-map. The floor plan is turned 90° to fit a wide card (entrance on the
@@ -39,7 +39,7 @@ export default class MiniMap {
     return [this.mx(r.y + r.height), this.my(r.x), r.height * SCALE, r.width * SCALE];
   }
 
-  draw(playerX: number, playerY: number, currentRoomId: RoomId, facingDeg: number): void {
+  draw(playerX: number, playerY: number, currentRoomId: RoomId, facingDeg: number, quest?: Point | null): void {
     const ctx = this.ctx;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.clearRect(0, 0, MAP_W, MAP_H);
@@ -68,8 +68,25 @@ export default class MiniMap {
       box(room.bounds, toCss(isHere ? room.color : shade(room.color, 0.6)), isHere ? "#ffffff" : undefined);
     }
 
-    // player arrow with a soft pulsing halo
+    // next case destination: pink pin
     this.pulse = (this.pulse + 0.06) % (Math.PI * 2);
+    if (quest) {
+      const qx = Math.min(MAP_W - 4, Math.max(4, this.mx(quest.y)));
+      const qy = this.my(quest.x);
+      ctx.beginPath();
+      ctx.arc(qx, qy, 4.5 + Math.sin(this.pulse * 1.5) * 1.2, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(240, 103, 158, 0.35)";
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(qx, qy, 3, 0, Math.PI * 2);
+      ctx.fillStyle = "#f0679e";
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 1.2;
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    // player arrow with a soft pulsing halo
     const px = this.mx(playerY);
     const py = this.my(playerX);
     ctx.beginPath();

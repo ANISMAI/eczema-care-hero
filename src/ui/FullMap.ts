@@ -175,12 +175,14 @@ export default class FullMap {
     this.goHereBtn.disabled = isCurrent || !room.accessible;
   }
 
-  open(currentRoomId: RoomId | null, playerPos: Point): void {
+  /** `questRoom`: where the active case needs the player next (shown with a "NEXT" tag). */
+  open(currentRoomId: RoomId | null, playerPos: Point, questRoom: RoomId | null = null): void {
     this.currentRoomId = currentRoomId;
     this.selectedRoomId = null;
     this.playerPos = { ...playerPos };
     this.roomEls.forEach((el, id) => {
       el.classList.toggle("here", id === currentRoomId);
+      el.classList.toggle("quest", id === questRoom);
       el.classList.remove("selected");
     });
 

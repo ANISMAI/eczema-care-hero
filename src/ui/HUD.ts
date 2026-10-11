@@ -10,6 +10,8 @@ export interface HUDCallbacks {
   onMiniMapTap: () => void;
   onAvatarTap: () => void;
   onStaffTap: () => void;
+  /** Objective banner tapped: take the player to the next destination. */
+  onObjectiveTap: () => void;
 }
 
 /** Mobile HUD: top-left stats, top-right mini-map mount, bottom-left joystick, bottom-right interact. */
@@ -20,6 +22,8 @@ export default class HUD {
   private interactIcon: HTMLSpanElement;
   private interactLabel: HTMLSpanElement;
   private interactTargetId: string | null = null;
+  private objective: HTMLButtonElement;
+  private objectiveText: HTMLSpanElement;
   private avatarBtn: HTMLButtonElement;
   private avatarFace: HTMLSpanElement;
   private levelLabel: HTMLSpanElement;
@@ -107,7 +111,18 @@ export default class HUD {
     staffBtn.addEventListener("click", callbacks.onStaffTap);
     right.append(staffBtn, this.miniMapMount);
 
-    this.root.append(statsBar, right, this.toast, joystickBase, this.interactBtn);
+    // Under the top row: current case objective, tap to walk there
+    this.objective = document.createElement("button");
+    this.objective.className = "hud-objective hidden";
+    this.objectiveText = document.createElement("span");
+    this.objectiveText.className = "hud-objective-text";
+    const go = document.createElement("span");
+    go.className = "hud-objective-go";
+    go.textContent = "Go ›";
+    this.objective.append(this.objectiveText, go);
+    this.objective.addEventListener("click", callbacks.onObjectiveTap);
+
+    this.root.append(statsBar, right, this.objective, this.toast, joystickBase, this.interactBtn);
     parent.appendChild(this.root);
 
     this.setupJoystick(joystickBase, callbacks.onJoystickMove);
@@ -164,8 +179,20 @@ export default class HUD {
   }
 
   /** Shows the Interact button for the given target, or hides it when null. */
+  /** Shows the current case objective ("Case 001 · Talk to Amina…"), or hides the banner. */
+  setObjective(text: string | null): void {
+    this.objective.classList.toggle("hidden", !text);
+    if (!text) return;
+    const [title, rest] = text.split(" · ");
+    this.objectiveText.replaceChildren();
+    const tag = document.createElement("strong");
+    tag.textContent = rest ? title : "Next";
+    this.objectiveText.append(tag, document.createTextNode(rest ?? title));
+    this.objective.setAttribute("aria-label", `Objective: ${text}. Tap to go there.`);
+  }
+
   setInteractTarget(item: InteractableDef | null): void {
-    const id = item?.id ?? null;
+    const id = item ? `${item.id}|${item.label}` : null;
     if (id === this.interactTargetId) return;
     this.interactTargetId = id;
     this.interactBtn.classList.toggle("hidden", !item);

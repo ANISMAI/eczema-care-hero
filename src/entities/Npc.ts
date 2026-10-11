@@ -32,6 +32,7 @@ const rand = (min: number, max: number) => min + Math.random() * (max - min);
 export class PoseNpc {
   private def: PoseNpcDef;
   private sprite: Phaser.GameObjects.Sprite | null = null;
+  private shadowImg: Phaser.GameObjects.Image | null = null;
   private first: number;
   private nextBlink = rand(800, 4000);
   private blinkUntil = 0;
@@ -46,13 +47,23 @@ export class PoseNpc {
     const { feet } = def;
 
     if (scene.textures.exists(def.sheet.key)) {
-      if (def.solid) shadow(scene, feet.x, feet.y, 30).setDepth(feet.y - 1);
+      if (def.solid) this.shadowImg = shadow(scene, feet.x, feet.y, 30).setDepth(feet.y - 1);
       this.sprite = makeSprite(scene, def.sheet, feet.x, feet.y, this.first + POSE_IDLE).setDepth(feet.y + 1);
     } else if (def.fallbackVariant !== undefined) {
       addBaked(scene, `visitor-${def.fallbackVariant}`, feet.x, feet.y - 6, (g) =>
         drawPatient(g, def.fallbackVariant!)
       ).setDepth(feet.y + 1);
     }
+  }
+
+  get id(): string {
+    return this.def.id;
+  }
+
+  /** Show / hide (e.g. while the NPC is "visiting" another room). */
+  setVisible(visible: boolean): void {
+    this.sprite?.setVisible(visible);
+    this.shadowImg?.setVisible(visible);
   }
 
   update(deltaMs: number, player: Point): void {

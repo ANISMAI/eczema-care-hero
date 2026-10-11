@@ -90,6 +90,13 @@ export const NPC_WALKER_SHEETS = {
     ...WALKER,
     displayHeight: 62,
   },
+  amina: {
+    key: "npc-amina-walk",
+    url: "assets/characters/amina-walk.webp",
+    frameWidth: 108,
+    ...WALKER,
+    displayHeight: 60,
+  },
   nurseWoman: {
     key: "npc-nurse-woman",
     url: "assets/characters/nurse-woman-walk.webp",
@@ -106,6 +113,8 @@ export const NPC_WALKER_SHEETS = {
  */
 export const NPC_POSE_SHEETS = {
   receptionist: { key: "npc-receptionist", url: "assets/characters/receptionist.webp", frameWidth: 108, ...FRAME, displayHeight: 62 },
+  specialist: { key: "npc-specialist", url: "assets/characters/specialist.webp", frameWidth: 96, ...FRAME, displayHeight: 64 },
+  aminaSit: { key: "npc-amina-sit", url: "assets/characters/amina-sit.webp", frameWidth: 96, ...FRAME, displayHeight: 48 },
   pharmacist: { key: "npc-pharmacist", url: "assets/characters/pharmacist.webp", frameWidth: 106, ...FRAME, displayHeight: 62 },
   storekeeper: { key: "npc-storekeeper", url: "assets/characters/storekeeper.webp", frameWidth: 94, ...FRAME, displayHeight: 64 },
   motherSon: { key: "npc-mother-son", url: "assets/characters/patients-mother-son.webp", frameWidth: 94, ...FRAME, displayHeight: 48 },

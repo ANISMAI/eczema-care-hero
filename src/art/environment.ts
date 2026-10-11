@@ -282,6 +282,8 @@ export interface Marker {
   container: Phaser.GameObjects.Container;
   setActive(active: boolean): void;
   setPosition(x: number, y: number): void;
+  /** Hide regardless of state (e.g. while a quest tag takes its place). */
+  setHidden(hidden: boolean): void;
 }
 
 /**
@@ -314,6 +316,8 @@ export function createMarker(scene: Phaser.Scene, x: number, y: number, isNpc: b
   scene.tweens.add({ targets: bob, y: -5, duration: 900, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
 
   let current = false;
+  let hidden = false;
+  const applyVisibility = () => container.setVisible(!hidden && (!onlyWhenNear || current));
   return {
     container,
     setActive(active: boolean) {
@@ -322,7 +326,12 @@ export function createMarker(scene: Phaser.Scene, x: number, y: number, isNpc: b
       idle.setVisible(!active);
       lit.setVisible(active);
       container.setScale(active ? 1.25 : 1);
-      if (onlyWhenNear) container.setVisible(active);
+      applyVisibility();
+    },
+    setHidden(h: boolean) {
+      if (h === hidden) return;
+      hidden = h;
+      applyVisibility();
     },
     setPosition(nx: number, ny: number) {
       container.setPosition(nx, ny);

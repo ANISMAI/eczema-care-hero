@@ -100,6 +100,23 @@ export const POSE_NPCS: PoseNpcDef[] = [
     behavior: "greeter",
   },
   {
+    id: "specialist",
+    sheet: S.specialist,
+    row: 0,
+    // beside the consultation desk
+    feet: at("consult", 236, 160),
+    behavior: "fidget",
+    solid: { w: 28, h: 14 },
+    talk: person(
+      "specialist",
+      "Dr. Lim",
+      "🩺",
+      "Hello! I'm Dr. Lim, the clinic's skin specialist. Bring me your patients' findings any time.",
+      at("consult", 236, 150),
+      78
+    ),
+  },
+  {
     id: "pharmacist",
     sheet: S.pharmacist,
     row: 0,
@@ -148,7 +165,8 @@ export const WALKER_NPCS: WalkerNpcDef[] = [
   {
     id: "nurse-amy",
     sheet: NPC_WALKER_SHEETS.nurseWoman,
-    path: [at("care", 190, 150), at("care", 190, 280), at("care", 95, 280)],
+    // keeps clear of the spot by the bed where case patients stand
+    path: [at("care", 255, 150), at("care", 255, 280), at("care", 95, 280)],
     speed: 55,
     pause: 2200,
     talk: person("nurse-amy", "Nurse Amy", "💜", "The care room is tidy and ready for the day.", { x: 0, y: 0 }, 70),

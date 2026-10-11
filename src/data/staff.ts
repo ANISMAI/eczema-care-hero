@@ -58,6 +58,22 @@ export const STAFF: StaffCard[] = [
     characterId: "doctor-man",
   },
   {
+    id: "dr-lim",
+    portrait: "assets/portraits/dr-lim.webp",
+    name: "Dr. Lim Wei Ming",
+    role: "Skin Specialist",
+    room: "consult",
+    staffNo: "ECC-0100",
+    accent: "#5f42b5",
+    helps: [
+      "Reviews your patient findings in Consultation",
+      "Decides on diagnosis and treatment plans",
+      "Gives the instructions you pass on to patients",
+    ],
+    about: "Has looked after skin for 25 years and still loves teaching.",
+    npcId: "specialist",
+  },
+  {
     id: "nurul",
     portrait: "assets/portraits/nurul.webp",
     name: "Nurul Huda",
