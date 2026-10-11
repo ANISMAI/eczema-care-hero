@@ -1,9 +1,11 @@
 import { ROOMS, HALLWAY, WORLD_BOUNDS, type RoomId } from "../data/rooms";
 import { shade, toCss } from "../art/palette";
 
-// CSS size of the mini-map; keeps the world's portrait aspect ratio.
+// CSS size of the mini-map. It shows the full width of the clinic and scrolls vertically to
+// follow the player, so it stays small and readable however long the building gets.
 const MAP_W = 74;
-const MAP_H = Math.round((MAP_W * WORLD_BOUNDS.height) / WORLD_BOUNDS.width);
+const MAP_H = 106;
+const SCALE = MAP_W / WORLD_BOUNDS.width;
 
 /** Always-visible top-right mini-map: simplified room shapes + a moving player arrow. */
 export default class MiniMap {
@@ -22,25 +24,33 @@ export default class MiniMap {
     parent.prepend(canvas);
   }
 
+  private scrollY = 0;
+
   private sx(x: number): number {
-    return (x / WORLD_BOUNDS.width) * MAP_W;
+    return x * SCALE;
   }
 
   private sy(y: number): number {
-    return (y / WORLD_BOUNDS.height) * MAP_H;
+    return y * SCALE - this.scrollY;
+  }
+
+  private size(v: number): number {
+    return v * SCALE;
   }
 
   draw(playerX: number, playerY: number, currentRoomId: RoomId, facingDeg: number): void {
     const ctx = this.ctx;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.clearRect(0, 0, MAP_W, MAP_H);
+    const maxScroll = Math.max(0, WORLD_BOUNDS.height * SCALE - MAP_H);
+    this.scrollY = Math.min(maxScroll, Math.max(0, playerY * SCALE - MAP_H / 2));
 
     ctx.fillStyle = "#93cf6f";
     ctx.fillRect(0, 0, MAP_W, MAP_H);
 
     const box = (x: number, y: number, w: number, h: number, fill: string, stroke?: string) => {
       ctx.beginPath();
-      ctx.roundRect(this.sx(x) + 0.5, this.sy(y) + 0.5, this.sx(w) - 1, this.sy(h) - 1, 2);
+      ctx.roundRect(this.sx(x) + 0.5, this.sy(y) + 0.5, this.size(w) - 1, this.size(h) - 1, 2);
       ctx.fillStyle = fill;
       ctx.fill();
       if (stroke) {

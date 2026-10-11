@@ -100,6 +100,14 @@ export const POSE_NPCS: PoseNpcDef[] = [
     behavior: "greeter",
   },
   {
+    id: "pharmacist",
+    sheet: S.pharmacist,
+    row: 0,
+    // behind the pharmacy counter, seen through its clear screen
+    feet: at("pharmacy", 190, 122),
+    behavior: "greeter",
+  },
+  {
     id: "storekeeper",
     sheet: S.storekeeper,
     row: 0,

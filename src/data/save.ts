@@ -1,8 +1,8 @@
 import { ROOMS, isWalkable, type RoomId } from "./rooms";
 import { getCharacter, type CharacterId } from "./assets";
 
-// v3: rooms reordered so Reception / Waiting Area sit by the entrance; older positions are discarded.
-const SAVE_KEY = "eczema-care-hero-save-v3";
+// v4: five more rooms (5-row floor plan); older positions are discarded.
+const SAVE_KEY = "eczema-care-hero-save-v4";
 export const SAVE_VERSION = 2;
 
 export interface SaveData {

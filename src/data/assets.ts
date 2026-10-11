@@ -95,6 +95,7 @@ export const NPC_WALKER_SHEETS = {
  */
 export const NPC_POSE_SHEETS = {
   receptionist: { key: "npc-receptionist", url: "assets/characters/receptionist.webp", frameWidth: 108, ...FRAME, displayHeight: 62 },
+  pharmacist: { key: "npc-pharmacist", url: "assets/characters/pharmacist.webp", frameWidth: 106, ...FRAME, displayHeight: 62 },
   storekeeper: { key: "npc-storekeeper", url: "assets/characters/storekeeper.webp", frameWidth: 94, ...FRAME, displayHeight: 64 },
   motherSon: { key: "npc-mother-son", url: "assets/characters/patients-mother-son.webp", frameWidth: 94, ...FRAME, displayHeight: 48 },
   teenYouth: { key: "npc-teen-youth", url: "assets/characters/patients-teen-youth.webp", frameWidth: 112, ...FRAME, displayHeight: 48 },

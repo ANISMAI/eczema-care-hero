@@ -3,16 +3,31 @@
 //
 // Layout (portrait, fits a phone screen; the main entrance is at the bottom of the hallway):
 //
-//   [ Staff Off.]  hall  [ Storage      ]   <- staff area at the back
-//   [ Care Room ]  hall  [ Arcade Room  ]
-//   [ Reception ]  hall  [ Waiting Area ]   <- first rooms visitors reach
-//               entrance
+//   [ Staff Office ]  hall  [ Storage      ]   <- staff area at the back
+//   [ Staff Lounge ]  hall  [ Arcade Room  ]
+//   [ Care Room    ]  hall  [ Toilet  (1/2)]
+//                           [ Surau   (1/2)]
+//   [ Consultation ]  hall  [ Pharmacy     ]   <- see the doctor, then collect products
+//   [ Reception    ]  hall  [ Waiting Area ]   <- first rooms visitors reach
+//                  entrance
 //
 // Every room opens onto the central hallway through a door on its hallway-facing wall.
+// Toilet and Surau are half-height rooms sharing one slot.
 
 import { FURNITURE, type FurnitureKind } from "./furniture";
 
-export type RoomId = "reception" | "waiting" | "care" | "storage" | "arcade" | "office";
+export type RoomId =
+  | "reception"
+  | "waiting"
+  | "care"
+  | "storage"
+  | "arcade"
+  | "office"
+  | "lounge"
+  | "consult"
+  | "pharmacy"
+  | "toilet"
+  | "surau";
 
 export interface Rect {
   x: number;
@@ -83,6 +98,12 @@ export interface RoomDef {
 
 export interface WallSegment extends Rect {
   side: DoorSide;
+  /**
+   * The bottom WALL_FACE px of this segment is the visible end face of a side wall above a
+   * door (a door jamb). It is solid and drawn as a painted face, so the wall reads as having
+   * height and characters in the doorway don't appear to overlap it.
+   */
+  jambFace?: boolean;
 }
 
 // ---------- Geometry constants ----------
@@ -98,20 +119,22 @@ const OY = 56; // outer margin top
 const ROOM_W = 310;
 const ROOM_H = 360;
 const HALL_W = 120;
+const ROWS = 5;
 
 export const WORLD_BOUNDS: Rect = {
   x: 0,
   y: 0,
   width: OX * 2 + ROOM_W * 2 + HALL_W,
-  height: OY + ROOM_H * 3 + 44,
+  height: OY + ROOM_H * ROWS + 44,
 };
 
-export const HALLWAY: Rect = { x: OX + ROOM_W, y: OY, width: HALL_W, height: ROOM_H * 3 };
+export const HALLWAY: Rect = { x: OX + ROOM_W, y: OY, width: HALL_W, height: ROOM_H * ROWS };
 
 const FACE_MID = WALL_THICKNESS + WALL_FACE / 2; // y offset of wall decor from a room's top
 
-function origin(col: 0 | 1, row: 0 | 1 | 2): Point {
-  return { x: OX + col * (ROOM_W + HALL_W), y: OY + row * ROOM_H };
+/** Top-left of a room slot. `half` 1 = the lower half of a slot split into two half rooms. */
+function origin(col: 0 | 1, row: number, half: 0 | 1 = 0): Point {
+  return { x: OX + col * (ROOM_W + HALL_W), y: OY + row * ROOM_H + half * (ROOM_H / 2) };
 }
 
 /** Builds room-relative helpers so the layout below reads in local coordinates. */
@@ -139,10 +162,15 @@ function local(o: Point) {
 // staff-only rooms are at the back.
 const O = origin(0, 0);
 const S = origin(1, 0);
-const C = origin(0, 1);
+const L = origin(0, 1);
 const A = origin(1, 1);
-const R = origin(0, 2);
-const W = origin(1, 2);
+const C = origin(0, 2);
+const T = origin(1, 2);
+const Q = origin(1, 2, 1);
+const K = origin(0, 3);
+const P = origin(1, 3);
+const R = origin(0, 4);
+const W = origin(1, 4);
 
 function reception() {
   const { f, wall, p } = local(R);
@@ -257,6 +285,94 @@ function arcade() {
   };
 }
 
+function lounge() {
+  const { f, wall, p } = local(L);
+  return {
+    furniture: [
+      wall("clock", 52),
+      wall("tv", 255),
+      f("rugWelcome", 130, 175, 1),
+      f("sofa", 130, 95),
+      f("coffeeTable", 130, 182),
+      f("coffeeMachine", 60, 300),
+      f("fridge", 130, 300),
+      f("roundTable", 230, 300),
+      f("chair", 190, 300, 1),
+      f("chair", 270, 300, 1),
+      f("plant", 36, 232),
+    ],
+    interactable: { x: L.x + 60, y: L.y + 300 },
+    spawn: p(255, 180),
+  };
+}
+
+function consult() {
+  const { f, wall, p } = local(K);
+  return {
+    furniture: [
+      wall("picture", 52, 1),
+      f("officeChair", 150, 84),
+      f("desk", 150, 110),
+      f("stool", 122, 168),
+      f("stool", 178, 168),
+      f("bed", 60, 270),
+      f("cabinet", 252, 322),
+      f("plant", 190, 326),
+      f("plant", 272, 252),
+    ],
+    interactable: { x: K.x + 150, y: K.y + 110 },
+    spawn: p(255, 180),
+  };
+}
+
+function pharmacy() {
+  const { f, p } = local(P);
+  return {
+    furniture: [
+      f("shelf", 64, 67),
+      f("shelf", 246, 67),
+      f("pharmacyCounter", 190, 160),
+      f("bench", 190, 322),
+      f("plant", 276, 260),
+      f("plant", 36, 322),
+    ],
+    interactable: { x: P.x + 190, y: P.y + 160 },
+    spawn: p(55, 180),
+  };
+}
+
+function toilet() {
+  const { f, wall, p } = local(T);
+  return {
+    furniture: [
+      wall("mirror", 252),
+      f("stall", 116, 67),
+      f("stall", 184, 67),
+      f("sink", 252, 68),
+      f("bin", 286, 150),
+      f("plant", 36, 150),
+    ],
+    interactable: { x: T.x + 252, y: T.y + 68 },
+    spawn: p(60, 105),
+  };
+}
+
+function surau() {
+  const { f, wall, p } = local(Q);
+  return {
+    furniture: [
+      wall("picture", 128, 2),
+      f("prayerMat", 150, 112),
+      f("prayerMat", 200, 112),
+      f("prayerMat", 250, 112),
+      f("prayerRack", 222, 62),
+      f("shoeRack", 40, 152),
+    ],
+    interactable: { x: Q.x + 222, y: Q.y + 62 },
+    spawn: p(70, 105),
+  };
+}
+
 const r = reception();
 const w = waiting();
 const c = care();
@@ -264,7 +380,14 @@ const s = storage();
 const o = office();
 const a = arcade();
 
+const l = lounge();
+const k = consult();
+const ph = pharmacy();
+const t = toilet();
+const q = surau();
+
 const ROOM_SIZE = { width: ROOM_W, height: ROOM_H };
+const HALF_SIZE = { width: ROOM_W, height: ROOM_H / 2 };
 
 export const ROOMS: RoomDef[] = [
   {
@@ -414,6 +537,141 @@ export const ROOMS: RoomDef[] = [
       },
     ],
   },
+  {
+    id: "consult",
+    label: "Consultation",
+    icon: "🩺",
+    description: "Where doctors meet patients one to one.",
+    color: 0x14a3a8,
+    floor: { style: "tile", a: 0xedf3f3, b: 0xc9d8d8 },
+    bounds: { ...K, ...ROOM_SIZE },
+    signX: 226,
+    doorSide: "right",
+    spawn: k.spawn,
+    accessible: true,
+    furniture: k.furniture,
+    interactables: [
+      {
+        id: "consult-desk",
+        kind: "object",
+        label: "Doctor's Desk",
+        icon: "🩺",
+        ...k.interactable,
+        area: FURNITURE.desk.footprint,
+        radius: 36,
+        dialogTitle: "Doctor's Desk",
+        dialogText: "Consultations coming soon.",
+      },
+    ],
+  },
+  {
+    id: "pharmacy",
+    label: "Pharmacy",
+    icon: "💊",
+    description: "Collect products after your consultation.",
+    color: 0xa07ee0,
+    floor: { style: "tile", a: 0xf4eefb, b: 0xdcd0ee },
+    bounds: { ...P, ...ROOM_SIZE },
+    doorSide: "left",
+    spawn: ph.spawn,
+    accessible: true,
+    furniture: ph.furniture,
+    interactables: [
+      {
+        id: "pharmacy-counter",
+        kind: "object",
+        label: "Pharmacy Counter",
+        icon: "💊",
+        ...ph.interactable,
+        area: FURNITURE.pharmacyCounter.footprint,
+        radius: 36,
+        markerLift: 100, // just above the pharmacist's head, below the name plaque
+        dialogTitle: "Pharmacist",
+        dialogText: "\"Hello! The product counter is coming soon.\"",
+      },
+    ],
+  },
+  {
+    id: "toilet",
+    label: "Toilet",
+    icon: "🚻",
+    description: "Clean restrooms for everyone.",
+    color: 0x2aa9d6,
+    floor: { style: "tile", a: 0xe8f1f5, b: 0xc3d6df },
+    bounds: { ...T, ...HALF_SIZE },
+    signX: 52,
+    doorSide: "left",
+    spawn: t.spawn,
+    accessible: true,
+    furniture: t.furniture,
+    interactables: [
+      {
+        id: "toilet-sink",
+        kind: "object",
+        label: "Sink",
+        icon: "🧼",
+        ...t.interactable,
+        area: FURNITURE.sink.footprint,
+        radius: 36,
+        dialogTitle: "Sink",
+        dialogText: "Remember to wash your hands!",
+      },
+    ],
+  },
+  {
+    id: "surau",
+    label: "Surau",
+    icon: "🕌",
+    description: "A quiet space for prayer.",
+    color: 0x2e8f57,
+    floor: { style: "carpet", a: 0x5f9f74, b: 0x528f66 },
+    bounds: { ...Q, ...HALF_SIZE },
+    signX: 58,
+    doorSide: "left",
+    spawn: q.spawn,
+    accessible: true,
+    furniture: q.furniture,
+    interactables: [
+      {
+        id: "surau-rack",
+        kind: "object",
+        label: "Prayer Space",
+        icon: "🕌",
+        ...q.interactable,
+        area: FURNITURE.prayerRack.footprint,
+        radius: 36,
+        markerLift: 44,
+        dialogTitle: "Surau",
+        dialogText: "A quiet space for prayer. Please keep your voice low.",
+      },
+    ],
+  },
+  {
+    id: "lounge",
+    label: "Staff Lounge",
+    icon: "☕",
+    description: "Where the team takes a break.",
+    color: 0xb8763e,
+    floor: { style: "wood", a: 0xe2c49a, b: 0xb48c5c },
+    bounds: { ...L, ...ROOM_SIZE },
+    doorSide: "right",
+    spawn: l.spawn,
+    accessible: true,
+    furniture: l.furniture,
+    interactables: [
+      {
+        id: "lounge-coffee",
+        kind: "object",
+        label: "Coffee Machine",
+        icon: "☕",
+        ...l.interactable,
+        area: FURNITURE.coffeeMachine.footprint,
+        radius: 36,
+        dialogTitle: "Coffee Machine",
+        dialogText: "Break time! Resting here will restore your energy in a later update.",
+      },
+    ],
+  },
 ];
 
 /** Hallway decoration (plants, runner rug ends, entrance mat). */
@@ -459,7 +717,7 @@ function splitForDoor(seg: WallSegment, horizontal: boolean): WallSegment[] {
   }
   const gapStart = seg.y + (seg.height - DOOR_GAP) / 2;
   return [
-    { ...seg, height: gapStart - seg.y },
+    { ...seg, height: gapStart - seg.y + WALL_FACE, jambFace: true },
     { ...seg, y: gapStart + DOOR_GAP, height: seg.y + seg.height - (gapStart + DOOR_GAP) },
   ];
 }

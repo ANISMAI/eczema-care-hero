@@ -462,8 +462,22 @@ const DRAW: Record<FurnitureKind, Drawer> = {
 
   picture: (g, v) => {
     rr(g, -20, -16, 40, 32, 3, PAL.wood, PAL.woodDark);
-    rr(g, -16, -12, 32, 24, 2, v === 1 ? 0xfde7ef : 0xe3f3fb);
-    if (v === 1) {
+    rr(g, -16, -12, 32, 24, 2, v === 1 ? 0xfde7ef : v === 2 ? 0x2f8f5b : 0xe3f3fb);
+    if (v === 2) {
+      g.fillStyle(PAL.yellow, 1);
+      g.fillRect(-6, -6, 12, 12);
+      g.fillPoints(
+        [
+          new Phaser.Math.Vector2(0, -9),
+          new Phaser.Math.Vector2(9, 0),
+          new Phaser.Math.Vector2(0, 9),
+          new Phaser.Math.Vector2(-9, 0),
+        ],
+        true
+      );
+      g.fillStyle(0x2f8f5b, 1);
+      g.fillCircle(0, 0, 3);
+    } else if (v === 1) {
       g.fillStyle(PAL.leafDark, 1);
       g.fillRect(-1, -2, 2, 12);
       for (let i = 0; i < 5; i++) {
@@ -481,6 +495,150 @@ const DRAW: Record<FurnitureKind, Drawer> = {
       g.fillStyle(PAL.leafDark, 1);
       g.fillTriangle(-2, 12, 8, 2, 16, 12);
     }
+  },
+  sofa: (g) => {
+    const c = 0x8f6ee0;
+    groundShadow(g, 0, -1, 128, 12);
+    rr(g, -60, -52, 120, 26, 10, shade(c, -0.08), c);
+    rr(g, -56, -32, 112, 26, 8, c, c);
+    g.lineStyle(2, outline(c), 0.5);
+    g.lineBetween(0, -30, 0, -8);
+    rr(g, -66, -40, 16, 36, 7, shade(c, -0.15), c);
+    rr(g, 50, -40, 16, 36, 7, shade(c, -0.15), c);
+    rr(g, -44, -48, 22, 16, 6, PAL.yellow, PAL.yellowDark, 1.5);
+    g.fillStyle(PAL.woodDark, 1);
+    g.fillRect(-58, -4, 4, 4);
+    g.fillRect(54, -4, 4, 4);
+  },
+
+  coffeeMachine: (g) => {
+    groundShadow(g, 0, -1, 76, 10);
+    rr(g, -35, -36, 70, 36, 4, PAL.wood, PAL.woodDark);
+    g.lineStyle(1.5, outline(PAL.woodDark), 1);
+    g.lineBetween(0, -30, 0, -4);
+    rr(g, -37, -46, 74, 12, 4, PAL.cream, PAL.creamLine);
+    // machine
+    rr(g, -26, -76, 28, 34, 5, 0x3a4252, PAL.ink);
+    rr(g, -22, -72, 20, 10, 2, 0x8fd6f5);
+    g.fillStyle(0x1d2330, 1);
+    g.fillRect(-18, -58, 12, 8);
+    g.fillStyle(PAL.pink, 1);
+    g.fillCircle(-3, -66, 2);
+    // mugs + kettle
+    rr(g, 8, -54, 10, 10, 3, 0xffffff, PAL.creamLine, 1.5);
+    rr(g, 21, -54, 10, 10, 3, PAL.lavender, PAL.lavenderDark, 1.5);
+    rr(g, 12, -68, 16, 14, 6, PAL.sky, PAL.skyDark, 1.5);
+  },
+
+  fridge: (g) => {
+    groundShadow(g, 0, -1, 40, 9);
+    rr(g, -18, -72, 36, 72, 6, 0xf4f7fb, 0xaab5c3);
+    g.lineStyle(1.5, outline(0xaab5c3), 1);
+    g.lineBetween(-16, -44, 16, -44);
+    g.fillStyle(0x9aa6b5, 1);
+    g.fillRect(10, -66, 3, 16);
+    g.fillRect(10, -38, 3, 20);
+    g.fillStyle(PAL.yellow, 1);
+    g.fillRect(-12, -64, 8, 8);
+    g.fillStyle(PAL.pink, 1);
+    g.fillRect(-4, -58, 8, 8);
+  },
+
+  pharmacyCounter: (g) => {
+    groundShadow(g, 0, -1, 182, 14, 0.2);
+    rr(g, -85, -42, 170, 42, 4, PAL.lavender, PAL.lavenderDark);
+    g.fillStyle(shade(PAL.lavender, 0.35), 1);
+    g.fillRect(-82, -38, 164, 5);
+    g.fillStyle(PAL.lavenderDark, 1);
+    g.fillRect(-84, -10, 168, 8);
+    rr(g, -88, -62, 176, 24, 4, PAL.cream, PAL.creamLine);
+    // clear protective screen
+    // low enough that the pharmacist's face shows above it
+    g.fillStyle(0xdff2ff, 0.5);
+    g.fillRoundedRect(-70, -86, 140, 28, 4);
+    g.lineStyle(2, 0x9cc8e8, 1);
+    g.strokeRoundedRect(-70, -86, 140, 28, 4);
+    g.fillStyle(0xffffff, 0.7);
+    g.fillTriangle(-62, -82, -46, -82, -62, -66);
+    // service window cut-out, bell, tray
+    rr(g, -22, -68, 44, 8, 3, PAL.cream, PAL.creamLine, 1);
+    g.fillStyle(PAL.yellowDark, 1);
+    g.fillEllipse(54, -52, 16, 6);
+    g.fillStyle(PAL.yellow, 1);
+    g.slice(54, -53, 7, Math.PI, 0, false);
+    g.fillPath();
+    rr(g, -62, -58, 26, 10, 3, 0xffffff, PAL.creamLine, 1);
+  },
+
+  stall: (g) => {
+    const panel = 0xdcd5ec;
+    groundShadow(g, 0, -1, 70, 10);
+    rr(g, -32, -86, 64, 86, 4, shade(panel, -0.06), panel);
+    rr(g, -24, -76, 48, 72, 3, panel, panel);
+    g.fillStyle(PAL.lavenderDark, 1);
+    g.fillRect(14, -44, 4, 10);
+    g.fillStyle(0x3ccf7a, 1);
+    g.fillCircle(16, -52, 2.5);
+    g.fillStyle(0xffffff, 0.35);
+    g.fillRect(-22, -74, 4, 66);
+    g.fillStyle(shade(panel, -0.25), 1);
+    g.fillRect(-32, -4, 64, 4);
+  },
+
+  mirror: (g) => {
+    rr(g, -26, -16, 52, 32, 8, 0xd9ecf7, 0xaab5c3);
+    g.fillStyle(0xffffff, 0.75);
+    g.fillTriangle(-18, -10, -6, -10, -18, 4);
+    g.fillTriangle(-2, -10, 4, -10, -10, 8);
+  },
+
+  bin: (g) => {
+    groundShadow(g, 0, -1, 22, 6);
+    rr(g, -8, -22, 16, 22, 4, 0x9aa6b5, 0x6f7c90);
+    rr(g, -10, -26, 20, 6, 3, 0x7d8ba0, 0x6f7c90);
+  },
+
+  prayerMat: (g) => {
+    const c = 0x2f8f5b;
+    rr(g, -20, -36, 40, 72, 4, c, c);
+    rr(g, -15, -31, 30, 62, 3, shade(c, -0.18));
+    g.lineStyle(1.5, PAL.yellow, 0.9);
+    g.strokeRoundedRect(-15, -31, 30, 62, 3);
+    // simple arch at the head end (no text or figures)
+    g.fillStyle(shade(c, 0.25), 1);
+    g.slice(0, -14, 9, Math.PI, 0, false);
+    g.fillPath();
+    g.fillRect(-9, -14, 18, 10);
+    for (let i = 0; i < 3; i++) {
+      g.fillStyle(PAL.yellow, 0.85);
+      g.fillCircle(0, 6 + i * 8, 1.6);
+    }
+    g.fillStyle(0xffffff, 0.6);
+    for (let x = -16; x <= 16; x += 4) g.fillRect(x, 36, 1.5, 4);
+  },
+
+  prayerRack: (g) => {
+    groundShadow(g, 0, -1, 106, 10);
+    rr(g, -50, -40, 100, 40, 4, PAL.wood, PAL.woodDark);
+    g.fillStyle(PAL.woodDark, 1);
+    g.fillRect(-48, -22, 96, 3);
+    // folded prayer garments (top) and rolled mats (bottom)
+    const folds = [0xffffff, 0xf3eefb, 0xffffff, 0xeaf4ee];
+    folds.forEach((c, i) => rr(g, -44 + i * 22, -38, 20, 14, 3, c, PAL.creamLine, 1.2));
+    const mats = [0x2f8f5b, 0x8f6ee0, 0x2a7fd4, 0xb8763e];
+    mats.forEach((c, i) => rr(g, -44 + i * 22, -18, 20, 14, 7, c, c, 1.2));
+  },
+
+  shoeRack: (g) => {
+    groundShadow(g, 0, -1, 48, 8);
+    rr(g, -22, -26, 44, 26, 3, PAL.wood, PAL.woodDark);
+    g.fillStyle(PAL.woodDark, 1);
+    g.fillRect(-20, -14, 40, 2);
+    const shoes = [0x3a4252, PAL.pink, 0xffffff, PAL.skyDark];
+    shoes.forEach((c, i) => {
+      g.fillStyle(c, 1);
+      g.fillEllipse(-14 + (i % 2) * 18, i < 2 ? -18 : -6, 14, 6);
+    });
   },
 };
 

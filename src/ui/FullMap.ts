@@ -1,4 +1,4 @@
-import { ROOMS, HALLWAY, WORLD_BOUNDS, type Point, type RoomId } from "../data/rooms";
+import { ROOMS, HALLWAY, WORLD_BOUNDS, type Point, type Rect, type RoomId } from "../data/rooms";
 import { shade, toCss } from "../art/palette";
 
 export interface FullMapCallbacks {
@@ -6,11 +6,23 @@ export interface FullMapCallbacks {
   onClose: () => void;
 }
 
-const pct = (v: number, total: number) => `${(v / total) * 100}%`;
+const W = WORLD_BOUNDS.width;
+const H = WORLD_BOUNDS.height;
+const pct = (v: number) => `${v * 100}%`;
 
-/** Full map modal: a scaled floor plan. Tap a room to select it, then Go Here to travel. */
+/**
+ * Full map modal: a scaled floor plan. Tap a room to select it, then Go Here to travel.
+ *
+ * On a portrait screen the plan is drawn as in the game (entrance at the bottom). On a
+ * landscape screen it is turned 90° (entrance on the left, hallway running across) so the
+ * long building uses the screen's width instead of becoming a thin strip.
+ */
 export default class FullMap {
   private root: HTMLDivElement;
+  private card: HTMLDivElement;
+  private map: HTMLDivElement;
+  private hall: HTMLDivElement;
+  private entrance: HTMLDivElement;
   private roomEls = new Map<RoomId, HTMLButtonElement>();
   private youPin: HTMLDivElement;
   private detailIcon: HTMLSpanElement;
@@ -19,6 +31,8 @@ export default class FullMap {
   private goHereBtn: HTMLButtonElement;
   private selectedRoomId: RoomId | null = null;
   private currentRoomId: RoomId | null = null;
+  private playerPos: Point = { x: 0, y: 0 };
+  private rotated = false;
   private callbacks: FullMapCallbacks;
 
   constructor(parent: HTMLElement, callbacks: FullMapCallbacks) {
@@ -27,41 +41,43 @@ export default class FullMap {
     this.root = document.createElement("div");
     this.root.className = "modal-overlay hidden";
 
-    const card = document.createElement("div");
-    card.className = "modal-card fullmap-card";
-    card.setAttribute("role", "dialog");
-    card.setAttribute("aria-label", "Clinic map");
+    this.card = document.createElement("div");
+    this.card.className = "modal-card fullmap-card";
+    this.card.setAttribute("role", "dialog");
+    this.card.setAttribute("aria-label", "Clinic map");
 
     const header = document.createElement("div");
     header.className = "modal-header";
     header.innerHTML = `<span class="modal-avatar">🗺️</span><h2>Clinic Map</h2>`;
 
-    const map = document.createElement("div");
-    map.className = "fm-map";
-    map.style.aspectRatio = `${WORLD_BOUNDS.width} / ${WORLD_BOUNDS.height}`;
+    this.map = document.createElement("div");
+    this.map.className = "fm-map";
 
-    const hall = document.createElement("div");
-    hall.className = "fm-hall";
-    this.place(hall, HALLWAY.x, HALLWAY.y, HALLWAY.width, HALLWAY.height);
-    map.appendChild(hall);
+    this.hall = document.createElement("div");
+    this.hall.className = "fm-hall";
+    this.map.appendChild(this.hall);
+
+    this.entrance = document.createElement("div");
+    this.entrance.className = "fm-entrance";
+    this.entrance.textContent = "Entrance";
+    this.map.appendChild(this.entrance);
 
     for (const room of ROOMS) {
       const el = document.createElement("button");
       el.className = "fm-room";
+      el.setAttribute("aria-label", room.label);
       el.style.setProperty("--room", toCss(room.color));
       el.style.setProperty("--room-soft", toCss(shade(room.color, 0.62)));
-      el.style.setProperty("--room-dark", toCss(shade(room.color, -0.35)));
-      el.innerHTML = `<span class="fm-room-icon">${room.icon}</span><span class="fm-room-label">${room.label}</span>`;
-      this.place(el, room.bounds.x, room.bounds.y, room.bounds.width, room.bounds.height);
+      el.innerHTML = `<span class="fm-room-inner"><span class="fm-room-icon">${room.icon}</span><span class="fm-room-label">${room.label}</span></span>`;
       el.addEventListener("click", () => this.select(room.id));
-      map.appendChild(el);
+      this.map.appendChild(el);
       this.roomEls.set(room.id, el);
     }
 
     this.youPin = document.createElement("div");
     this.youPin.className = "fm-you";
     this.youPin.innerHTML = `<span class="fm-you-dot"></span><span class="fm-you-label">You are here</span>`;
-    map.appendChild(this.youPin);
+    this.map.appendChild(this.youPin);
 
     const detail = document.createElement("div");
     detail.className = "fm-detail";
@@ -92,22 +108,59 @@ export default class FullMap {
     });
 
     actions.append(closeBtn, this.goHereBtn);
-    card.append(header, map, detail, actions);
-    this.root.appendChild(card);
+    const footer = document.createElement("div");
+    footer.className = "fm-footer";
+    footer.append(detail, actions);
+    this.card.append(header, this.map, footer);
+    this.root.appendChild(this.card);
     this.root.addEventListener("click", (e) => {
       if (e.target === this.root) this.close();
     });
     window.addEventListener("keydown", (e) => {
       if (this.isOpen && e.key === "Escape") this.close();
     });
+    window.addEventListener("resize", () => {
+      if (this.isOpen) this.layout();
+    });
     parent.appendChild(this.root);
   }
 
-  private place(el: HTMLElement, x: number, y: number, w: number, h: number): void {
-    el.style.left = pct(x, WORLD_BOUNDS.width);
-    el.style.top = pct(y, WORLD_BOUNDS.height);
-    el.style.width = pct(w, WORLD_BOUNDS.width);
-    el.style.height = pct(h, WORLD_BOUNDS.height);
+  /** Positions everything for the current screen orientation. */
+  private layout(): void {
+    this.rotated = window.innerWidth > window.innerHeight;
+    this.card.classList.toggle("rotated", this.rotated);
+    this.map.style.aspectRatio = this.rotated ? `${H} / ${W}` : `${W} / ${H}`;
+
+    this.place(this.hall, HALLWAY);
+    for (const room of ROOMS) this.place(this.roomEls.get(room.id)!, room.bounds);
+
+    // "Entrance" tag just outside the hallway's front door
+    const door = this.toMap({ x: HALLWAY.x + HALLWAY.width / 2, y: HALLWAY.y + HALLWAY.height });
+    this.entrance.style.left = pct(door.x);
+    this.entrance.style.top = pct(door.y);
+
+    const you = this.toMap(this.playerPos);
+    this.youPin.style.left = pct(you.x);
+    this.youPin.style.top = pct(you.y);
+  }
+
+  /** World point -> fraction of the map box (0..1), honouring the rotation. */
+  private toMap(p: Point): Point {
+    return this.rotated ? { x: 1 - p.y / H, y: p.x / W } : { x: p.x / W, y: p.y / H };
+  }
+
+  private place(el: HTMLElement, r: Rect): void {
+    if (this.rotated) {
+      el.style.left = pct(1 - (r.y + r.height) / H);
+      el.style.top = pct(r.x / W);
+      el.style.width = pct(r.height / H);
+      el.style.height = pct(r.width / W);
+    } else {
+      el.style.left = pct(r.x / W);
+      el.style.top = pct(r.y / H);
+      el.style.width = pct(r.width / W);
+      el.style.height = pct(r.height / H);
+    }
   }
 
   private select(roomId: RoomId): void {
@@ -125,18 +178,19 @@ export default class FullMap {
   open(currentRoomId: RoomId | null, playerPos: Point): void {
     this.currentRoomId = currentRoomId;
     this.selectedRoomId = null;
+    this.playerPos = { ...playerPos };
     this.roomEls.forEach((el, id) => {
       el.classList.toggle("here", id === currentRoomId);
       el.classList.remove("selected");
     });
-    this.youPin.style.left = pct(playerPos.x, WORLD_BOUNDS.width);
-    this.youPin.style.top = pct(playerPos.y, WORLD_BOUNDS.height);
 
+    const here = ROOMS.find((r) => r.id === currentRoomId);
     this.detailIcon.textContent = "👆";
     this.detailName.textContent = "Choose a destination";
-    this.detailText.textContent = "Tap a room on the map.";
+    this.detailText.textContent = here ? `You are in ${here.label}. Tap a room to travel.` : "Tap a room on the map.";
     this.goHereBtn.disabled = true;
     this.root.classList.remove("hidden");
+    this.layout();
   }
 
   close(): void {

@@ -33,7 +33,17 @@ export type FurnitureKind =
   | "clock"
   | "noticeBoard"
   | "whiteboard"
-  | "picture";
+  | "picture"
+  | "sofa"
+  | "coffeeMachine"
+  | "fridge"
+  | "pharmacyCounter"
+  | "stall"
+  | "mirror"
+  | "bin"
+  | "prayerMat"
+  | "prayerRack"
+  | "shoeRack";
 
 /**
  * floor  – drawn flat under everything, never blocks movement (rugs, mats)
@@ -80,4 +90,14 @@ export const FURNITURE: Record<FurnitureKind, FurnitureSpec> = {
   noticeBoard: { layer: "wall", footprint: null },
   whiteboard: { layer: "wall", footprint: null },
   picture: { layer: "wall", footprint: null },
+  sofa: { layer: "object", footprint: { w: 120, h: 34 } },
+  coffeeMachine: { layer: "object", footprint: { w: 70, h: 34 } },
+  fridge: { layer: "object", footprint: { w: 36, h: 30 } },
+  pharmacyCounter: { layer: "object", footprint: { w: 170, h: 40 } },
+  stall: { layer: "object", footprint: { w: 64, h: 34 } },
+  mirror: { layer: "wall", footprint: null },
+  bin: { layer: "object", footprint: { w: 18, h: 14 } },
+  prayerMat: { layer: "floor", footprint: null },
+  prayerRack: { layer: "object", footprint: { w: 100, h: 24 } },
+  shoeRack: { layer: "object", footprint: { w: 44, h: 20 } },
 };

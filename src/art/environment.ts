@@ -182,7 +182,23 @@ export function drawWall(scene: Phaser.Scene, seg: WallSegment, accent: number):
   if (seg.width <= 0 || seg.height <= 0) return;
   addBaked(scene, `wall-${seg.side}-${seg.x}-${seg.y}-${seg.width}x${seg.height}`, 0, 0, (g) => {
     const t = WALL_THICKNESS;
-    const capH = seg.side === "top" ? t : seg.height;
+    const capH = seg.side === "top" ? t : seg.jambFace ? seg.height - WALL_FACE : seg.height;
+
+    if (seg.jambFace) {
+      // end face of the wall above a door, painted like the room's top wall face
+      const fy = seg.y + capH;
+      const F = WALL_FACE;
+      g.fillStyle(WALL_PAINT, 1);
+      g.fillRect(seg.x, fy, seg.width, F);
+      g.fillStyle(shade(accent, 0.25), 1);
+      g.fillRect(seg.x, fy + F - 15, seg.width, 11);
+      g.fillStyle(accent, 1);
+      g.fillRect(seg.x, fy + F - 18, seg.width, 3);
+      g.fillStyle(outline(accent), 1);
+      g.fillRect(seg.x, fy + F - 4, seg.width, 4);
+      g.lineStyle(1.5, WALL_CAP_LINE, 1);
+      g.strokeRect(seg.x + 0.75, fy, seg.width - 1.5, F - 0.75);
+    }
 
     if (seg.side === "top") {
       const fy = seg.y + t;
@@ -222,10 +238,7 @@ export function drawDoor(scene: Phaser.Scene, room: RoomDef): void {
 
   addBaked(scene, `door-posts-${room.id}`, 0, 0, (posts) => {
     posts.fillStyle(room.color, 1);
-    if (vertical) {
-      posts.fillRoundedRect(door.x - 9, door.y - half - 6, 18, 8, 3);
-      posts.fillRoundedRect(door.x - 9, door.y + half - 2, 18, 8, 3);
-    }
+    if (vertical) posts.fillRoundedRect(door.x - 9, door.y + half - 2, 18, 8, 3);
   }).setDepth(door.y + half + 1);
 
   // Hallway sign: rooms on the left are signed just above their door, rooms on the right

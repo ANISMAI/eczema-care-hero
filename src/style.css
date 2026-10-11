@@ -436,7 +436,7 @@ button {
 
 .fm-map {
   position: relative;
-  height: min(48vh, 440px);
+  height: min(56vh, 560px);
   max-width: 100%;
   margin: 0 auto 12px;
   border-radius: 12px;
@@ -450,32 +450,74 @@ button {
   border-radius: 2px;
 }
 
+.fm-entrance {
+  position: absolute;
+  z-index: 1;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translate(-50%, -2px);
+}
+
+/* turned plan: the tag sits just inside the hallway's front end */
+.fullmap-card.rotated .fm-entrance {
+  transform: translate(3px, -50%);
+}
+
 .fm-room {
   position: absolute;
+  padding: 2px;
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  background: var(--room-soft);
+  cursor: pointer;
+  overflow: hidden;
+  /* children size themselves from the room box (container query units) */
+  container-type: size;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+}
+
+.fm-room-inner {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 2px;
-  padding: 4px;
-  border: 2px solid var(--ink);
-  border-radius: 6px;
-  background: var(--room-soft);
-  cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+  width: 100%;
+  height: 100%;
 }
 
 .fm-room-icon {
-  font-size: 20px;
+  font-size: clamp(11px, 30cqmin, 20px);
   line-height: 1;
 }
 
 .fm-room-label {
-  font-size: 11px;
+  max-width: 100%;
+  font-size: clamp(7px, 11cqw, 11px);
   font-weight: 900;
   text-transform: uppercase;
-  line-height: 1.1;
+  line-height: 1.05;
   text-align: center;
+  overflow-wrap: anywhere;
+}
+
+/* short, wide rooms (Toilet / Surau): icon and label side by side */
+@container (max-height: 46px) {
+  .fm-room-inner {
+    flex-direction: row;
+    gap: 4px;
+  }
+  .fm-room-icon {
+    font-size: clamp(10px, 50cqh, 16px);
+  }
 }
 
 .fm-room.here {
@@ -493,34 +535,35 @@ button {
 
 .fm-you {
   position: absolute;
-  z-index: 2;
+  z-index: 3;
   pointer-events: none;
   transform: translate(-50%, -50%);
 }
 
 .fm-you-dot {
   display: block;
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   background: #e8333f;
-  border: 3px solid #fff;
+  border: 2.5px solid #fff;
   box-shadow: 0 0 0 4px rgba(232, 51, 63, 0.3);
   animation: pulse 1.4s ease-in-out infinite;
 }
 
 .fm-you-label {
   position: absolute;
-  top: -26px;
+  bottom: calc(100% + 5px);
   left: 50%;
   transform: translateX(-50%);
-  padding: 2px 8px;
+  padding: 1px 6px;
   border-radius: 999px;
-  background: var(--ink);
+  background: #e8333f;
   color: #fff;
-  font-size: 10px;
-  font-weight: 800;
+  font-size: 8.5px;
+  font-weight: 900;
   white-space: nowrap;
+  box-shadow: 0 2px 4px rgba(18, 28, 44, 0.3);
 }
 
 @keyframes pulse {
@@ -529,12 +572,17 @@ button {
   }
 }
 
+.fm-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .fm-detail {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 58px;
-  margin-bottom: 14px;
+  min-height: 52px;
   padding: 8px 12px;
   border-radius: 14px;
   background: #fff;
@@ -562,6 +610,32 @@ button {
   color: var(--ink-soft);
 }
 
+/* Landscape: the plan is turned 90° (see FullMap.ts) and spans the card's width,
+   with the details and buttons in one row underneath. */
+.fullmap-card.rotated {
+  width: min(860px, 100%);
+}
+
+.fullmap-card.rotated .fm-map {
+  height: min(calc(100vh - 200px), 380px);
+  min-height: 150px;
+}
+
+.fullmap-card.rotated .fm-footer {
+  flex-direction: row;
+  align-items: stretch;
+}
+
+.fullmap-card.rotated .fm-detail {
+  flex: 1;
+  min-width: 0;
+}
+
+.fullmap-card.rotated .modal-actions {
+  flex: 0 0 auto;
+  width: min(300px, 45%);
+}
+
 /* ---------- Landscape phones ---------- */
 
 @media (orientation: landscape) and (max-height: 500px) {
@@ -583,33 +657,34 @@ button {
     padding: 10px calc(12px + var(--safe-right)) 10px calc(12px + var(--safe-left));
   }
 
-  /* Map on the left, header / details / buttons on the right. */
-  .fullmap-card {
-    display: grid;
-    grid-template-columns: auto minmax(200px, 260px);
-    grid-template-rows: auto 1fr auto;
-    column-gap: 16px;
-    width: auto;
-    max-width: 100%;
-    padding: 14px;
+  /* compact header so the turned plan gets the height */
+  .modal-card {
+    padding: 12px 14px;
   }
 
-  .fullmap-card .fm-map {
-    grid-column: 1;
-    grid-row: 1 / 4;
-    height: calc(100vh - 54px);
-    max-height: 440px;
-    margin: 0;
+  .modal-header {
+    margin: -12px -14px 10px;
+    padding: 6px 14px;
   }
 
-  .fullmap-card .modal-header,
-  .fullmap-card .fm-detail,
-  .fullmap-card .modal-actions {
-    grid-column: 2;
+  .modal-avatar {
+    width: 34px;
+    height: 34px;
+    font-size: 18px;
   }
 
-  .fullmap-card .fm-detail {
-    align-self: center;
+  .fullmap-card.rotated .fm-map {
+    height: calc(100vh - 168px);
+    margin-bottom: 10px;
+  }
+
+  .fullmap-card.rotated .fm-detail {
+    min-height: 44px;
+    padding: 4px 10px;
+  }
+
+  .fullmap-card.rotated .fm-detail span {
+    font-size: 12px;
   }
 }
 

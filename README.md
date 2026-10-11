@@ -64,11 +64,24 @@ src/
 
 ### Room config, spawn points, and replacing placeholder art
 
-**Layout.** The clinic is a portrait floor plan sized for a phone: a central hallway with three
-rooms on each side, and the main entrance at the bottom. Visitors reach Reception (left) and the
-Waiting Area (right) first; Care Room and Arcade Room are in the middle; the staff-only Staff
-Office and Storage are at the back. Every room has one door onto the hallway. To reorder rooms,
-change which `origin(col, row)` each room uses near the top of the "Rooms" section.
+**Layout.** The clinic is a portrait floor plan sized for a phone: a central hallway with rooms
+on both sides and the main entrance at the bottom, following a patient's visit from front to
+back:
+
+```
+[ Staff Office ]  hall  [ Storage      ]   <- staff area at the back
+[ Staff Lounge ]  hall  [ Arcade Room  ]
+[ Care Room    ]  hall  [ Toilet (1/2) ]
+                        [ Surau  (1/2) ]
+[ Consultation ]  hall  [ Pharmacy     ]   <- see the doctor, then collect products
+[ Reception    ]  hall  [ Waiting Area ]   <- first rooms visitors reach
+               entrance
+```
+
+Every room has one door onto the hallway; Toilet and Surau are half-height rooms sharing a slot.
+To move a room, change which `origin(col, row, half)` it uses near the top of the "Rooms"
+section of `src/data/rooms.ts`; the world size, mini-map (which scrolls with the player) and full
+map follow automatically.
 
 **Room config — `src/data/rooms.ts`.** `ROOMS` is one typed list. Each room has:
 
@@ -120,6 +133,7 @@ Defined in **`src/data/npcs.ts`** (positions are room-relative, like furniture),
 | Who | Where | Behaviour |
 |---|---|---|
 | Receptionist | behind the reception counter | blinks, waves when the player comes close |
+| Pharmacist | behind the pharmacy counter (seen through its screen) | blinks, holds out a bag when the player comes close |
 | 6 seated visitors (mother & son, teen & youth, Paati & Tok Wan) | waiting-room chairs and bench | blink, now and then use a phone / fan / newspaper |
 | Storekeeper (Encik Ravi) | Storage | blinks, checks his clipboard; solid |
 | Nurse Jason | walks up and down the hallway | stops and faces the player when close |
@@ -173,7 +187,7 @@ source art (they are not bundled).
       no HUD button is cut off or unreachable.
 - [ ] Joystick moves the player smoothly in 8 directions; arrow keys/WASD also work on desktop.
 - [ ] Player cannot walk through any wall or through the gap outside a door opening.
-- [ ] All six rooms are reachable on foot via the central corridor.
+- [ ] All eleven rooms are reachable on foot via the central corridor.
 - [ ] Standing near an object/NPC shows the Interact button; walking away hides it.
 - [ ] Tapping Interact opens the correct placeholder dialog; Close dismisses it and movement
       resumes.
