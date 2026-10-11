@@ -1,7 +1,8 @@
-import { ROOMS, WORLD_BOUNDS, type RoomId } from "./rooms";
+import { ROOMS, isWalkable, type RoomId } from "./rooms";
 
-const SAVE_KEY = "eczema-care-hero-save-v1";
-const SAVE_VERSION = 1;
+// v2: clinic layout changed to the portrait floor plan, so v1 coordinates are discarded.
+const SAVE_KEY = "eczema-care-hero-save-v2";
+export const SAVE_VERSION = 2;
 
 export interface SaveData {
   version: number;
@@ -29,8 +30,7 @@ function isValid(data: unknown): data is SaveData {
   const d = data as Partial<SaveData>;
   if (typeof d.playerX !== "number" || Number.isNaN(d.playerX)) return false;
   if (typeof d.playerY !== "number" || Number.isNaN(d.playerY)) return false;
-  if (d.playerX < WORLD_BOUNDS.x || d.playerX > WORLD_BOUNDS.x + WORLD_BOUNDS.width) return false;
-  if (d.playerY < WORLD_BOUNDS.y || d.playerY > WORLD_BOUNDS.y + WORLD_BOUNDS.height) return false;
+  if (!isWalkable(d.playerX, d.playerY)) return false;
   if (!ROOMS.some((r) => r.id === d.currentRoomId)) return false;
   return true;
 }

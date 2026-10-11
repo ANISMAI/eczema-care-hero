@@ -1,21 +1,26 @@
 import Phaser from "phaser";
 import BootScene from "../scenes/BootScene";
 import ClinicScene from "../scenes/ClinicScene";
+import { GAME_HEIGHT, GAME_WIDTH, RENDER_SCALE, viewportSize } from "./display";
+import { PAL, toCss } from "../art/palette";
 
-// Reference portrait size per brief (390 x 844 CSS px); Scale.FIT scales to the real
-// device size without cropping, letterboxing instead of stretching.
-export const GAME_WIDTH = 390;
-export const GAME_HEIGHT = 844;
+export { GAME_WIDTH, GAME_HEIGHT };
+
+// The canvas fills the whole screen in portrait and landscape. Its backing store is
+// RENDER_SCALE times the CSS size (zoom shrinks it back) so art stays sharp on high-DPI phones;
+// main.ts resizes it whenever the screen size or orientation changes.
+const initial = viewportSize();
 
 export const gameConfig: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   parent: "app",
-  backgroundColor: "#1b1230",
-  width: GAME_WIDTH,
-  height: GAME_HEIGHT,
+  backgroundColor: toCss(PAL.grass),
+  antialias: true,
   scale: {
-    mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
+    mode: Phaser.Scale.NONE,
+    width: initial.width * RENDER_SCALE,
+    height: initial.height * RENDER_SCALE,
+    zoom: 1 / RENDER_SCALE,
   },
   physics: {
     default: "arcade",

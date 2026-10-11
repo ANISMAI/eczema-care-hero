@@ -1,9 +1,9 @@
 import Phaser from "phaser";
+import { FONT_FAMILY } from "../game/display";
 
 /**
- * Generates all placeholder art at runtime (colored shapes) so Phase 1 ships with
- * zero external image assets. Replace each generateTexture call with a loaded
- * spritesheet/image in a later phase — see README "Replacing placeholder art".
+ * Boot step. Phase 1 ships with zero image assets — all art is vector Graphics drawn in
+ * src/art/. When real sprites arrive, load them here in preload() (see README).
  */
 export default class BootScene extends Phaser.Scene {
   constructor() {
@@ -11,48 +11,10 @@ export default class BootScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.makePlayerBody();
-    this.makePlayerArrow();
-    this.makeMarker("npc-marker", 0xef6c9b);
-    this.makeMarker("object-marker", 0x4a90d9);
-    this.makeWallTexture();
-
-    this.scene.start("ClinicScene");
-  }
-
-  private makePlayerBody(): void {
-    const g = this.make.graphics({ x: 0, y: 0 }, false);
-    g.fillStyle(0x2c7a7b, 1);
-    g.fillCircle(18, 18, 18);
-    g.lineStyle(3, 0xffffff, 1);
-    g.strokeCircle(18, 18, 18);
-    g.generateTexture("player-body", 36, 36);
-    g.destroy();
-  }
-
-  private makePlayerArrow(): void {
-    const g = this.make.graphics({ x: 0, y: 0 }, false);
-    g.fillStyle(0xffffff, 1);
-    g.fillTriangle(6, 0, 12, 10, 0, 10);
-    g.generateTexture("player-arrow", 12, 10);
-    g.destroy();
-  }
-
-  private makeMarker(key: string, color: number): void {
-    const g = this.make.graphics({ x: 0, y: 0 }, false);
-    g.fillStyle(color, 1);
-    g.fillRoundedRect(0, 0, 40, 40, 10);
-    g.lineStyle(2, 0xffffff, 0.9);
-    g.strokeRoundedRect(0, 0, 40, 40, 10);
-    g.generateTexture(key, 40, 40);
-    g.destroy();
-  }
-
-  private makeWallTexture(): void {
-    const g = this.make.graphics({ x: 0, y: 0 }, false);
-    g.fillStyle(0x4a3f6b, 1);
-    g.fillRect(0, 0, 16, 16);
-    g.generateTexture("wall", 16, 16);
-    g.destroy();
+    // Give the (optional) web font a moment so in-world labels don't render in a fallback face.
+    const ready = document.fonts?.load(`800 12px ${FONT_FAMILY}`) ?? Promise.resolve();
+    Promise.race([ready, new Promise((r) => setTimeout(r, 800))]).finally(() => {
+      this.scene.start("ClinicScene");
+    });
   }
 }

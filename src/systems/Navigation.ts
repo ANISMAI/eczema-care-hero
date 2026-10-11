@@ -1,10 +1,10 @@
 import Player from "../entities/Player";
-import { getRoomById, type RoomId } from "../data/rooms";
+import { getRoomById, isWalkable, type RoomId } from "../data/rooms";
 
 /**
- * Handles moving the player to a room. Phase 1 uses an instant "Go Here" teleport;
- * kept isolated so a later phase can swap in pathfinding/auto-walk without touching
- * the map UI (per brief section 05: "Keep travel handling in a replaceable function").
+ * Handles moving the player to a room. Phase 1 uses an instant "Go Here" teleport to the
+ * room's safe spawn point by the door; kept isolated so a later phase can swap travelTo()
+ * for pathfinding/auto-walk without touching the map UI (brief section 05).
  */
 export default class NavigationSystem {
   private player: Player;
@@ -13,8 +13,11 @@ export default class NavigationSystem {
     this.player = player;
   }
 
-  teleportToRoom(roomId: RoomId): void {
+  /** Returns false (and leaves the player where they are) if the destination is unusable. */
+  travelTo(roomId: RoomId): boolean {
     const room = getRoomById(roomId);
+    if (!room.accessible || !isWalkable(room.spawn.x, room.spawn.y)) return false;
     this.player.teleportTo(room.spawn.x, room.spawn.y);
+    return true;
   }
 }

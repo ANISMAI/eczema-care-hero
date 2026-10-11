@@ -21,7 +21,8 @@ toolbar (or visit from a phone on the same network via `npm run dev -- --host`) 
 
 - **Touch**: bottom-left virtual joystick to move, bottom-right **Interact** button appears
   near an interactable object/NPC, tap the mini-map (top-right) to open the full map.
-- **Desktop**: arrow keys or WASD to move; click the HUD buttons with the mouse.
+- **Desktop**: arrow keys or WASD to move; **E** / **Space** to interact; **M** to open the map;
+  **Esc** closes any dialog. HUD buttons also work with the mouse.
 
 ## Gameplay flow implemented
 
@@ -35,39 +36,65 @@ reload the page → player position and current room are restored from `localSto
 ```
 src/
   main.ts                 Entry point, boots the Phaser game
-  style.css                HUD, joystick and modal styling
-  game/config.ts            Phaser game config (scale, physics, scene list)
-  game/EventBus.ts          Tiny pub/sub (not currently required cross-module, kept minimal)
-  scenes/BootScene.ts       Generates all placeholder textures at runtime, then starts ClinicScene
-  scenes/ClinicScene.ts     Builds the clinic, wires systems + UI together, owns the game loop
-  entities/Player.ts        Player avatar: physics body + 8-direction facing arrow
-  systems/Movement.ts       Joystick + keyboard input → player velocity
-  systems/Interaction.ts    Finds the nearest interactable within range
-  systems/Navigation.ts     teleportToRoom() — isolated so Phase 2 can add auto-walk/pathfinding
-  ui/HUD.ts                 DOM overlay: stats, joystick, interact button, mini-map mount
-  ui/MiniMap.ts             Canvas mini-map (always visible, tap to open full map)
-  ui/FullMap.ts             Full map modal: select a room, see detail, Go Here / Close
-  ui/Dialog.ts              Generic interaction dialog modal
-  data/rooms.ts             Single source of truth: room bounds, doors, spawns, interactables
-  data/save.ts               localStorage save/load with validation + safe fallback
-  assets/placeholder/        Reserved for future real art (currently empty — see below)
+  style.css               HUD, joystick and modal styling (theme colours are CSS variables at the top)
+  game/config.ts          Phaser game config (scale, physics, scene list)
+  game/display.ts         Design size (390x844), high-DPI render scale, UI font
+  game/EventBus.ts        Tiny pub/sub (not currently required cross-module, kept minimal)
+  scenes/BootScene.ts     Boot step (waits briefly for the web font), then starts ClinicScene
+  scenes/ClinicScene.ts   Builds the clinic, wires systems + UI together, owns the game loop
+  entities/Player.ts      Player avatar: physics body, 8-direction facing, walk bob, depth sort
+  systems/Movement.ts     Joystick + keyboard input -> player velocity
+  systems/Interaction.ts  Finds the nearest interactable within range (centre or edge distance)
+  systems/Navigation.ts   travelTo() — isolated so Phase 2 can add auto-walk/pathfinding
+  ui/HUD.ts               DOM overlay: stats, joystick, interact button, room toast, mini-map card
+  ui/MiniMap.ts           Canvas mini-map (always visible, tap to open full map)
+  ui/FullMap.ts           Full map modal: scaled floor plan, select a room, Go Here / Close
+  ui/Dialog.ts            Generic interaction dialog modal
+  data/rooms.ts           Single source of truth: room bounds, doors, spawns, furniture, interactables
+  data/furniture.ts       Furniture catalog: collision footprint + render layer per kind
+  data/save.ts            localStorage save/load with validation + safe fallback
+  art/palette.ts          Pastel colour palette + small drawing helpers
+  art/environment.ts      Floors, walls, garden, door/hallway signs, wall plaques, interaction bubbles
+  art/furniture.ts        How each furniture kind is drawn
+  art/characters.ts       Chibi staff avatar (player) and seated visitors
+  assets/placeholder/     Reserved for future real art (currently empty — see below)
 ```
 
 ### Room config, spawn points, and replacing placeholder art
 
-- All six rooms (Reception, Waiting Area, Care Room, Storage, Arcade Room, Staff Office) are
-  defined in **`src/data/rooms.ts`** as one typed list (`ROOMS`): each has `bounds` (x/y/width/
-  height), a `doorSide` (used to auto-generate wall rectangles with a door gap), a `spawn`
-  point (used both for the initial walk-in and for "Go Here" teleports), and an
-  `interactables` array (position, radius, label, and dialog text).
-- To change the clinic layout, edit `ROOMS` in `rooms.ts` — walls, the mini-map, the full map
-  and collision all derive from this one list, so there is nothing else to keep in sync.
-- There are **no external image files**. `scenes/BootScene.ts` draws every texture (player
-  body, facing arrow, NPC marker, object marker, wall tile) with Phaser's `Graphics →
-  generateTexture`. To swap in real art later: load spritesheets/images in `BootScene.preload()`
-  as usual, and reference the new texture keys in `Player.ts` (body/arrow), `ClinicScene.ts`
-  (room interactable markers use `item.kind === "npc" ? "npc-marker" : "object-marker"`), and
-  room floor colors (`room.color` in `rooms.ts`) can be replaced with tilemap/background images.
+**Layout.** The clinic is a portrait floor plan sized for a phone: a central hallway with three
+rooms on each side (Reception / Care Room / Staff Office on the left, Waiting Area / Storage /
+Arcade Room on the right). Every room has one door onto the hallway.
+
+**Room config — `src/data/rooms.ts`.** `ROOMS` is one typed list. Each room has:
+
+- `bounds` (x/y/width/height) and `doorSide` — walls and the door gap are generated from these.
+- `spawn` — the safe point just inside the door, used for the first spawn (Reception) and for
+  every "Go Here" teleport. On startup the game warns in the console if a spawn ends up inside
+  a wall or furniture, so layout edits can't silently break travel.
+- `furniture` — list of `{ kind, x, y, variant }`. Collision boxes come from
+  `src/data/furniture.ts`, so placing furniture automatically makes it solid.
+- `npcs` — seated visitor placeholders.
+- `interactables` — position, trigger radius (optionally measured from an object's edge via
+  `area`), label, icon and dialog text.
+- `color`, `floor`, `icon`, `signX`, `description` — wall paint, floor pattern, signs and the
+  full-map detail text.
+
+Walls, collisions, the mini-map, the full map and save validation all derive from this one file.
+
+**Replacing placeholder art.** There are **no image files**: everything is drawn as vector
+Graphics in `src/art/`, which stays sharp on high-DPI phones. To swap in real art:
+
+1. Load sprites in `BootScene.preload()`.
+2. Furniture: in `createFurniture()` (`art/furniture.ts`) replace the Graphics drawing with
+   `scene.add.image(x, bottom, key).setOrigin(0.5, 1)`. Positions, collisions and depth sorting
+   stay the same.
+3. Player / visitors: replace `drawStaff` / `drawPatient` (`art/characters.ts`) with sprites or a
+   spritesheet in `Player.ts` and `ClinicScene.drawWorld()`.
+4. Floors and walls: replace `drawFloor` / `drawWall` (`art/environment.ts`) with tile sprites or
+   one background image per room.
+5. Colours: Phaser-side colours live in `art/palette.ts`; HUD/modal colours are CSS variables at
+   the top of `style.css`.
 
 ### Embedding the web build into a mobile WebView (for later)
 
@@ -78,8 +105,9 @@ src/
    disables page scroll/zoom gestures (`touch-action: none`), which matters inside a WebView.
 4. `localStorage` persistence works the same inside a WebView, as long as the WebView doesn't
    run in a private/incognito mode that clears storage between sessions.
-5. No network calls, API keys, or backend are required for Phase 1 — the WebView can run fully
-   offline once the bundle is loaded.
+5. No API keys or backend are required for Phase 1. The only network request is the optional
+   Nunito web font (Google Fonts) in `index.html`; offline it falls back to the system font.
+   Remove that `<link>` or self-host the font if the host app must be fully offline.
 
 ## Manual testing checklist
 
@@ -118,8 +146,8 @@ coding brief for the full list.
 - Wiring the Arcade Room entrance to the existing Grow Bloom / Catch the Gust / Delivery Dash
   mini-games.
 - Mission list, career ranks and leaderboard in the Staff Office (local-only first, then backend).
-- Swapping generated placeholder shapes for production art/sprites (see "Replacing placeholder
+- Swapping the vector placeholder art for production art/sprites (see "Replacing placeholder
   art" above for the exact touch points).
 - Deciding teleport vs. auto-walk pathfinding for "Go Here" (currently instant teleport, kept
-  in `NavigationSystem.teleportToRoom` so it's a drop-in replacement).
+  in `NavigationSystem.travelTo` so it's a drop-in replacement).
 - Backend-backed save, accounts, and production WebView integration in the host app.

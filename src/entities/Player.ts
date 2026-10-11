@@ -1,24 +1,37 @@
 import Phaser from "phaser";
+import { drawStaff, type Facing } from "../art/characters";
+import { PAL } from "../art/palette";
+import { PLAYER_RADIUS } from "../data/rooms";
 
-/** Player avatar: a body sprite plus a rotating arrow that snaps to 8 facing directions. */
+/**
+ * Player avatar. The container's position is the point between the feet, which is also the
+ * centre of the circular collision body. Facing is tracked in 8 directions (lastFacingAngle)
+ * and shown with the nearest of the down / up / side drawings.
+ */
 export default class Player extends Phaser.GameObjects.Container {
   declare body: Phaser.Physics.Arcade.Body;
-  private arrow: Phaser.GameObjects.Image;
-  private lastFacingAngle = -90; // facing up by default
+  private sprite: Phaser.GameObjects.Graphics;
+  private facing: Facing = "down";
+  private flipped = false;
+  private walkTime = 0;
+  lastFacingAngle = 90; // facing down by default
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y);
 
-    const bodySprite = scene.add.image(0, 0, "player-body");
-    this.arrow = scene.add.image(0, -22, "player-arrow");
-    this.arrow.setRotation(Phaser.Math.DegToRad(this.lastFacingAngle + 90));
+    const shadow = scene.add.graphics();
+    shadow.fillStyle(PAL.shadow, 0.18);
+    shadow.fillEllipse(0, 2, 26, 9);
 
-    this.add([bodySprite, this.arrow]);
-    this.setSize(36, 36);
+    this.sprite = scene.add.graphics();
+    drawStaff(this.sprite, this.facing);
+
+    this.add([shadow, this.sprite]);
+    this.setSize(PLAYER_RADIUS * 2, PLAYER_RADIUS * 2);
 
     scene.add.existing(this);
     scene.physics.add.existing(this);
-    this.body.setCircle(16, -16, -16);
+    this.body.setCircle(PLAYER_RADIUS);
     this.body.setCollideWorldBounds(true);
   }
 
@@ -31,9 +44,34 @@ export default class Player extends Phaser.GameObjects.Container {
 
   private updateFacing(vx: number, vy: number): void {
     const rawAngle = Phaser.Math.RadToDeg(Math.atan2(vy, vx));
-    const snapped = Math.round(rawAngle / 45) * 45;
-    this.lastFacingAngle = snapped;
-    this.arrow.setRotation(Phaser.Math.DegToRad(snapped + 90));
+    this.lastFacingAngle = Math.round(rawAngle / 45) * 45;
+
+    const facing: Facing = Math.abs(vx) > Math.abs(vy) * 1.2 ? "side" : vy < 0 ? "up" : "down";
+    const flipped = facing === "side" && vx < 0;
+    if (facing !== this.facing) {
+      this.facing = facing;
+      drawStaff(this.sprite, facing);
+    }
+    if (flipped !== this.flipped) {
+      this.flipped = flipped;
+      this.sprite.setScale(flipped ? -1 : 1, 1);
+    }
+  }
+
+  /** Walk bob + depth sorting; call once per frame. */
+  tick(deltaMs: number): void {
+    const moving = this.body.velocity.lengthSq() > 1;
+    if (moving) {
+      this.walkTime += deltaMs;
+      const phase = this.walkTime / 90;
+      this.sprite.y = -Math.abs(Math.sin(phase)) * 3;
+      this.sprite.rotation = Math.sin(phase) * 0.06;
+    } else {
+      this.walkTime = 0;
+      this.sprite.y = 0;
+      this.sprite.rotation = 0;
+    }
+    this.setDepth(this.y + PLAYER_RADIUS);
   }
 
   teleportTo(x: number, y: number): void {
