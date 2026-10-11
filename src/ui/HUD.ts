@@ -1,4 +1,5 @@
 import type { InteractableDef } from "../data/rooms";
+import type { PlayableCharacter } from "../data/assets";
 
 const JOYSTICK_RADIUS = 40;
 
@@ -6,6 +7,7 @@ export interface HUDCallbacks {
   onJoystickMove: (x: number, y: number) => void;
   onInteract: () => void;
   onMiniMapTap: () => void;
+  onAvatarTap: () => void;
 }
 
 /** Mobile HUD: top-left stats, top-right mini-map mount, bottom-left joystick, bottom-right interact. */
@@ -16,6 +18,8 @@ export default class HUD {
   private interactIcon: HTMLSpanElement;
   private interactLabel: HTMLSpanElement;
   private interactTargetId: string | null = null;
+  private avatarBtn: HTMLButtonElement;
+  private avatarFace: HTMLSpanElement;
   private levelLabel: HTMLSpanElement;
   private coinsLabel: HTMLSpanElement;
   private toast: HTMLDivElement;
@@ -34,7 +38,15 @@ export default class HUD {
     statsBar.className = "hud-stats";
     this.levelLabel = document.createElement("span");
     this.coinsLabel = document.createElement("span");
-    statsBar.append(this.pill("⭐", this.levelLabel), this.pill("🪙", this.coinsLabel));
+    // Current character's face; tap to change character
+    this.avatarBtn = document.createElement("button");
+    this.avatarBtn.className = "hud-avatar";
+    this.avatarBtn.setAttribute("aria-label", "Change character");
+    this.avatarFace = document.createElement("span");
+    this.avatarFace.className = "hud-avatar-face";
+    this.avatarBtn.appendChild(this.avatarFace);
+    this.avatarBtn.addEventListener("click", callbacks.onAvatarTap);
+    statsBar.append(this.avatarBtn, this.pill("⭐", this.levelLabel), this.pill("🪙", this.coinsLabel));
     this.setStats(1, 0);
 
     // Top-right: mini-map card
@@ -147,6 +159,23 @@ export default class HUD {
     this.toast.classList.add("show");
     window.clearTimeout(this.toastTimer);
     this.toastTimer = window.setTimeout(() => this.toast.classList.remove("show"), 1800);
+  }
+
+  /** Shows the character's head (cropped from its spritesheet) on the avatar button. */
+  setAvatar(character: PlayableCharacter | undefined): void {
+    if (!character) {
+      this.avatarFace.style.backgroundImage = "";
+      this.avatarFace.textContent = "👤";
+      return;
+    }
+    const { sheet } = character;
+    const scale = 72 / sheet.frameHeight; // head fills the 40px circle
+    const fw = sheet.frameWidth * scale;
+    this.avatarFace.textContent = "";
+    this.avatarFace.style.backgroundImage = `url("${sheet.url}")`;
+    this.avatarFace.style.backgroundSize = `${fw * 3}px ${sheet.frameHeight * 4 * scale}px`;
+    this.avatarFace.style.backgroundPosition = `${20 - fw / 2}px ${-sheet.rows.down * sheet.frameHeight * scale - 2}px`;
+    this.avatarBtn.setAttribute("aria-label", `Change character (${character.label})`);
   }
 
   setStats(level: number, coins: number): void {

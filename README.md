@@ -21,6 +21,8 @@ toolbar (or visit from a phone on the same network via `npm run dev -- --host`) 
 
 - **Touch**: bottom-left virtual joystick to move, bottom-right **Interact** button appears
   near an interactable object/NPC, tap the mini-map (top-right) to open the full map.
+- **Character**: on first launch the player picks the female or male doctor; the round face
+  button at the top-left of the HUD changes character at any time. The choice is saved.
 - **Desktop**: arrow keys or WASD to move; **E** / **Space** to interact; **M** to open the map;
   **Esc** closes any dialog. HUD buttons also work with the mouse.
 
@@ -63,8 +65,10 @@ src/
 ### Room config, spawn points, and replacing placeholder art
 
 **Layout.** The clinic is a portrait floor plan sized for a phone: a central hallway with three
-rooms on each side (Reception / Care Room / Staff Office on the left, Waiting Area / Storage /
-Arcade Room on the right). Every room has one door onto the hallway.
+rooms on each side, and the main entrance at the bottom. Visitors reach Reception (left) and the
+Waiting Area (right) first; Care Room and Arcade Room are in the middle; the staff-only Staff
+Office and Storage are at the back. Every room has one door onto the hallway. To reorder rooms,
+change which `origin(col, row)` each room uses near the top of the "Rooms" section.
 
 **Room config — `src/data/rooms.ts`.** `ROOMS` is one typed list. Each room has:
 
@@ -89,12 +93,65 @@ Graphics in `src/art/`, which stays sharp on high-DPI phones. To swap in real ar
 2. Furniture: in `createFurniture()` (`art/furniture.ts`) replace the Graphics drawing with
    `scene.add.image(x, bottom, key).setOrigin(0.5, 1)`. Positions, collisions and depth sorting
    stay the same.
-3. Player / visitors: replace `drawStaff` / `drawPatient` (`art/characters.ts`) with sprites or a
-   spritesheet in `Player.ts` and `ClinicScene.drawWorld()`.
+3. Characters: the player already uses a `.webp` walk-cycle spritesheet (see below). Visitors still
+   use `drawPatient` (`art/characters.ts`).
 4. Floors and walls: replace `drawFloor` / `drawWall` (`art/environment.ts`) with tile sprites or
    one background image per room.
-5. Colours: Phaser-side colours live in `art/palette.ts`; HUD/modal colours are CSS variables at
-   the top of `style.css`.
+5. Colours: Phaser-side colours live in `art/palette.ts` (outlines are derived automatically by
+   `outline()`); HUD/modal colours are CSS variables at the top of `style.css`.
+
+### Image assets (.webp) and the player spritesheet
+
+Image assets are listed in **`src/data/assets.ts`** and loaded in `BootScene`. Files live in
+`public/assets/` and are copied as-is into `dist/`. If a file is missing or fails to load, the game
+logs a warning and falls back to the vector placeholder, so art can be replaced piece by piece.
+
+Playable characters are listed in `CHARACTERS` in `src/data/assets.ts`: the female doctor in a
+lavender hijab (`public/assets/characters/doctor-hijab-walk.webp`) and the male doctor with purple
+accents (`doctor-man-walk.webp`). Each is a 3 x 4 grid with rows front / left / right / back and
+columns standing / step / step; in game each direction plays stand -> step -> stand -> step.
+Adding an entry to `CHARACTERS` adds it to the select screen automatically.
+
+### Clinic NPCs
+
+Defined in **`src/data/npcs.ts`** (positions are room-relative, like furniture), drawn by
+`src/entities/Npc.ts`:
+
+| Who | Where | Behaviour |
+|---|---|---|
+| Receptionist | behind the reception counter | blinks, waves when the player comes close |
+| 6 seated visitors (mother & son, teen & youth, Paati & Tok Wan) | waiting-room chairs and bench | blink, now and then use a phone / fan / newspaper |
+| Storekeeper (Encik Ravi) | Storage | blinks, checks his clipboard; solid |
+| Nurse Jason | walks up and down the hallway | stops and faces the player when close |
+| Nurse Amy | walks around the Care Room | same |
+
+Each person has a short, friendly, non-clinical line (`talk`). Their "…" bubble only appears
+when they are the nearest interactable, so the waiting room isn't covered in bubbles. If an NPC's
+sheet fails to load, seated visitors fall back to the vector drawing and others are left out.
+
+### Making spritesheets from AI images
+
+Any AI-generated grid of figures (any spacing, white or transparent background):
+
+```bash
+pip install pillow numpy scipy
+# walking character: rows front/left/right/back, cols stand/step/step
+python tools/slice-sprite-sheet.py "src/assets/characters/<source>.webp" public/assets/characters/<name>.webp preview.png
+# one standing character, 3 poses (idle, blink, action)
+python tools/slice-sprite-sheet.py <source> <out.webp> preview.png --rows 1
+# two seated characters, one per row
+python tools/slice-sprite-sheet.py <source> <out.webp> preview.png --rows 2
+```
+
+To change a fabric colour first (the doctor's lavender hijab was recoloured from the original
+blue sheet this way), run `tools/recolor-fabric.py` — see the usage notes at the top of the file.
+
+The slicer finds each figure, removes a white background if there is one, cleans up specks and
+halos left by AI background removal, puts every frame's feet on the same baseline with the head
+centred, and prints the `frameWidth` / `frameHeight` /
+`contentHeight` / `padding` values to copy into `src/data/assets.ts`. `displayHeight` there sets
+the character's on-screen size. The original AI sheets are kept in `src/assets/characters/` as
+source art (they are not bundled).
 
 ### Embedding the web build into a mobile WebView (for later)
 

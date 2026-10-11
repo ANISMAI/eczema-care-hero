@@ -1,11 +1,12 @@
 // Room metadata: single typed list driving layout, walls, furniture, mini-map, full map and
 // interactions. Keep this as the one source of truth for clinic geometry (per brief section 08).
 //
-// Layout (portrait, fits a phone screen):
+// Layout (portrait, fits a phone screen; the main entrance is at the bottom of the hallway):
 //
-//   [ Reception ]  hall  [ Waiting Area ]
-//   [ Care Room ]  hall  [ Storage      ]
-//   [ Staff Off.]  hall  [ Arcade Room  ]
+//   [ Staff Off.]  hall  [ Storage      ]   <- staff area at the back
+//   [ Care Room ]  hall  [ Arcade Room  ]
+//   [ Reception ]  hall  [ Waiting Area ]   <- first rooms visitors reach
+//               entrance
 //
 // Every room opens onto the central hallway through a door on its hallway-facing wall.
 
@@ -40,6 +41,10 @@ export interface InteractableDef {
    */
   area?: { w: number; h: number } | null;
   radius: number;
+  /** How far above x/y the interaction bubble floats (default 62). */
+  markerLift?: number;
+  /** Only show the bubble while this is the nearest interactable (used for people). */
+  markerOnlyWhenNear?: boolean;
   dialogTitle: string;
   dialogText: string;
 }
@@ -51,12 +56,6 @@ export interface FurnitureDef {
   y: number;
   /** Colour/style variant, interpreted by the art layer. */
   variant?: number;
-}
-
-export interface NpcDef {
-  x: number;
-  y: number;
-  variant: number;
 }
 
 export type FloorStyle = "wood" | "tile" | "carpet";
@@ -79,7 +78,6 @@ export interface RoomDef {
   spawn: Point;
   accessible: boolean;
   furniture: FurnitureDef[];
-  npcs: NpcDef[];
   interactables: InteractableDef[];
 }
 
@@ -137,18 +135,19 @@ function local(o: Point) {
 
 // ---------- Rooms ----------
 
-const R = origin(0, 0);
-const W = origin(1, 0);
+// Visitors enter from the bottom, so the public rooms sit by the entrance and the
+// staff-only rooms are at the back.
+const O = origin(0, 0);
+const S = origin(1, 0);
 const C = origin(0, 1);
-const S = origin(1, 1);
-const O = origin(0, 2);
-const A = origin(1, 2);
+const A = origin(1, 1);
+const R = origin(0, 2);
+const W = origin(1, 2);
 
 function reception() {
   const { f, wall, p } = local(R);
   return {
     furniture: [
-      wall("clock", 60),
       wall("noticeBoard", 258),
       f("rugWelcome", 210, 230),
       f("counter", 140, 120),
@@ -171,22 +170,17 @@ function waiting() {
     furniture: [
       wall("picture", 52),
       wall("tv", 262),
-      f("chair", 120, 120, 0),
-      f("chair", 156, 120, 0),
-      f("chair", 192, 120, 0),
-      f("chair", 228, 120, 0),
-      f("chair", 264, 120, 0),
+      f("chair", 120, 120, 3),
+      f("chair", 156, 120, 3),
+      f("chair", 192, 120, 3),
+      f("chair", 228, 120, 3),
+      f("chair", 264, 120, 3),
       f("coffeeTable", 190, 228),
       f("bench", 190, 322),
       f("plant", 36, 70),
       f("plant", 36, 322),
       f("plant", 276, 200),
     ],
-    npcs: [
-      { ...p(192, 120), variant: 0 },
-      { ...p(120, 120), variant: 1 },
-    ],
-    interactable: { x: W.x + 192, y: W.y + 120 },
     spawn: p(55, 180),
   };
 }
@@ -278,14 +272,13 @@ export const ROOMS: RoomDef[] = [
     label: "Reception",
     icon: "🛎️",
     description: "Front desk where visitors check in.",
-    color: 0xffc9a8,
-    floor: { style: "wood", a: 0xf6e3c9, b: 0xe9cfae },
+    color: 0xf07f2e,
+    floor: { style: "wood", a: 0xe9c08c, b: 0xb98a52 },
     bounds: { ...R, ...ROOM_SIZE },
     doorSide: "right",
     spawn: r.spawn,
     accessible: true,
     furniture: r.furniture,
-    npcs: [],
     interactables: [
       {
         id: "reception-desk",
@@ -295,8 +288,8 @@ export const ROOMS: RoomDef[] = [
         ...r.interactable,
         area: FURNITURE.counter.footprint,
         radius: 36,
-        dialogTitle: "Reception Desk",
-        dialogText: "Registration coming soon.",
+        dialogTitle: "Receptionist",
+        dialogText: "\"Welcome to the clinic! Patient registration is coming soon.\"",
       },
     ],
   },
@@ -305,40 +298,28 @@ export const ROOMS: RoomDef[] = [
     label: "Waiting Area",
     icon: "🛋️",
     description: "A cosy spot for visitors to relax.",
-    color: 0xa9dfc8,
-    floor: { style: "tile", a: 0xe6f5ee, b: 0xd8efe3 },
+    color: 0x1fa67a,
+    floor: { style: "tile", a: 0xf3e9db, b: 0xd9c7ac },
     bounds: { ...W, ...ROOM_SIZE },
     doorSide: "left",
     spawn: w.spawn,
     accessible: true,
     furniture: w.furniture,
-    npcs: w.npcs,
-    interactables: [
-      {
-        id: "waiting-npc",
-        kind: "npc",
-        label: "Visitor",
-        icon: "🙂",
-        ...w.interactable,
-        radius: 64,
-        dialogTitle: "Friendly Visitor",
-        dialogText: "\"Hi there! Lovely day, isn't it? I like how bright and calm it is in here.\"",
-      },
-    ],
+    // the seated visitors are interactable; they are defined in npcs.ts
+    interactables: [],
   },
   {
     id: "care",
     label: "Care Room",
     icon: "🧴",
     description: "A calm, tidy room for future care sessions.",
-    color: 0xb8d5f3,
-    floor: { style: "tile", a: 0xeaf2fb, b: 0xdde9f7 },
+    color: 0x2f7fe0,
+    floor: { style: "tile", a: 0xe9eff5, b: 0xc5d1de },
     bounds: { ...C, ...ROOM_SIZE },
     doorSide: "right",
     spawn: c.spawn,
     accessible: true,
     furniture: c.furniture,
-    npcs: [],
     interactables: [
       {
         id: "care-bed",
@@ -358,14 +339,13 @@ export const ROOMS: RoomDef[] = [
     label: "Storage",
     icon: "📦",
     description: "Shelves of neatly stacked supplies.",
-    color: 0xf5dc96,
-    floor: { style: "wood", a: 0xf7ecd4, b: 0xeadbb8 },
+    color: 0xe5a417,
+    floor: { style: "tile", a: 0xdfe3e8, b: 0xb9c1cb },
     bounds: { ...S, ...ROOM_SIZE },
     doorSide: "left",
     spawn: s.spawn,
     accessible: true,
     furniture: s.furniture,
-    npcs: [],
     interactables: [
       {
         id: "storage-shelf",
@@ -385,15 +365,14 @@ export const ROOMS: RoomDef[] = [
     label: "Staff Office",
     icon: "📋",
     description: "Where the team plans the day.",
-    color: 0xd6c4f0,
-    floor: { style: "carpet", a: 0xeee6f8, b: 0xe1d5f2 },
+    color: 0x7a55d6,
+    floor: { style: "carpet", a: 0x8a9bb8, b: 0x7a8ba8 },
     bounds: { ...O, ...ROOM_SIZE },
     signX: 222,
     doorSide: "right",
     spawn: o.spawn,
     accessible: true,
     furniture: o.furniture,
-    npcs: [],
     interactables: [
       {
         id: "office-desk",
@@ -413,15 +392,14 @@ export const ROOMS: RoomDef[] = [
     label: "Arcade Room",
     icon: "🕹️",
     description: "Take a break with mini-games.",
-    color: 0xf5b3cb,
-    floor: { style: "carpet", a: 0xfbe6ee, b: 0xf5d3e0 },
+    color: 0xe8457c,
+    floor: { style: "carpet", a: 0x3b2f6b, b: 0x54468f },
     bounds: { ...A, ...ROOM_SIZE },
     signX: 80,
     doorSide: "left",
     spawn: a.spawn,
     accessible: true,
     furniture: a.furniture,
-    npcs: [],
     interactables: [
       {
         id: "arcade-entrance",

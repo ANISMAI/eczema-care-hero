@@ -17,3 +17,6 @@ const fitToScreen = () => {
 window.addEventListener("resize", fitToScreen);
 window.addEventListener("orientationchange", fitToScreen);
 window.visualViewport?.addEventListener("resize", fitToScreen);
+
+// Dev-only handle for debugging/perf checks from the browser console (stripped from builds).
+if (import.meta.env.DEV) (window as unknown as { __game: Phaser.Game }).__game = game;

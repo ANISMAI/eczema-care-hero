@@ -1,33 +1,46 @@
 import Phaser from "phaser";
 
-// Soft pastel palette shared by all placeholder art. Swap these to re-theme the clinic.
+// Clinic palette shared by all placeholder art: bright, saturated accents on clean whites,
+// with dark outlines for a crisp cartoon look. Swap these to re-theme the clinic.
 export const PAL = {
-  ink: 0x3d3550,
-  cream: 0xfffaf3,
-  creamLine: 0xd8c8b4,
-  wood: 0xeccba3,
-  woodDark: 0xc9a57c,
-  woodDeep: 0xd9b48b,
-  mint: 0xa8e0cf,
-  mintDark: 0x6fbfa6,
-  peach: 0xffcfb3,
-  peachDark: 0xf0a987,
-  pink: 0xf7b6c8,
-  pinkDark: 0xe58aa6,
-  sky: 0xbfe0f7,
-  skyDark: 0x8ec3e8,
-  lavender: 0xd9c8f2,
-  lavenderDark: 0xb39ae0,
-  yellow: 0xffe08a,
-  yellowDark: 0xf2c25a,
-  leaf: 0x8fd19e,
-  leafDark: 0x67b67c,
-  skin: 0xffdcc5,
-  skinLine: 0xe8b99c,
-  grass: 0xcfe8c3,
-  grassDot: 0xbcdcae,
-  shadow: 0x3d3550,
+  ink: 0x26344a,
+  cream: 0xffffff,
+  creamLine: 0xaab5c3,
+  wood: 0xe4b97f,
+  woodDark: 0xa8763c,
+  woodDeep: 0xcf9a5a,
+  mint: 0x2fb38a,
+  mintDark: 0x1b8565,
+  peach: 0xf5973f,
+  peachDark: 0xc4661a,
+  pink: 0xec5470,
+  pinkDark: 0xb42f4a,
+  sky: 0x3b8ff0,
+  skyDark: 0x1f5fbf,
+  lavender: 0x8f6ee0,
+  lavenderDark: 0x5f42b5,
+  yellow: 0xf9c833,
+  yellowDark: 0xcf9810,
+  leaf: 0x52b848,
+  leafDark: 0x2c8a34,
+  skin: 0xffd3b0,
+  skinLine: 0xb97a55,
+  grass: 0x93cf6f,
+  grassDot: 0x7fbd5b,
+  shadow: 0x1d2738,
+  steel: 0xcfd6df,
+  steelDark: 0x7d8ba0,
 };
+
+/** Outline colour for a fill/stroke colour: same hue pushed most of the way to ink. */
+export function outline(color: number): number {
+  const mix = (a: number, b: number, t: number) => Math.round(a + (b - a) * t);
+  const t = 0.62;
+  const r = mix((color >> 16) & 0xff, (PAL.ink >> 16) & 0xff, t);
+  const g = mix((color >> 8) & 0xff, (PAL.ink >> 8) & 0xff, t);
+  const b = mix(color & 0xff, PAL.ink & 0xff, t);
+  return (r << 16) | (g << 8) | b;
+}
 
 /** Lighten (amount > 0) or darken (amount < 0) a 0xRRGGBB colour. amount in -1..1. */
 export function shade(color: number, amount: number): number {
@@ -45,7 +58,7 @@ export function toCss(color: number): string {
 
 type G = Phaser.GameObjects.Graphics;
 
-/** Filled rounded rect with optional outline. */
+/** Filled rounded rect with optional outline (darkened toward ink for a cartoon edge). */
 export function rr(
   g: G,
   x: number,
@@ -61,13 +74,13 @@ export function rr(
   g.fillStyle(fill, 1);
   g.fillRoundedRect(x, y, w, h, radius);
   if (stroke !== undefined) {
-    g.lineStyle(strokeWidth, stroke, 1);
+    g.lineStyle(strokeWidth, outline(stroke), 1);
     g.strokeRoundedRect(x, y, w, h, radius);
   }
 }
 
 /** Soft ground shadow ellipse centred at (x, y). */
-export function groundShadow(g: G, x: number, y: number, w: number, h = 10, alpha = 0.13): void {
+export function groundShadow(g: G, x: number, y: number, w: number, h = 10, alpha = 0.2): void {
   g.fillStyle(PAL.shadow, alpha);
   g.fillEllipse(x, y, w, h);
 }

@@ -35,7 +35,7 @@ export default class MiniMap {
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.clearRect(0, 0, MAP_W, MAP_H);
 
-    ctx.fillStyle = "#e3f1da";
+    ctx.fillStyle = "#93cf6f";
     ctx.fillRect(0, 0, MAP_W, MAP_H);
 
     const box = (x: number, y: number, w: number, h: number, fill: string, stroke?: string) => {
@@ -50,11 +50,11 @@ export default class MiniMap {
       }
     };
 
-    box(HALLWAY.x, HALLWAY.y, HALLWAY.width, HALLWAY.height, "#f6efe4");
+    box(HALLWAY.x, HALLWAY.y, HALLWAY.width, HALLWAY.height, "#f3e9db");
     for (const room of ROOMS) {
       const { x, y, width, height } = room.bounds;
       const isHere = room.id === currentRoomId;
-      box(x, y, width, height, toCss(isHere ? room.color : shade(room.color, 0.55)), isHere ? toCss(shade(room.color, -0.3)) : undefined);
+      box(x, y, width, height, toCss(isHere ? room.color : shade(room.color, 0.6)), isHere ? "#ffffff" : undefined);
     }
 
     // player arrow with a soft pulsing halo
@@ -63,7 +63,7 @@ export default class MiniMap {
     const py = this.sy(playerY);
     ctx.beginPath();
     ctx.arc(px, py, 5.5 + Math.sin(this.pulse) * 1.2, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(63, 159, 138, 0.25)";
+    ctx.fillStyle = "rgba(232, 51, 63, 0.3)";
     ctx.fill();
 
     ctx.save();
@@ -75,7 +75,7 @@ export default class MiniMap {
     ctx.lineTo(0, 2);
     ctx.lineTo(-4, 4);
     ctx.closePath();
-    ctx.fillStyle = "#3f9f8a";
+    ctx.fillStyle = "#e8333f";
     ctx.strokeStyle = "#ffffff";
     ctx.lineWidth = 1.5;
     ctx.stroke();

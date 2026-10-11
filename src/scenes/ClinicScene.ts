@@ -7,6 +7,8 @@ import HUD from "../ui/HUD";
 import MiniMap from "../ui/MiniMap";
 import FullMap from "../ui/FullMap";
 import Dialog from "../ui/Dialog";
+import CharacterSelect from "../ui/CharacterSelect";
+import { CHARACTERS, getCharacter, type CharacterId, type PlayableCharacter } from "../data/assets";
 import {
   ROOMS,
   HALLWAY,
@@ -25,7 +27,8 @@ import {
 import { loadSave, saveGame, SAVE_VERSION } from "../data/save";
 import { RENDER_SCALE } from "../game/display";
 import { createFurniture } from "../art/furniture";
-import { drawPatient } from "../art/characters";
+import { PoseNpc, WalkerNpc } from "../entities/Npc";
+import { NPC_INTERACTABLES, POSE_NPCS, WALKER_NPCS } from "../data/npcs";
 import {
   HALLWAY_FLOOR,
   HALLWAY_WALL,
@@ -39,7 +42,7 @@ import {
   type Marker,
 } from "../art/environment";
 
-const MARKER_LIFT = 62; // how far above an interactable its bubble floats
+const MARKER_LIFT = 62; // default height of an interaction bubble above its interactable
 
 export default class ClinicScene extends Phaser.Scene {
   private player!: Player;
@@ -50,8 +53,13 @@ export default class ClinicScene extends Phaser.Scene {
   private miniMap!: MiniMap;
   private fullMap!: FullMap;
   private dialog!: Dialog;
+  private characterSelect!: CharacterSelect;
+  private character: PlayableCharacter | undefined;
 
   private markers = new Map<string, Marker>();
+  private poseNpcs: PoseNpc[] = [];
+  private walkers: WalkerNpc[] = [];
+  private interactables: InteractableDef[] = [];
   private currentRoomId: RoomId = "reception";
   private nearestInteractable: InteractableDef | null = null;
   private inputLocked = false;
@@ -69,7 +77,9 @@ export default class ClinicScene extends Phaser.Scene {
     const solids = this.buildColliders();
     this.checkLayout();
 
-    this.player = new Player(this, save.playerX, save.playerY);
+    // Until a character is chosen, the first one stands in behind the select screen.
+    this.character = getCharacter(save.settings.character);
+    this.player = new Player(this, save.playerX, save.playerY, (this.character ?? CHARACTERS[0]).sheet);
     this.physics.add.collider(this.player, solids);
 
     const cam = this.cameras.main;
@@ -81,7 +91,7 @@ export default class ClinicScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off(Phaser.Scale.Events.RESIZE, this.fitCamera, this));
 
     this.movement = new MovementSystem(this, this.player);
-    this.interaction = new InteractionSystem();
+    this.interaction = new InteractionSystem(this.interactables);
     this.navigation = new NavigationSystem(this.player);
 
     this.buildUI();
@@ -123,16 +133,24 @@ export default class ClinicScene extends Phaser.Scene {
       drawRoomPlaque(this, room);
       for (const item of room.furniture) createFurniture(this, item);
 
-      for (const npc of room.npcs) {
-        // NPCs sit on chairs: drawn just in front of the chair they sit on.
-        const g = this.add.graphics();
-        drawPatient(g, npc.variant);
-        g.setPosition(npc.x, npc.y + 6).setDepth(npc.y + 11);
-      }
+      this.interactables.push(...room.interactables);
+    }
 
-      for (const item of room.interactables) {
-        this.markers.set(item.id, createMarker(this, item.x, item.y - MARKER_LIFT, item.kind === "npc"));
-      }
+    this.poseNpcs = POSE_NPCS.map((def) => new PoseNpc(this, def));
+    this.walkers = WALKER_NPCS.map((def) => new WalkerNpc(this, def));
+    // A walker whose sprite failed to load is left out entirely, conversation included.
+    const hidden = new Set(WALKER_NPCS.filter((_, i) => !this.walkers[i].visible).map((d) => d.talk.id));
+    this.interactables.push(...NPC_INTERACTABLES.filter((item) => !hidden.has(item.id)));
+
+    for (const item of this.interactables) {
+      const marker = createMarker(
+        this,
+        item.x,
+        item.y - (item.markerLift ?? MARKER_LIFT),
+        item.kind === "npc",
+        item.markerOnlyWhenNear
+      );
+      this.markers.set(item.id, marker);
     }
   }
 
@@ -146,6 +164,11 @@ export default class ClinicScene extends Phaser.Scene {
     };
     getAllWalls().forEach(addZone);
     getFurnitureSolids().forEach(addZone);
+    for (const npc of POSE_NPCS) {
+      if (!npc.solid) continue;
+      const { w, h } = npc.solid;
+      addZone({ x: npc.feet.x - w / 2, y: npc.feet.y - h, width: w, height: h });
+    }
     return group;
   }
 
@@ -167,13 +190,21 @@ export default class ClinicScene extends Phaser.Scene {
       onJoystickMove: (x, y) => this.movement.setJoystickVector(x, y),
       onInteract: () => this.handleInteract(),
       onMiniMapTap: () => this.openFullMap(),
+      onAvatarTap: () => this.openCharacterSelect(false),
     });
+    this.hud.setAvatar(this.character);
     this.miniMap = new MiniMap(this.hud.miniMapMount);
     this.fullMap = new FullMap(uiRoot, {
       onGoHere: (roomId) => this.handleGoHere(roomId),
       onClose: () => (this.inputLocked = false),
     });
     this.dialog = new Dialog(uiRoot);
+    this.characterSelect = new CharacterSelect(
+      uiRoot,
+      (id) => this.chooseCharacter(id),
+      () => (this.inputLocked = false)
+    );
+    if (!this.character) this.openCharacterSelect(true);
 
     this.input.keyboard?.on("keydown-E", () => this.handleInteract());
     this.input.keyboard?.on("keydown-SPACE", () => this.handleInteract());
@@ -189,6 +220,23 @@ export default class ClinicScene extends Phaser.Scene {
     this.dialog.open(item.dialogTitle, item.dialogText, item.icon, () => {
       this.inputLocked = false;
     });
+  }
+
+  /** `required` on first launch, when no character has been chosen yet. */
+  private openCharacterSelect(required: boolean): void {
+    if (this.inputLocked && !required) return;
+    this.inputLocked = true;
+    this.movement.setJoystickVector(0, 0);
+    this.player.setVelocity(0, 0);
+    this.characterSelect.open(this.character?.id, required);
+  }
+
+  private chooseCharacter(id: CharacterId): void {
+    this.character = getCharacter(id);
+    this.player.setCharacter(this.character?.sheet ?? null);
+    this.hud.setAvatar(this.character);
+    this.inputLocked = false;
+    this.persist();
   }
 
   private openFullMap(): void {
@@ -231,6 +279,13 @@ export default class ClinicScene extends Phaser.Scene {
       this.hud.showRoomToast(this.roomLabel(room.id));
     }
 
+    const playerPos = { x: this.player.x, y: this.player.y };
+    for (const npc of this.poseNpcs) npc.update(delta, playerPos);
+    for (const walker of this.walkers) walker.update(delta, playerPos, this.inputLocked);
+    for (const def of WALKER_NPCS) {
+      this.markers.get(def.talk.id)?.setPosition(def.talk.x, def.talk.y - (def.talk.markerLift ?? MARKER_LIFT));
+    }
+
     this.nearestInteractable = this.interaction.getNearest(this.player.x, this.player.y);
     this.markers.forEach((m, id) => m.setActive(id === this.nearestInteractable?.id));
     this.hud.setInteractTarget(this.inputLocked ? null : this.nearestInteractable);
@@ -244,7 +299,7 @@ export default class ClinicScene extends Phaser.Scene {
       playerX: this.player.x,
       playerY: this.player.y,
       currentRoomId: this.currentRoomId,
-      settings: { musicOn: true },
+      settings: { musicOn: true, character: this.character?.id },
     });
   }
 }

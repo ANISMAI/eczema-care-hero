@@ -1,7 +1,8 @@
 import Phaser from "phaser";
 import { FURNITURE, type FurnitureKind } from "../data/furniture";
 import type { FurnitureDef } from "../data/rooms";
-import { PAL, groundShadow, rr, shade, star } from "./palette";
+import { PAL, groundShadow, outline, rr, shade, star } from "./palette";
+import { addBaked } from "./bake";
 
 // Placeholder furniture art, drawn as vector Graphics so it stays crisp at any zoom.
 //
@@ -9,8 +10,9 @@ import { PAL, groundShadow, rr, shade, star } from "./palette";
 //   object layer -> (0, 0) is the bottom-centre of the collision footprint; draw upwards.
 //   floor / wall -> (0, 0) is the centre of the graphic.
 //
-// To use real sprites later, replace the body of createFurniture() with
-// `scene.add.image(x, y, key).setOrigin(0.5, 1)` per kind — positions and depth stay the same.
+// Each kind/variant is drawn once into a shared texture (see bake.ts). To use real sprites
+// later, replace the addBaked() calls in createFurniture() with
+// `scene.add.image(x, bottom, key).setOrigin(0.5, 1)` — positions and depth stay the same.
 
 type G = Phaser.GameObjects.Graphics;
 type Drawer = (g: G, variant: number) => void;
@@ -18,73 +20,104 @@ type Drawer = (g: G, variant: number) => void;
 const CHAIR_COLORS = [PAL.mint, PAL.peach, PAL.lavender, PAL.sky];
 const ARCADE_COLORS = [PAL.pink, PAL.skyDark, PAL.yellow];
 const BEANBAG_COLORS = [PAL.yellow, PAL.mint];
-const ITEM_COLORS = [PAL.pink, PAL.mint, PAL.sky, PAL.yellow, PAL.lavender, PAL.peach];
+const ITEM_COLORS = [PAL.sky, PAL.pink, PAL.yellow, PAL.mint, PAL.sky, PAL.peach, PAL.lavender];
+
+/** White product box with a coloured label band, like boxed supplies on a pharmacy shelf. */
+function supplyBox(g: G, x: number, bottom: number, w: number, h: number, label: number): void {
+  rr(g, x, bottom - h, w, h, 1.5, 0xffffff, PAL.steelDark, 1.2);
+  g.fillStyle(label, 1);
+  g.fillRect(x + 1, bottom - h + h * 0.35, w - 2, Math.max(3, h * 0.3));
+}
 
 function shelfUnit(g: G, w: number): void {
   const h = 80;
-  groundShadow(g, 0, -2, w + 6, 10);
-  rr(g, -w / 2, -h, w, h, 6, PAL.wood, PAL.woodDark);
-  rr(g, -w / 2 + 5, -h + 5, w - 10, h - 10, 3, shade(PAL.wood, 0.45));
+  groundShadow(g, 0, -2, w + 8, 12, 0.2);
+  rr(g, -w / 2, -h, w, h, 3, PAL.steel, PAL.steelDark);
+  rr(g, -w / 2 + 4, -h + 4, w - 8, h - 8, 2, 0xe9edf2);
   const boards = [-h + 28, -h + 52, -6];
   boards.forEach((by, level) => {
-    g.fillStyle(PAL.woodDark, 1);
-    g.fillRect(-w / 2 + 5, by, w - 10, 3);
-    let x = -w / 2 + 9;
+    let x = -w / 2 + 7;
     let i = level * 2;
-    while (x < w / 2 - 18) {
+    while (x < w / 2 - 16) {
       const color = ITEM_COLORS[i % ITEM_COLORS.length];
-      const iw = 10 + ((i * 7) % 3) * 3;
-      const ih = 12 + ((i * 5) % 3) * 3;
-      if (i % 3 === 1) {
-        // jar
-        rr(g, x, by - ih, iw, ih, 4, color, shade(color, -0.25), 1.5);
-        g.fillStyle(PAL.cream, 1);
-        g.fillRect(x + 2, by - ih + 2, iw - 4, 3);
+      const iw = 9 + ((i * 7) % 3) * 3;
+      const ih = 13 + ((i * 5) % 3) * 3;
+      if (i % 4 === 3) {
+        // coloured storage bin
+        rr(g, x, by - ih + 4, iw + 4, ih - 4, 2, color, color, 1.2);
+        x += iw + 7;
       } else {
-        // box
-        rr(g, x, by - ih, iw, ih, 2, color, shade(color, -0.25), 1.5);
+        supplyBox(g, x, by, iw, ih, color);
+        x += iw + 3;
       }
-      x += iw + 4;
       i++;
     }
+    g.fillStyle(PAL.steelDark, 1);
+    g.fillRect(-w / 2 + 4, by, w - 8, 3);
+    g.fillStyle(0xffffff, 0.6);
+    g.fillRect(-w / 2 + 4, by, w - 8, 1);
   });
+  // uprights
+  g.fillStyle(shade(PAL.steelDark, -0.1), 1);
+  g.fillRect(-w / 2, -h, 3, h);
+  g.fillRect(w / 2 - 3, -h, 3, h);
 }
 
 const DRAW: Record<FurnitureKind, Drawer> = {
   counter: (g) => {
-    groundShadow(g, 0, -1, 160, 12);
-    rr(g, -75, -42, 150, 42, 8, 0xf7c2a3, 0xe09a77);
-    rr(g, -66, -30, 132, 8, 4, 0xffdcc8);
-    rr(g, -78, -64, 156, 26, 8, PAL.cream, PAL.creamLine);
-    // monitor
-    g.fillStyle(0x5a6684, 1);
+    groundShadow(g, 0, -1, 162, 14, 0.2);
+    rr(g, -75, -42, 150, 42, 4, 0xe8ecf1, PAL.steelDark);
+    g.fillStyle(PAL.skyDark, 1);
+    g.fillRect(-74, -10, 148, 8);
+    g.lineStyle(1.5, PAL.steelDark, 1);
+    g.lineBetween(-25, -40, -25, -10);
+    g.lineBetween(25, -40, 25, -10);
+    rr(g, -78, -64, 156, 26, 4, PAL.wood, PAL.woodDark);
+    g.fillStyle(0xffffff, 0.35);
+    g.fillRect(-74, -61, 148, 4);
+    // monitor + keyboard
+    g.fillStyle(PAL.ink, 1);
     g.fillRect(36, -64, 6, 6);
-    rr(g, 22, -88, 34, 26, 5, 0x5a6684);
-    rr(g, 25, -85, 28, 19, 3, 0xb6e3f5);
-    // papers + bell
-    rr(g, -20, -60, 22, 15, 2, 0xffffff, 0xd9d9e3, 1);
+    rr(g, 20, -90, 38, 28, 3, 0x2b3240, PAL.ink);
+    rr(g, 23, -87, 32, 21, 2, 0x5fb8f0);
+    g.fillStyle(0xffffff, 0.5);
+    g.fillTriangle(25, -85, 36, -85, 25, -72);
+    rr(g, 14, -57, 30, 7, 1.5, 0x3a4252, PAL.ink, 1);
+    // papers, pen pot, bell
+    rr(g, -24, -60, 22, 15, 1, 0xffffff, PAL.steelDark, 1);
+    rr(g, -2, -66, 9, 12, 2, PAL.sky, PAL.skyDark, 1.5);
     g.fillStyle(PAL.yellowDark, 1);
-    g.fillEllipse(-50, -51, 18, 7);
+    g.fillEllipse(-52, -51, 18, 7);
     g.fillStyle(PAL.yellow, 1);
-    g.slice(-50, -52, 8, Math.PI, 0, false);
+    g.slice(-52, -52, 8, Math.PI, 0, false);
     g.fillPath();
+    g.lineStyle(1.5, outline(PAL.yellow), 1);
+    g.beginPath();
+    g.arc(-52, -52, 8, Math.PI, 0, false);
+    g.strokePath();
     g.fillStyle(0xffffff, 0.8);
-    g.fillCircle(-53, -56, 2);
+    g.fillCircle(-55, -56, 2);
   },
 
   plant: (g) => {
-    groundShadow(g, 0, -1, 28, 8);
+    groundShadow(g, 0, -1, 30, 9, 0.2);
+    const leaves: [number, number, number][] = [
+      [-9, -30, 9],
+      [9, -31, 9],
+      [0, -42, 10],
+      [-4, -36, 8],
+      [5, -26, 8],
+    ];
+    g.fillStyle(outline(PAL.leafDark), 1);
+    for (const [x, y, r] of leaves) g.fillCircle(x, y, r + 1.5);
     g.fillStyle(PAL.leafDark, 1);
-    g.fillCircle(-8, -30, 9);
-    g.fillCircle(8, -30, 9);
-    g.fillCircle(0, -40, 10);
+    for (const [x, y, r] of leaves) g.fillCircle(x, y, r);
     g.fillStyle(PAL.leaf, 1);
-    g.fillCircle(-6, -33, 7);
-    g.fillCircle(7, -34, 7);
-    g.fillCircle(0, -42, 7);
-    g.fillCircle(0, -28, 8);
-    rr(g, -11, -20, 22, 20, 5, 0xf3b49b, 0xd98f74);
-    rr(g, -13, -22, 26, 7, 3, 0xf7c6b1, 0xd98f74);
+    for (const [x, y, r] of leaves) g.fillCircle(x - 1.5, y - 2, r * 0.6);
+    rr(g, -11, -20, 22, 20, 4, 0xffffff, PAL.steelDark);
+    rr(g, -13, -22, 26, 6, 3, 0xf1f4f7, PAL.steelDark);
+    g.fillStyle(PAL.steel, 1);
+    g.fillRect(-9, -8, 18, 2);
   },
 
   chair: (g, v) => {
@@ -148,7 +181,7 @@ const DRAW: Record<FurnitureKind, Drawer> = {
   cabinet: (g) => {
     groundShadow(g, 0, -1, 44, 8);
     rr(g, -20, -44, 40, 44, 6, PAL.cream, PAL.creamLine);
-    g.lineStyle(1.5, PAL.creamLine, 1);
+    g.lineStyle(1.5, outline(PAL.creamLine), 1);
     g.lineBetween(-16, -28, 16, -28);
     g.lineBetween(-16, -14, 16, -14);
     g.fillStyle(PAL.woodDark, 1);
@@ -163,7 +196,7 @@ const DRAW: Record<FurnitureKind, Drawer> = {
   sink: (g) => {
     groundShadow(g, 0, -1, 90, 9);
     rr(g, -42, -36, 84, 36, 6, PAL.cream, PAL.creamLine);
-    g.lineStyle(1.5, PAL.creamLine, 1);
+    g.lineStyle(1.5, outline(PAL.creamLine), 1);
     g.lineBetween(0, -30, 0, -4);
     rr(g, -44, -52, 88, 20, 6, 0xe6eef6, 0xbccbdc);
     g.fillStyle(0xcfe3f3, 1);
@@ -181,7 +214,7 @@ const DRAW: Record<FurnitureKind, Drawer> = {
     g.fillRect(-2, -12, 4, 12);
     g.fillStyle(PAL.sky, 1);
     g.fillEllipse(0, -15, 22, 12);
-    g.lineStyle(2, PAL.skyDark, 1);
+    g.lineStyle(2, outline(PAL.skyDark), 1);
     g.strokeEllipse(0, -15, 22, 12);
   },
 
@@ -189,11 +222,11 @@ const DRAW: Record<FurnitureKind, Drawer> = {
   shelfWide: (g) => shelfUnit(g, 110),
 
   shelfSide: (g) => {
-    groundShadow(g, 0, -2, 40, 8);
-    rr(g, -18, -114, 36, 114, 6, PAL.wood, PAL.woodDark);
+    groundShadow(g, 0, -2, 42, 10, 0.2);
+    rr(g, -18, -114, 36, 114, 3, PAL.steel, PAL.steelDark);
     for (let i = 0; i < 6; i++) {
       const c = ITEM_COLORS[(i + 2) % ITEM_COLORS.length];
-      rr(g, -12, -106 + i * 17, 24, 13, 3, c, shade(c, -0.25), 1.5);
+      supplyBox(g, -13, -95 + i * 17, 26, 13, c);
     }
   },
 
@@ -224,7 +257,7 @@ const DRAW: Record<FurnitureKind, Drawer> = {
   desk: (g) => {
     groundShadow(g, 0, -1, 128, 12);
     rr(g, -60, -40, 120, 40, 6, PAL.woodDeep, 0xb58e65);
-    g.lineStyle(1.5, 0xb58e65, 1);
+    g.lineStyle(1.5, outline(0xb58e65), 1);
     g.lineBetween(20, -34, 20, -4);
     g.fillStyle(0xb58e65, 1);
     g.fillRect(36, -24, 10, 3);
@@ -269,7 +302,7 @@ const DRAW: Record<FurnitureKind, Drawer> = {
     g.fillRect(-3, -16, 6, 14);
     g.fillStyle(PAL.cream, 1);
     g.fillEllipse(0, -24, 60, 34);
-    g.lineStyle(2, PAL.creamLine, 1);
+    g.lineStyle(2, outline(PAL.creamLine), 1);
     g.strokeEllipse(0, -24, 60, 34);
     rr(g, -6, -36, 12, 12, 3, PAL.sky, PAL.skyDark, 1.5);
     g.fillStyle(PAL.leaf, 1);
@@ -323,7 +356,7 @@ const DRAW: Record<FurnitureKind, Drawer> = {
     g.fillRect(8, -22, 10, 6);
     g.fillStyle(0xdff4ff, 0.85);
     g.fillRoundedRect(-21, -80, 42, 50, 6);
-    g.lineStyle(2, 0x9cc8e8, 1);
+    g.lineStyle(2, outline(0x9cc8e8), 1);
     g.strokeRoundedRect(-21, -80, 42, 50, 6);
     g.fillStyle(PAL.yellow, 1);
     g.fillCircle(-11, -38, 6);
@@ -331,7 +364,7 @@ const DRAW: Record<FurnitureKind, Drawer> = {
     g.fillCircle(1, -36, 6);
     g.fillStyle(PAL.lavender, 1);
     g.fillCircle(11, -39, 6);
-    g.lineStyle(1.5, 0x7d8aa6, 1);
+    g.lineStyle(1.5, outline(0x7d8aa6), 1);
     g.lineBetween(2, -78, 2, -62);
     g.lineBetween(2, -62, -3, -56);
     g.lineBetween(2, -62, 7, -56);
@@ -343,22 +376,22 @@ const DRAW: Record<FurnitureKind, Drawer> = {
     groundShadow(g, 0, -1, 44, 9);
     g.fillStyle(c, 1);
     g.fillEllipse(0, -14, 44, 30);
-    g.lineStyle(2, shade(c, -0.25), 1);
+    g.lineStyle(2, outline(shade(c, -0.25)), 1);
     g.strokeEllipse(0, -14, 44, 30);
     g.fillStyle(shade(c, 0.4), 1);
     g.fillEllipse(-6, -19, 18, 10);
   },
 
   rugWelcome: (g) => {
-    rr(g, -62, -42, 124, 84, 20, 0xffd9c4);
-    g.lineStyle(3, 0xffffff, 0.9);
-    g.strokeRoundedRect(-54, -34, 108, 68, 15);
-    star(g, 0, 0, 10, 0xffffff);
+    rr(g, -62, -42, 124, 84, 10, 0x2d4f8f, PAL.ink);
+    g.lineStyle(3, 0x6f9be0, 1);
+    g.strokeRoundedRect(-54, -34, 108, 68, 7);
+    star(g, 0, 0, 11, PAL.yellow);
   },
 
   rugStar: (g) => {
-    rr(g, -72, -52, 144, 104, 26, PAL.lavender);
-    g.lineStyle(3, 0xffffff, 0.8);
+    rr(g, -72, -52, 144, 104, 26, 0x6a4fc4, PAL.lavenderDark);
+    g.lineStyle(3, 0x22d3ee, 0.9);
     g.strokeRoundedRect(-64, -44, 128, 88, 20);
     star(g, -36, -14, 9, PAL.yellow);
     star(g, 30, -20, 7, PAL.pink);
@@ -368,8 +401,8 @@ const DRAW: Record<FurnitureKind, Drawer> = {
   },
 
   mat: (g) => {
-    rr(g, -42, -16, 84, 32, 8, PAL.mint);
-    g.lineStyle(2, 0xffffff, 0.8);
+    rr(g, -42, -16, 84, 32, 6, 0x3a4252, PAL.ink);
+    g.lineStyle(2, 0x6b7586, 1);
     for (let x = -30; x <= 30; x += 12) g.lineBetween(x, -10, x, 10);
   },
 
@@ -387,7 +420,7 @@ const DRAW: Record<FurnitureKind, Drawer> = {
   clock: (g) => {
     g.fillStyle(0xffffff, 1);
     g.fillCircle(0, 0, 11);
-    g.lineStyle(2.5, PAL.creamLine, 1);
+    g.lineStyle(2.5, outline(PAL.creamLine), 1);
     g.strokeCircle(0, 0, 11);
     g.lineStyle(2, PAL.ink, 1);
     g.lineBetween(0, 0, 0, -7);
@@ -452,19 +485,15 @@ const DRAW: Record<FurnitureKind, Drawer> = {
 };
 
 /** Draws one furniture item into the scene and depth-sorts it. */
-export function createFurniture(scene: Phaser.Scene, item: FurnitureDef): Phaser.GameObjects.Graphics {
+export function createFurniture(scene: Phaser.Scene, item: FurnitureDef): Phaser.GameObjects.Image {
   const spec = FURNITURE[item.kind];
-  const g = scene.add.graphics();
-  DRAW[item.kind](g, item.variant ?? 0);
+  const variant = item.variant ?? 0;
+  const draw = (g: G) => DRAW[item.kind](g, variant);
+  const key = `furniture-${item.kind}-${variant}`;
 
-  if (spec.layer === "floor") {
-    g.setPosition(item.x, item.y).setDepth(-50);
-  } else if (spec.layer === "wall") {
-    // Above the wall face it hangs on, below anything standing in the room.
-    g.setPosition(item.x, item.y).setDepth(item.y + 20);
-  } else {
-    const bottom = item.y + (spec.footprint ? spec.footprint.h / 2 : 0);
-    g.setPosition(item.x, bottom).setDepth(bottom);
-  }
-  return g;
+  if (spec.layer === "floor") return addBaked(scene, key, item.x, item.y, draw).setDepth(-50);
+  // Wall decor sits above the wall face it hangs on, below anything standing in the room.
+  if (spec.layer === "wall") return addBaked(scene, key, item.x, item.y, draw).setDepth(item.y + 20);
+  const bottom = item.y + (spec.footprint ? spec.footprint.h / 2 : 0);
+  return addBaked(scene, key, item.x, bottom, draw).setDepth(bottom);
 }

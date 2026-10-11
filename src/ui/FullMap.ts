@@ -49,7 +49,7 @@ export default class FullMap {
       const el = document.createElement("button");
       el.className = "fm-room";
       el.style.setProperty("--room", toCss(room.color));
-      el.style.setProperty("--room-soft", toCss(shade(room.color, 0.55)));
+      el.style.setProperty("--room-soft", toCss(shade(room.color, 0.62)));
       el.style.setProperty("--room-dark", toCss(shade(room.color, -0.35)));
       el.innerHTML = `<span class="fm-room-icon">${room.icon}</span><span class="fm-room-label">${room.label}</span>`;
       this.place(el, room.bounds.x, room.bounds.y, room.bounds.width, room.bounds.height);

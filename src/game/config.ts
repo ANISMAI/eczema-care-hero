@@ -22,6 +22,12 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
     height: initial.height * RENDER_SCALE,
     zoom: 1 / RENDER_SCALE,
   },
+  fps: {
+    // Phaser clamps every frame to 1/60 s for the first `panicMax` frames. On a slow start
+    // (shader compile, texture upload) that made the whole game run in slow motion for a few
+    // seconds, so real frame times are used from the first frame.
+    panicMax: 0,
+  },
   physics: {
     default: "arcade",
     arcade: {

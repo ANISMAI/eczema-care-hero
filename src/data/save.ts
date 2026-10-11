@@ -1,7 +1,8 @@
 import { ROOMS, isWalkable, type RoomId } from "./rooms";
+import { getCharacter, type CharacterId } from "./assets";
 
-// v2: clinic layout changed to the portrait floor plan, so v1 coordinates are discarded.
-const SAVE_KEY = "eczema-care-hero-save-v2";
+// v3: rooms reordered so Reception / Waiting Area sit by the entrance; older positions are discarded.
+const SAVE_KEY = "eczema-care-hero-save-v3";
 export const SAVE_VERSION = 2;
 
 export interface SaveData {
@@ -11,6 +12,8 @@ export interface SaveData {
   currentRoomId: RoomId;
   settings: {
     musicOn: boolean;
+    /** Chosen player character; undefined until the player picks one (shows the select screen). */
+    character?: CharacterId;
   };
 }
 
@@ -41,8 +44,10 @@ export function loadSave(): SaveData {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return defaultSave();
     const parsed = JSON.parse(raw);
-    if (!isValid(parsed)) return defaultSave();
-    return { ...defaultSave(), ...parsed };
+    // A bad position resets the position, but keeps the chosen character if it is valid.
+    const character = getCharacter(parsed?.settings?.character)?.id;
+    const base = isValid(parsed) ? { ...defaultSave(), ...parsed } : defaultSave();
+    return { ...base, settings: { musicOn: base.settings?.musicOn !== false, character } };
   } catch {
     return defaultSave();
   }
