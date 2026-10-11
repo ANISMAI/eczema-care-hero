@@ -21,7 +21,10 @@ export interface StaffCard {
   portrait: string;
   helps: string[];
   about: string;
-  /** Set for the playable doctors: the card of the chosen character is marked "You". */
+  /**
+   * Set for the playable doctors. The player's own doctor is left out of the directory (that is
+   * their profile); the other one is shown as an off-duty colleague.
+   */
   characterId?: CharacterId;
   /** NPC id in npcs.ts, so Find can go to where they are right now. */
   npcId?: string;

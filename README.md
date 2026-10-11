@@ -21,8 +21,9 @@ toolbar (or visit from a phone on the same network via `npm run dev -- --host`) 
 
 - **Touch**: bottom-left virtual joystick to move, bottom-right **Interact** button appears
   near an interactable object/NPC, tap the mini-map (top-right) to open the full map.
-- **Character**: on first launch the player picks the female or male doctor; the round face
-  button at the top-left of the HUD changes character at any time. The choice is saved.
+- **Character**: on first launch the player picks the female or male doctor (saved). The round
+  face button at the top-left of the HUD opens **My Profile**: the player's own staff ID card,
+  with a "Change doctor" button.
 - **Desktop**: arrow keys or WASD to move; **E** / **Space** to interact; **M** to open the map;
   **Esc** closes any dialog. HUD buttons also work with the mouse.
 
@@ -160,7 +161,8 @@ AI source sheet with `tools/make-portrait.py`, because the in-game sprites are t
 this large), name, role, staff number,
 where to find them, what they can help with and a fun fact. Swipe or use the arrows to browse.
 **Find** takes the player to that person (front of the counter for the receptionist and
-pharmacist). The chosen doctor's card is marked "You"; the other doctor is "Off duty".
+pharmacist). The player's own doctor isn't listed (that belongs on their profile); the other
+doctor appears as an off-duty colleague.
 
 ### Making spritesheets from AI images
 

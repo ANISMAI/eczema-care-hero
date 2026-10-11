@@ -1,5 +1,6 @@
 import type { InteractableDef } from "../data/rooms";
 import type { PlayableCharacter } from "../data/assets";
+import { STAFF } from "../data/staff";
 
 const JOYSTICK_RADIUS = 40;
 
@@ -42,7 +43,7 @@ export default class HUD {
     // Current character's face; tap to change character
     this.avatarBtn = document.createElement("button");
     this.avatarBtn.className = "hud-avatar";
-    this.avatarBtn.setAttribute("aria-label", "Change character");
+    this.avatarBtn.setAttribute("aria-label", "My profile");
     this.avatarFace = document.createElement("span");
     this.avatarFace.className = "hud-avatar-face";
     this.avatarBtn.appendChild(this.avatarFace);
@@ -91,9 +92,18 @@ export default class HUD {
     const right = document.createElement("div");
     right.className = "hud-right";
     const staffBtn = document.createElement("button");
-    staffBtn.className = "hud-side-btn";
+    // a mini staff ID card on a lanyard, with three team members' faces
+    staffBtn.className = "hud-staff-btn";
     staffBtn.setAttribute("aria-label", "Staff directory");
-    staffBtn.innerHTML = "<span>👥</span><span>Staff</span>";
+    const faces = ["nurul", "jason", "grace"]
+      .map((id) => STAFF.find((s) => s.id === id)?.portrait)
+      .filter(Boolean)
+      .map((src) => `<img src="${src}" alt="" draggable="false">`)
+      .join("");
+    staffBtn.innerHTML =
+      `<span class="mini-swing"><span class="mini-lanyard"></span><span class="mini-clip"></span>` +
+      `<span class="mini-card"><span class="mini-head"></span>` +
+      `<span class="mini-faces">${faces}</span><span class="mini-label">Staff</span></span></span>`;
     staffBtn.addEventListener("click", callbacks.onStaffTap);
     right.append(staffBtn, this.miniMapMount);
 
@@ -189,7 +199,7 @@ export default class HUD {
     this.avatarFace.style.backgroundImage = `url("${sheet.url}")`;
     this.avatarFace.style.backgroundSize = `${fw * 3}px ${sheet.frameHeight * 4 * scale}px`;
     this.avatarFace.style.backgroundPosition = `${20 - fw / 2}px ${-sheet.rows.down * sheet.frameHeight * scale - 2}px`;
-    this.avatarBtn.setAttribute("aria-label", `Change character (${character.label})`);
+    this.avatarBtn.setAttribute("aria-label", `My profile (${character.label})`);
   }
 
   setStats(level: number, coins: number): void {

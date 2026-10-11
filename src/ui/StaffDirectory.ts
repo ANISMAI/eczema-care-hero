@@ -1,18 +1,11 @@
 import { STAFF, type StaffCard } from "../data/staff";
-import { getRoomById } from "../data/rooms";
 import type { CharacterId } from "../data/assets";
+import { cardCloseButton, el, renderIdCard } from "./IdCard";
 
 export interface StaffDirectoryCallbacks {
   /** Take the player to this staff member. */
   onFind: (card: StaffCard) => void;
   onClose: () => void;
-}
-
-function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string): HTMLElementTagNameMap[K] {
-  const node = document.createElement(tag);
-  if (className) node.className = className;
-  if (text !== undefined) node.textContent = text;
-  return node;
 }
 
 /** Staff directory: one staff ID card at a time; swipe or use the arrows to browse. */
@@ -24,6 +17,9 @@ export default class StaffDirectory {
   private counter: HTMLSpanElement;
   private index = 0;
   private playerCharacter: CharacterId | undefined;
+  /** Cards shown this time: everyone except the player's own doctor (that's their profile). */
+  private cards: StaffCard[] = STAFF;
+  private dotsRow!: HTMLDivElement;
   private callbacks: StaffDirectoryCallbacks;
 
   constructor(parent: HTMLElement, callbacks: StaffDirectoryCallbacks) {
@@ -47,27 +43,22 @@ export default class StaffDirectory {
     next.setAttribute("aria-label", "Next staff");
     next.addEventListener("click", () => this.show(this.index + 1, 1));
     this.cardHost = el("div", "staff-card-host");
-    stage.append(prev, this.cardHost, next);
+    const frame = el("div", "staff-card-frame");
+    frame.append(this.cardHost, cardCloseButton(() => this.close()));
+    stage.append(prev, frame, next);
     this.enableSwipe(this.cardHost);
 
     const dots = el("div", "staff-dots");
-    STAFF.forEach((_, i) => {
-      const d = el("span", "staff-dot");
-      d.addEventListener("click", () => this.show(i, i > this.index ? 1 : -1));
-      dots.appendChild(d);
-      this.dots.push(d);
-    });
+    this.dotsRow = dots;
 
     const actions = el("div", "modal-actions staff-actions");
-    const closeBtn = el("button", "secondary-btn", "Close");
-    closeBtn.addEventListener("click", () => this.close());
     this.findBtn = el("button", "primary-btn", "Find");
     this.findBtn.addEventListener("click", () => {
-      const card = STAFF[this.index];
+      const card = this.cards[this.index];
       this.close();
       this.callbacks.onFind(card);
     });
-    actions.append(closeBtn, this.findBtn);
+    actions.append(this.findBtn);
 
     wrap.append(title, stage, dots, actions);
     this.root.appendChild(wrap);
@@ -96,69 +87,33 @@ export default class StaffDirectory {
   }
 
   private show(i: number, direction = 0): void {
-    const n = STAFF.length;
+    const n = this.cards.length;
     this.index = ((i % n) + n) % n;
-    const card = STAFF[this.index];
-    const node = this.renderCard(card);
+    const card = this.cards[this.index];
+    const node = renderIdCard(card, { badge: card.characterId ? "off" : undefined });
     if (direction) node.classList.add(direction > 0 ? "enter-right" : "enter-left");
     this.cardHost.replaceChildren(node);
     this.dots.forEach((d, k) => d.classList.toggle("active", k === this.index));
     this.counter.textContent = `${this.index + 1} / ${n}`;
 
-    const isYou = card.characterId !== undefined && card.characterId === this.playerCharacter;
-    const offDuty = card.characterId !== undefined && !isYou;
-    this.findBtn.disabled = isYou || offDuty;
-    this.findBtn.textContent = isYou ? "That's you!" : offDuty ? "Off duty" : `Find ${card.name.split(" ")[0]}`;
-  }
-
-  private renderCard(card: StaffCard): HTMLDivElement {
-    const isYou = card.characterId !== undefined && card.characterId === this.playerCharacter;
-    const offDuty = card.characterId !== undefined && !isYou;
-
-    const root = el("div", "id-card");
-    root.style.setProperty("--accent", card.accent);
-
-    // lanyard + clip
-    root.append(el("span", "id-lanyard"), el("span", "id-clip"));
-
-    const head = el("div", "id-head");
-    const logo = el("span", "id-logo", "✚");
-    const org = el("div", "id-org");
-    org.append(el("span", "", "Eczema Care Clinic"), el("strong", "", "Staff ID"));
-    head.append(logo, org);
-
-    const photo = el("div", "id-photo");
-    const portrait = el("img", "id-portrait");
-    portrait.src = card.portrait;
-    portrait.alt = card.name;
-    portrait.draggable = false;
-    photo.appendChild(portrait);
-    if (isYou) photo.appendChild(el("span", "id-badge you", "You"));
-    if (offDuty) photo.appendChild(el("span", "id-badge off", "Off duty today"));
-
-    const name = el("h3", "id-name", card.name);
-    const role = el("span", "id-role", card.role);
-
-    const meta = el("div", "id-meta");
-    const room = getRoomById(card.room);
-    meta.append(el("span", "", `ID ${card.staffNo}`), el("span", "", `📍 ${room.label}`));
-
-    const helpsTitle = el("div", "id-section", "Can help you with");
-    const helps = el("ul", "id-helps");
-    for (const h of card.helps) helps.appendChild(el("li", "", h));
-
-    const aboutTitle = el("div", "id-section", "About me");
-    const about = el("p", "id-about", `“${card.about}”`);
-
-    const foot = el("div", "id-foot");
-    foot.append(el("span", "id-barcode"), el("span", "id-valid", "Valid until 12/2027"));
-
-    root.append(head, photo, name, role, meta, helpsTitle, helps, aboutTitle, about, foot);
-    return root;
+    // the other doctor (the one not being played) isn't in the clinic today
+    const offDuty = card.characterId !== undefined;
+    this.findBtn.disabled = offDuty;
+    this.findBtn.textContent = offDuty ? "Off duty" : `Find ${card.name.split(" ")[0]}`;
   }
 
   open(playerCharacter: CharacterId | undefined): void {
-    this.playerCharacter = playerCharacter;
+    if (playerCharacter !== this.playerCharacter || !this.dots.length) {
+      this.playerCharacter = playerCharacter;
+      this.cards = STAFF.filter((c) => !c.characterId || c.characterId !== playerCharacter);
+      this.dots = this.cards.map((_, i) => {
+        const d = el("span", "staff-dot");
+        d.addEventListener("click", () => this.show(i, i > this.index ? 1 : -1));
+        return d;
+      });
+      this.dotsRow.replaceChildren(...this.dots);
+      this.index = 0;
+    }
     this.root.classList.remove("hidden");
     this.show(this.index);
   }

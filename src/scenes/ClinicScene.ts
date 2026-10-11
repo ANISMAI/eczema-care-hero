@@ -9,6 +9,7 @@ import FullMap from "../ui/FullMap";
 import Dialog from "../ui/Dialog";
 import CharacterSelect from "../ui/CharacterSelect";
 import StaffDirectory from "../ui/StaffDirectory";
+import ProfileCard from "../ui/ProfileCard";
 import type { StaffCard } from "../data/staff";
 import { CHARACTERS, getCharacter, type CharacterId, type PlayableCharacter } from "../data/assets";
 import {
@@ -57,6 +58,7 @@ export default class ClinicScene extends Phaser.Scene {
   private dialog!: Dialog;
   private characterSelect!: CharacterSelect;
   private staffDirectory!: StaffDirectory;
+  private profile!: ProfileCard;
   private character: PlayableCharacter | undefined;
 
   private markers = new Map<string, Marker>();
@@ -198,7 +200,7 @@ export default class ClinicScene extends Phaser.Scene {
       onJoystickMove: (x, y) => this.movement.setJoystickVector(x, y),
       onInteract: () => this.handleInteract(),
       onMiniMapTap: () => this.openFullMap(),
-      onAvatarTap: () => this.openCharacterSelect(false),
+      onAvatarTap: () => this.openProfile(),
       onStaffTap: () => this.openStaffDirectory(),
     });
     this.hud.setAvatar(this.character);
@@ -215,6 +217,11 @@ export default class ClinicScene extends Phaser.Scene {
     );
     this.staffDirectory = new StaffDirectory(uiRoot, {
       onFind: (card) => this.findStaff(card),
+      onClose: () => (this.inputLocked = false),
+    });
+    this.profile = new ProfileCard(uiRoot, {
+      // stays locked: the character picker takes over and unlocks when it closes
+      onChangeCharacter: () => this.characterSelect.open(this.character?.id, false),
       onClose: () => (this.inputLocked = false),
     });
     if (!this.character) this.openCharacterSelect(true);
@@ -250,6 +257,16 @@ export default class ClinicScene extends Phaser.Scene {
     this.hud.setAvatar(this.character);
     this.inputLocked = false;
     this.persist();
+  }
+
+  /** Avatar button: the player's own staff ID card (the picker only opens on first launch). */
+  private openProfile(): void {
+    if (this.inputLocked) return;
+    if (!this.character) return this.openCharacterSelect(true);
+    this.inputLocked = true;
+    this.movement.setJoystickVector(0, 0);
+    this.player.setVelocity(0, 0);
+    this.profile.open(this.character.id);
   }
 
   private openStaffDirectory(): void {
