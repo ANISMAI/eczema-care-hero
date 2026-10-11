@@ -237,7 +237,7 @@ export default class ClinicScene extends Phaser.Scene {
       addInteractable: (item) => this.addInteractable(item),
       removeInteractable: (id) => this.removeInteractable(id),
       findInteractable: (id) => this.interactables.find((i) => i.id === id),
-      setNpcVisible: (id, visible) => this.poseNpcs.find((n) => n.id === id)?.setVisible(visible),
+      playerRoom: () => findRoomAt(this.player.x, this.player.y)?.id ?? null,
       toast: (text) => this.hud.showRoomToast(text),
       setObjective: (text) => this.hud.setObjective(text),
       npcSolids: this.npcSolids(),

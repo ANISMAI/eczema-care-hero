@@ -981,3 +981,259 @@
     min-height: 74px;
   }
 }
+
+/* ---------- treatment (Dentist-Hero style) ---------- */
+
+.case-card.case-treat {
+  width: min(400px, 100%);
+}
+
+.case-treat .case-body {
+  align-items: center;
+  gap: 8px;
+}
+
+.treat-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.treat-face {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 46px;
+  height: 46px;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: #fff6f1;
+  box-shadow: var(--shadow-sm);
+  font-size: 28px;
+  transition: transform 0.15s ease;
+}
+
+.treat-comfort {
+  position: relative;
+  flex: 1;
+  height: 22px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #ece6f6;
+}
+
+.treat-comfort-fill {
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #f0679e, #8f6ee0);
+  transition: width 0.4s ease;
+}
+
+.treat-comfort-label {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.treat-stage {
+  width: min(270px, 70vw);
+}
+
+.treat-stage .lens,
+.treat-stage .towel,
+.treat-stage .apply-zone {
+  display: none;
+}
+
+.treat-stage .lens.show,
+.treat-stage .towel.show,
+.treat-stage .apply-zone.show {
+  display: block;
+}
+
+.treat-stage .lens {
+  left: 80%;
+  top: 82%;
+}
+
+.treat-stage .towel {
+  opacity: 1;
+}
+
+.treat-stage .cream-blob {
+  opacity: 0;
+}
+
+.treat-stage .cream-blob.show {
+  opacity: 1;
+}
+
+/* after the cream: skin signs fade, a soft sheen */
+.treat-stage .hand-signs {
+  transition: opacity 1.2s ease;
+}
+
+.treat-stage.healed .hand-signs {
+  opacity: 0.25;
+}
+
+.treat-stage.healed::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.35), transparent 55%);
+  pointer-events: none;
+}
+
+.treat-stage.too-fast {
+  box-shadow: inset 0 0 0 3px #e8586f;
+}
+
+.treat-hint {
+  min-height: 22px;
+  font-size: 16px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.treat-doctor {
+  position: absolute;
+  inset: 12%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: 3px solid #fff;
+  border-radius: 18px;
+  background: rgba(248, 245, 253, 0.97);
+  box-shadow: 0 8px 20px rgba(18, 28, 44, 0.3);
+  font-size: 13px;
+  font-weight: 900;
+  text-align: center;
+  animation: pop-in 0.25s ease-out;
+}
+
+.treat-doctor img {
+  width: 70px;
+  height: 70px;
+  border-radius: 14px;
+  background: #ece4f7;
+  object-fit: cover;
+  object-position: center top;
+}
+
+.treat-doctor strong {
+  font-size: 15px;
+}
+
+.treat-doctor span {
+  color: #146b52;
+}
+
+.treat-tray {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  width: 100%;
+  padding: 8px;
+  border-radius: 16px;
+  background: #ece6f6;
+}
+
+.treat-tool {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-height: 62px;
+  padding: 6px 2px;
+  border: 3px solid #fff;
+  border-radius: 14px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1.1;
+  text-align: center;
+  cursor: pointer;
+  box-shadow: 0 2px 0 #d9cff0;
+}
+
+.treat-tool-icon {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.treat-tool.next {
+  animation: tool-glow 1.2s ease-in-out infinite;
+}
+
+@keyframes tool-glow {
+  50% {
+    box-shadow: 0 0 0 4px rgba(240, 103, 158, 0.45);
+  }
+}
+
+.treat-tool.active {
+  border-color: #8f6ee0;
+  background: #f3effb;
+  transform: translateY(-3px);
+  animation: none;
+}
+
+.treat-tool.used {
+  opacity: 0.4;
+}
+
+.treat-tool.shake {
+  animation: shake 0.35s ease;
+}
+
+@keyframes shake {
+  25% {
+    transform: translateX(-5px);
+  }
+  75% {
+    transform: translateX(5px);
+  }
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .case-card.case-treat {
+    width: min(720px, 100%);
+  }
+
+  .case-treat .case-body {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto auto 1fr auto;
+    column-gap: 14px;
+    align-items: start;
+  }
+
+  .case-treat .treat-stage {
+    grid-column: 1;
+    grid-row: 1 / 5;
+    width: min(230px, calc(100vh - 150px));
+  }
+
+  .case-treat .treat-top,
+  .case-treat .gauge,
+  .case-treat .treat-hint,
+  .case-treat .session-flash {
+    grid-column: 2;
+  }
+
+  .treat-tray {
+    grid-template-columns: repeat(8, 1fr);
+  }
+}

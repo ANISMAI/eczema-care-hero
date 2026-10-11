@@ -2,10 +2,9 @@ import Phaser from "phaser";
 import MissionController from "./MissionController";
 import CaseNpc from "../entities/CaseNpc";
 import CaseDialog from "../ui/case/CaseDialog";
-import Session from "../ui/case/Session";
+import Treatment from "../ui/case/Treatment";
 import Announcement from "../ui/case/Announcement";
 import CaseResult from "../ui/case/CaseResult";
-import { ACTIVITIES } from "../ui/case/activities";
 import { CASE_001 } from "../data/cases/case001";
 import { NPC_POSE_SHEETS, NPC_WALKER_SHEETS } from "../data/assets";
 import { HALLWAY, getRoomById, type InteractableDef, type Point, type Rect, type RoomId } from "../data/rooms";
@@ -23,7 +22,8 @@ export interface CaseHost {
   addInteractable(item: InteractableDef): void;
   removeInteractable(id: string): void;
   findInteractable(id: string): InteractableDef | undefined;
-  setNpcVisible(id: string, visible: boolean): void;
+  /** Where the player is standing (to open the treatment when the patient arrives). */
+  playerRoom(): RoomId | null;
   toast(text: string): void;
   setObjective(text: string | null): void;
   npcSolids: Rect[];
@@ -38,7 +38,6 @@ function spot(room: RoomId, dx: number, dy: number): Point {
 }
 const SEAT = spot("waiting", 192, 132); // feet on the empty middle waiting chair
 const CARE_SPOT = spot("care", 172, 186); // beside the care bed
-const DOCTOR_SPOT = spot("care", 100, 262); // where Dr. Lim appears during his visit
 const PHARMACY_SPOT = spot("pharmacy", 190, 210); // in front of the pharmacy counter
 const EXIT = { x: HALLWAY.x + HALLWAY.width / 2, y: HALLWAY.y + HALLWAY.height - 40 };
 
@@ -55,10 +54,9 @@ export default class CaseRunner {
   private patientListed = false;
   private questTag: Phaser.GameObjects.Container;
   private dialog: CaseDialog;
-  private session: Session;
+  private treatment: Treatment;
   private announcement: Announcement;
   private result: CaseResult;
-  private doctorVisiting = false;
 
   constructor(host: CaseHost) {
     this.host = host;
@@ -78,7 +76,7 @@ export default class CaseRunner {
     this.patient = new CaseNpc(host.scene, NPC_WALKER_SHEETS.amina, NPC_POSE_SHEETS.aminaSit, talk, host.npcSolids);
     this.questTag = this.makeQuestTag();
     this.dialog = new CaseDialog(host.uiRoot);
-    this.session = new Session(host.uiRoot);
+    this.treatment = new Treatment(host.uiRoot);
     this.announcement = new Announcement(host.uiRoot);
     this.result = new CaseResult(host.uiRoot);
 
@@ -135,7 +133,7 @@ export default class CaseRunner {
 
   /** The interactable the player should go to next, if it is reachable right now. */
   questTarget(): InteractableDef | null {
-    if (this.patient.isWalking || this.doctorVisiting) return null;
+    if (this.patient.isWalking) return null;
     const step = this.currentOrStart();
     if (!step) return null;
     for (const id of step.targets) {
@@ -164,7 +162,7 @@ export default class CaseRunner {
       this.host.setObjective(null);
       return;
     }
-    if (step?.kind === "history" && this.patient.isWalking) {
+    if (step?.kind === "inspect" && this.patient.isWalking) {
       this.host.setObjective(`${this.def.title} · Amina is on her way…`);
       return;
     }
@@ -179,7 +177,7 @@ export default class CaseRunner {
       return this.mission.snapshot.status === "completed" ? "📢 Call patient (replay)" : "📢 Call patient";
     }
     if (item.id === PATIENT_ID && this.mission.isActive && step && step.kind !== "call" && !this.patient.isWalking) {
-      return this.mission.isDone("history") ? "Continue session" : "Start care session";
+      return this.mission.isDone("inspect") ? "Continue treatment" : "Start treatment";
     }
     return null;
   }
@@ -228,91 +226,41 @@ export default class CaseRunner {
       () => {
         this.patient.standAt(CARE_SPOT, "down");
         this.refreshObjective();
-        this.host.toast("🙂  Amina is here. Start the session");
+        // Dentist-Hero style: straight into the treatment if the doctor is in the Care Room
+        if (this.host.playerRoom() === "care") this.openSession();
+        else this.host.toast("🙂  Amina is in the Care Room");
       },
       SEAT
     );
     this.refreshObjective();
   }
 
-  // ---------- care session ----------
-
-  private sessionSteps(): StepDef[] {
-    return this.def.steps.filter((s) => s.kind !== "call" && s.kind !== "handoff");
-  }
+  // ---------- treatment ----------
 
   private openSession(): void {
-    if (this.session.isOpen || this.doctorVisiting) return;
+    if (this.treatment.isOpen || !this.mission.isActive) return;
     this.host.lock();
-    this.session.open(this.def, () => this.host.unlock());
-    this.runCurrent();
-  }
-
-  private runCurrent(): void {
-    const step = this.mission.currentStep;
-    if (!step) return;
-    if (step.kind === "handoff") {
-      this.finishCase();
-      return;
-    }
-    const activity = ACTIVITIES[step.kind];
-    if (!activity) return;
-    // live copy: activities read it as they go
-    const progress = [...this.mission.progressOf(step.id)];
-    this.session.run(this.sessionSteps(), step, this.mission.snapshot.completedStepIds, activity, {
+    const m = this.mission;
+    this.treatment.open({
       def: this.def,
-      step,
-      penalize: () => this.mission.penalize(step.id),
-      progress,
-      addProgress: (v) => {
-        if (!progress.includes(v)) progress.push(v);
-        this.mission.addProgress(step.id, v);
+      current: () => (m.currentStep?.kind === "handoff" ? null : m.currentStep),
+      isDone: (id) => m.isDone(id),
+      progressOf: (id) => m.progressOf(id),
+      addProgress: (id, v) => m.addProgress(id, v),
+      penalize: (id) => m.penalize(id),
+      complete: (id) => {
+        if (m.complete(id) && m.currentStep?.kind === "handoff") {
+          // short pause so the patient's smile is seen, then the result
+          this.host.scene.time.delayedCall(900, () => this.finishCase());
+        }
       },
-      done: () => {
-        if (this.mission.complete(step.id) && this.session.isOpen) this.runCurrent();
-      },
-      callDoctor: () => this.doctorVisit(),
-    });
-  }
-
-  /** Referral: Dr. Lim appears in the Care Room, approves the plan, then goes back. */
-  private doctorVisit(): void {
-    if (this.doctorVisiting || !this.mission.isCurrent("referral")) return;
-    this.doctorVisiting = true;
-    this.session.close();
-    this.host.lock();
-    const s = this.host.scene;
-    const sheet = NPC_POSE_SHEETS.specialist;
-    this.host.setNpcVisible("specialist", false);
-    const doc = s.add
-      .sprite(DOCTOR_SPOT.x, DOCTOR_SPOT.y, sheet.key, 2)
-      .setOrigin(0.5, (sheet.frameHeight - sheet.padding) / sheet.frameHeight)
-      .setScale(sheet.displayHeight / sheet.contentHeight)
-      .setDepth(DOCTOR_SPOT.y + 10)
-      .setAlpha(0);
-    s.tweens.add({ targets: doc, alpha: 1, duration: 450 });
-    s.time.delayedCall(500, () => {
-      this.host.unlock();
-      this.quickLine(this.def.referral.doctor, this.def.referral.portrait, this.def.referral.approval, () => {
-        this.mission.complete("referral");
-        s.tweens.add({
-          targets: doc,
-          alpha: 0,
-          duration: 400,
-          onComplete: () => {
-            doc.destroy();
-            this.host.setNpcVisible("specialist", true);
-          },
-        });
-        this.doctorVisiting = false;
-        this.openSession();
-      });
+      onClose: () => this.host.unlock(),
     });
   }
 
   /** After the last activity: the patient collects her items at the Pharmacy, then leaves. */
   private finishCase(): void {
-    this.session.close();
+    this.treatment.close();
     if (!this.mission.complete("handoff")) return;
     this.patient.walkTo(PHARMACY_SPOT, () => {
       if (this.mission.isActive) return; // a replay already brought her back
