@@ -57,10 +57,18 @@ src/
   data/furniture.ts       Furniture catalog: collision footprint + render layer per kind
   data/save.ts            localStorage save/load with validation + safe fallback
   art/palette.ts          Pastel colour palette + small drawing helpers
-  art/environment.ts      Floors, walls, garden, door/hallway signs, wall plaques, interaction bubbles
+  art/environment.ts      Floors, walls, garden, doors, wall plaques, interaction bubbles
   art/furniture.ts        How each furniture kind is drawn
   art/characters.ts       Chibi staff avatar (player) and seated visitors
-  assets/placeholder/     Reserved for future real art (currently empty — see below)
+```
+
+Outside `src/`:
+
+```
+public/assets/     Images the game loads (sliced spritesheets, staff portraits), copied as-is into dist/
+art-source/        Original full-size AI art. NOT bundled — kept to re-slice, recolour or make
+                   portraits with the scripts in tools/
+tools/             Python scripts: slice-sprite-sheet.py, recolor-fabric.py, make-portrait.py
 ```
 
 ### Room config, spawn points, and replacing placeholder art
@@ -161,7 +169,7 @@ Any AI-generated grid of figures (any spacing, white or transparent background):
 ```bash
 pip install pillow numpy scipy
 # walking character: rows front/left/right/back, cols stand/step/step
-python tools/slice-sprite-sheet.py "src/assets/characters/<source>.webp" public/assets/characters/<name>.webp preview.png
+python tools/slice-sprite-sheet.py "art-source/characters/<source>.webp" public/assets/characters/<name>.webp preview.png
 # one standing character, 3 poses (idle, blink, action)
 python tools/slice-sprite-sheet.py <source> <out.webp> preview.png --rows 1
 # two seated characters, one per row
@@ -175,7 +183,7 @@ The slicer finds each figure, removes a white background if there is one, cleans
 halos left by AI background removal, puts every frame's feet on the same baseline with the head
 centred, and prints the `frameWidth` / `frameHeight` /
 `contentHeight` / `padding` values to copy into `src/data/assets.ts`. `displayHeight` there sets
-the character's on-screen size. The original AI sheets are kept in `src/assets/characters/` as
+the character's on-screen size. The original AI sheets are kept in `art-source/characters/` as
 source art (they are not bundled).
 
 ### Embedding the web build into a mobile WebView (for later)

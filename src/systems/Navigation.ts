@@ -4,8 +4,8 @@ import Pathfinder from "./Pathfinding";
 import { PAL } from "../art/palette";
 import { getRoomById, isWalkable, type Point, type Rect, type RoomId } from "../data/rooms";
 
-/** Auto-walk is a little faster than walking by hand, so long trips don't drag. */
-const AUTO_SPEED = 240;
+/** Auto-walk is a brisk walk, a little faster than walking by hand so long trips don't drag. */
+const AUTO_SPEED = 145;
 const ARRIVE_DIST = 5;
 /** If the player makes no progress for this long (ms), skip ahead to the next waypoint. */
 const STUCK_MS = 900;

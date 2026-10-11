@@ -8,7 +8,7 @@ usage:
   python tools/recolor-fabric.py <input> <output.webp> [target_hue_deg] [sat_mul] [val_mul]
 
 The doctor's lavender hijab was made with:
-  python tools/recolor-fabric.py src/assets/characters/doctor-hijab-walk-sheet.webp       src/assets/characters/doctor-hijab-lavender-walk-sheet.webp 275 0.5 1.2
+  python tools/recolor-fabric.py art-source/characters/doctor-hijab-walk-sheet.webp       art-source/characters/doctor-hijab-lavender-walk-sheet.webp 275 0.5 1.2
 Then slice the result with tools/slice-sprite-sheet.py.
 """
 import sys

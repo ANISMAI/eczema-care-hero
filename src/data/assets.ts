@@ -4,7 +4,7 @@
 // gradually.
 //
 // Files live in /public, so the URL is the path under public/ (copied as-is into dist/).
-// Every sheet is produced from an AI source sheet in src/assets/characters/ with
+// Every sheet is produced from an AI source sheet in art-source/characters/ with
 // tools/slice-sprite-sheet.py, which prints frameWidth / frameHeight / contentHeight / padding.
 
 export type CharacterDirection = "down" | "left" | "right" | "up";
@@ -27,12 +27,23 @@ export interface SheetDef {
 /** Walk-cycle sheet: one row per facing direction; each row is stand, step A, step B. */
 export interface CharacterSheet extends SheetDef {
   rows: Record<CharacterDirection, number>;
-  /** Walk cycle speed (frames per second). Raise it if the feet look slow for the move speed. */
+  /** Walk cycle speed (frames per second) at `walkSpeed`; it scales with the actual speed. */
   frameRate: number;
+  /** Movement speed (world units / s) the frame rate is tuned for. */
+  walkSpeed: number;
 }
 
+/** The player's normal walking speed (world units / s). A doctor is 64 units tall. */
+export const PLAYER_WALK_SPEED = 115;
+
 const FRAME = { frameHeight: 180, padding: 6, contentHeight: 168 } as const;
-const WALKER = { ...FRAME, displayHeight: 64, rows: { down: 0, left: 1, right: 2, up: 3 }, frameRate: 11 } as const;
+const WALKER = {
+  ...FRAME,
+  displayHeight: 64,
+  rows: { down: 0, left: 1, right: 2, up: 3 },
+  frameRate: 7,
+  walkSpeed: PLAYER_WALK_SPEED,
+} as const;
 
 // ---------- Playable characters ----------
 

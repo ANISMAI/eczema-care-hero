@@ -141,6 +141,7 @@ export class WalkerNpc {
       this.pos.y += (dy / dist) * move;
       this.dir = this.facing(dx, dy);
       this.sprite.anims.play(`${sheet.key}-walk-${this.dir}`, true);
+      this.sprite.anims.timeScale = speed / sheet.walkSpeed;
     }
     this.sync();
   }

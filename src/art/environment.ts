@@ -225,7 +225,7 @@ export function drawWall(scene: Phaser.Scene, seg: WallSegment, accent: number):
   }).setDepth(seg.y + seg.height);
 }
 
-/** Threshold strip and door posts, plus a wayfinding sign in the hallway. */
+/** Threshold strip and door posts. Rooms are named by the plaque on their own wall. */
 export function drawDoor(scene: Phaser.Scene, room: RoomDef): void {
   const door = getDoorCenter(room);
   const vertical = room.doorSide === "left" || room.doorSide === "right";
@@ -240,16 +240,6 @@ export function drawDoor(scene: Phaser.Scene, room: RoomDef): void {
     posts.fillStyle(room.color, 1);
     if (vertical) posts.fillRoundedRect(door.x - 9, door.y + half - 2, 18, 8, 3);
   }).setDepth(door.y + half + 1);
-
-  // Hallway sign: rooms on the left are signed just above their door, rooms on the right
-  // just below theirs, so facing doors never share a sign position.
-  const onLeft = room.doorSide === "right";
-  const sx = HALLWAY.x + HALLWAY.width / 2;
-  const sy = door.y + (onLeft ? -half - 22 : half + 22);
-  const name = room.label.toUpperCase();
-  const text = onLeft ? `◀  ${name}` : `${name}  ▶`;
-  // Depth-sorted like a standing object, so people walking in front of it stay visible.
-  hangingSign(scene, sx, sy, text, room.color, 9, sy + 14);
 }
 
 /** Dark navy pill sign with white capitals and a thin room-colour accent underline. */

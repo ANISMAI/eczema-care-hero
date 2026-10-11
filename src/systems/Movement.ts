@@ -1,7 +1,8 @@
 import Phaser from "phaser";
 import Player from "../entities/Player";
+import { PLAYER_WALK_SPEED } from "../data/assets";
 
-const SPEED = 180;
+const SPEED = PLAYER_WALK_SPEED;
 
 /** Combines virtual-joystick and keyboard input into 8-direction player velocity. */
 export default class MovementSystem {
