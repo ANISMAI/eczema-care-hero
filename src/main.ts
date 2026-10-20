@@ -3,6 +3,7 @@ import { gameConfig } from "./game/config";
 import { RENDER_SCALE, viewportSize } from "./game/display";
 import "./style.css";
 import "./ui/case/case.css";
+import "./ui/case/care.css";
 
 const game = new Phaser.Game(gameConfig);
 

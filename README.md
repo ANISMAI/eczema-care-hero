@@ -1,8 +1,61 @@
-# Eczema Care Hero — Phase 1
+# Eczema Care Hero — Phase 2 (revised)
 
-Mobile-first walkable clinic prototype, built with **Phaser 3 + TypeScript + Vite**, per the
-Phase 1 Claude Coding Brief. Only the features in that brief are implemented — no diagnosis,
-treatment, ranking, accounts, or mini-game integration yet.
+Mobile-first walkable clinic game, built with **Phaser 4 + TypeScript + Vite**. Phase 1 built the
+clinic, characters, movement and maps; Phase 2 (revised brief) adds a patient-care vertical slice
+and occasional optional clinic events. No online leaderboard, accounts or backend; everything
+is saved locally in the browser.
+
+## Phase 2 — patient care first, occasional optional events
+
+**Core loop:** start shift → the patient registers with Nurul → the doctor calls her into
+Consultation → chat + Dr. Lim's assessment (same room) → moisturiser in the Care Room →
+thank-you and result → keep exploring or end the shift (Staff Office desk, the result screen,
+or automatically at 5:00 PM).
+
+**The patient comes to the doctor**, not the other way round: the doctor only walks between
+Consultation and the Care Room. Amina walks there herself, then collects her cream from Grace at
+the Pharmacy on her own and goes home. Reception, Storage and the Pharmacy only need the doctor
+when an optional event happens.
+
+**Case #001 – Amina** (`src/data/cases/case001.ts`, all clinical text in one reviewable file).
+State machine `AVAILABLE → ACCEPTED → INTERVIEWED → DOCTOR_REVIEWED → CARE_COMPLETED →
+HANDOVER_DONE → COMPLETED`, guarded in `MissionController`.
+
+| Step | Where | What the player does |
+|---|---|---|
+| A | Consultation desk / Dr. Lim | Read the case file Nurul registered, **📢 Call Amina in** (she walks over from the Waiting Area) |
+| B | Consultation (Amina) | Ask 3 questions (any order, no quiz); answers become case notes |
+| C | Consultation (opens right after B) | Tap highlighted skin areas; Dr. Lim gives the care plan + when to seek help |
+| D | Care Room (Amina) | Pick the fragrance-free cream, squeeze the right amount, smooth it on slowly |
+| E | (automatic) | Amina collects her cream from Grace at the Pharmacy herself |
+| F | (automatic) | Amina says thank you; result screen; she goes home |
+
+The objective banner (with a progress bar) always shows the next step; **Go ›** walks there.
+Talking to a later step's person or object early gives a friendly hint instead of breaking
+anything.
+
+**Optional events** (`src/events/`): after a patient step, an event *may* be offered (default
+35% per step, max 2 per shift, one active at a time, never the same type, and preferably not
+the same room, twice in a row; a guaranteed tutorial event on shift 1). Its notice waits until no panel is open. It shows a
+HUD notice (Go / Later / Dismiss), an orange **!** on the mini map, full map and over the spot,
+and expires quietly after 4 minutes of play. Ignoring an event never blocks the patient.
+
+- **Registration error** (Reception desk): pick the record that matches the patient's form.
+- **Low stock** (Storage shelf or Ravi): drag the labelled box onto the empty slot (or tap
+  the box, then the slot), confirm.
+- **Pharmacy: which item?** (Pharmacy counter): Grace isn't sure which product matches a care
+  card. Pick the matching item, tick the label checks.
+- **Pharmacy shelf mix-up** (Pharmacy counter): put three items back on the slots their labels
+  name (same drag / tap mechanic as Low stock).
+
+**Scoring** (`src/data/gameplay.ts`, `src/systems/Progress.ts`): three separate ledgers.
+Care points (case +100, each care interaction +20, or +10 after a wrong pick) are the main
+score. Event rewards (+15 coins, +5 XP each) never add care points. Arcade coins stay
+separate too (the arcade games aren't connected yet). The end-of-shift summary shows all three.
+
+**Testing switches:** add `?events=always` to the URL to offer an event at every trigger point
+(still capped at 2 per shift) or `?events=off` to disable them. To start over, clear the site's
+localStorage.
 
 ## Setup
 
@@ -57,6 +110,14 @@ src/
   data/rooms.ts           Single source of truth: room bounds, doors, spawns, furniture, interactables
   data/furniture.ts       Furniture catalog: collision footprint + render layer per kind
   data/save.ts            localStorage save/load with validation + safe fallback
+  data/gameplay.ts        Phase 2 tunables: rewards, event odds / cap / expiry, ?events= override
+  data/cases/case001.ts   Patient Case #001 (all case text and clinical content)
+  mission/                Case state machine (MissionController) and world flow (CaseRunner)
+  events/                 Optional event registry, scheduler/lifecycle (EventDirector), types
+  systems/Progress.ts     Shifts, XP/level, separate care / event / arcade ledgers
+  ui/case/                Case panels: Interview, Consultation, Treatment, CaseResult
+  ui/events/              Event notice + RegistrationPanel, ShelfPanel (Storage + Pharmacy), PharmacyCheckPanel
+  ui/ShiftSummary.ts      End-of-shift results
   art/palette.ts          Pastel colour palette + small drawing helpers
   art/environment.ts      Floors, walls, garden, doors, wall plaques, interaction bubbles
   art/furniture.ts        How each furniture kind is drawn

@@ -3,14 +3,15 @@ import MissionController from "./MissionController";
 import CaseNpc from "../entities/CaseNpc";
 import CaseDialog from "../ui/case/CaseDialog";
 import Treatment from "../ui/case/Treatment";
+import Interview from "../ui/case/Interview";
+import Consultation from "../ui/case/Consultation";
 import Announcement from "../ui/case/Announcement";
 import CaseResult from "../ui/case/CaseResult";
-import { CASE_001 } from "../data/cases/case001";
-import { NPC_POSE_SHEETS, NPC_WALKER_SHEETS } from "../data/assets";
+import { REWARDS } from "../data/gameplay";
+import { makeWorldTag } from "../art/tags";
+import { NPC_POSE_SHEETS, NPC_WALKER_SHEETS, type CharacterDirection } from "../data/assets";
 import { HALLWAY, getRoomById, type InteractableDef, type Point, type Rect, type RoomId } from "../data/rooms";
-import { textStyle } from "../art/environment";
-import { PAL } from "../art/palette";
-import type { CaseDefinition, StepDef } from "./types";
+import { CASE_FLOW, type CaseDefinition, type CaseStatus, type StepDef } from "./types";
 
 /** What the case needs from the scene. */
 export interface CaseHost {
@@ -22,11 +23,16 @@ export interface CaseHost {
   addInteractable(item: InteractableDef): void;
   removeInteractable(id: string): void;
   findInteractable(id: string): InteractableDef | undefined;
-  /** Where the player is standing (to open the treatment when the patient arrives). */
-  playerRoom(): RoomId | null;
   toast(text: string): void;
-  setObjective(text: string | null): void;
+  /** Objective banner: text and progress (0..1), or null to hide it. */
+  setObjective(text: string | null, progress?: number): void;
   npcSolids: Rect[];
+  /** Care points (main score) and case XP. */
+  awardCare(points: number): void;
+  completeCase(xp: number): void;
+  /** The case reached a new state (safe point for optional events). */
+  onStatus(status: CaseStatus): void;
+  endShift(): void;
 }
 
 const PATIENT_ID = "patient-amina";
@@ -37,23 +43,39 @@ function spot(room: RoomId, dx: number, dy: number): Point {
   return { x: b.x + dx, y: b.y + dy };
 }
 const SEAT = spot("waiting", 192, 132); // feet on the empty middle waiting chair
+const CONSULT_SPOT = spot("consult", 150, 214); // in front of the doctor's desk
 const CARE_SPOT = spot("care", 172, 186); // beside the care bed
 const PHARMACY_SPOT = spot("pharmacy", 190, 210); // in front of the pharmacy counter
 const EXIT = { x: HALLWAY.x + HALLWAY.width / 2, y: HALLWAY.y + HALLWAY.height - 40 };
 
+/** Where the patient waits in each state (null = gone home). */
+const PLACE: Record<CaseStatus, { at: Point; dir: CharacterDirection; sit?: boolean } | null> = {
+  AVAILABLE: { at: SEAT, dir: "down", sit: true },
+  ACCEPTED: { at: CONSULT_SPOT, dir: "up" },
+  INTERVIEWED: { at: CONSULT_SPOT, dir: "up" },
+  DOCTOR_REVIEWED: { at: CARE_SPOT, dir: "down" },
+  CARE_COMPLETED: { at: PHARMACY_SPOT, dir: "up" },
+  HANDOVER_DONE: { at: PHARMACY_SPOT, dir: "up" },
+  COMPLETED: null,
+};
+
 /**
- * Runs the active patient case: the doctor calls the patient into the Care Room, then a
- * single care-session panel runs the hands-on steps. Every step change goes through the
- * MissionController, which guards against skipping or repeating steps.
+ * Runs the patient case through the world. The patient comes to the doctor, not the other way
+ * round: Nurul registers her, the doctor calls her into Consultation (chat + Dr. Lim's
+ * assessment in the same room), then moisturiser in the Care Room. She then collects her cream
+ * from Grace at the Pharmacy on her own and goes home. Pharmacy problems are optional events,
+ * not a daily step. Every state change goes through the MissionController, which guards
+ * against skipping or repeating steps.
  */
 export default class CaseRunner {
   readonly mission = new MissionController();
   private host: CaseHost;
-  private def: CaseDefinition = CASE_001;
   private patient: CaseNpc;
   private patientListed = false;
   private questTag: Phaser.GameObjects.Container;
   private dialog: CaseDialog;
+  private interview: Interview;
+  private consultation: Consultation;
   private treatment: Treatment;
   private announcement: Announcement;
   private result: CaseResult;
@@ -74,8 +96,10 @@ export default class CaseRunner {
       dialogText: "",
     };
     this.patient = new CaseNpc(host.scene, NPC_WALKER_SHEETS.amina, NPC_POSE_SHEETS.aminaSit, talk, host.npcSolids);
-    this.questTag = this.makeQuestTag();
+    this.questTag = makeWorldTag(host.scene, "NEXT", 0xf0679e);
     this.dialog = new CaseDialog(host.uiRoot);
+    this.interview = new Interview(host.uiRoot);
+    this.consultation = new Consultation(host.uiRoot);
     this.treatment = new Treatment(host.uiRoot);
     this.announcement = new Announcement(host.uiRoot);
     this.result = new CaseResult(host.uiRoot);
@@ -83,22 +107,45 @@ export default class CaseRunner {
     this.mission.onChange(() => this.refreshObjective());
     this.placePatientForState();
     this.refreshObjective();
+    // refreshed in the moment between the care session and the result: finish the case now
+    const s = this.mission.status;
+    if (s === "CARE_COMPLETED" || s === "HANDOVER_DONE") host.scene.time.delayedCall(600, () => this.finishCase());
+  }
+
+  private get def(): CaseDefinition {
+    return this.mission.definition;
   }
 
   // ---------- world ----------
 
-  /** Puts the patient where the saved state says she should be (load and replay). */
+  /** Puts the patient where the saved state says she should be (load, refresh, new shift). */
   private placePatientForState(): void {
-    const m = this.mission;
-    const step = m.currentStep;
-    if (m.snapshot.status === "completed" || step?.kind === "handoff") {
+    const place = PLACE[this.mission.status];
+    if (!place) {
       this.patient.hide();
       this.setPatientListed(false);
       return;
     }
-    if (!m.isActive || step?.kind === "call") this.patient.sitAt(SEAT);
-    else this.patient.standAt(CARE_SPOT, "down");
+    if (place.sit) this.patient.sitAt(place.at);
+    else this.patient.standAt(place.at, place.dir);
     this.setPatientListed(true);
+  }
+
+  /** The patient walks to where the new state needs her. */
+  private walkPatientForState(onArrive?: () => void): void {
+    const place = PLACE[this.mission.status];
+    if (!place) return;
+    const from = this.mission.status === "ACCEPTED" ? SEAT : undefined;
+    this.patient.walkTo(
+      place.at,
+      () => {
+        this.patient.standAt(place.at, place.dir);
+        this.refreshObjective();
+        onArrive?.();
+      },
+      from
+    );
+    this.refreshObjective();
   }
 
   private setPatientListed(on: boolean): void {
@@ -108,36 +155,12 @@ export default class CaseRunner {
     else this.host.removeInteractable(PATIENT_ID);
   }
 
-  private makeQuestTag(): Phaser.GameObjects.Container {
-    const s = this.host.scene;
-    const bg = s.add.graphics();
-    bg.fillStyle(PAL.shadow, 0.3);
-    bg.fillRoundedRect(-27, -9, 54, 21, 10);
-    bg.fillStyle(0xf0679e, 1);
-    bg.fillRoundedRect(-27, -11, 54, 21, 10);
-    bg.lineStyle(2, 0xffffff, 1);
-    bg.strokeRoundedRect(-27, -11, 54, 21, 10);
-    bg.fillStyle(0xf0679e, 1);
-    bg.fillTriangle(-6, 9, 6, 9, 0, 16);
-    const label = s.add.text(0, -1, "NEXT", textStyle(10, "#ffffff", "900")).setOrigin(0.5);
-    const bob = s.add.container(0, 0, [bg, label]);
-    s.tweens.add({ targets: bob, y: -6, duration: 650, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
-    return s.add.container(0, 0, [bob]).setDepth(6100).setVisible(false);
-  }
-
-  /** The step to point at: the current one, or "call" when no case is running yet. */
-  private currentOrStart(): StepDef | null {
-    if (this.mission.isActive) return this.mission.currentStep;
-    return this.def.steps[0];
-  }
-
   /** The interactable the player should go to next, if it is reachable right now. */
   questTarget(): InteractableDef | null {
-    if (this.patient.isWalking) return null;
-    const step = this.currentOrStart();
+    const step = this.mission.currentStep;
     if (!step) return null;
     for (const id of step.targets) {
-      if (id === PATIENT_ID && !this.patientListed) continue;
+      if (id === PATIENT_ID && (!this.patientListed || this.patient.isWalking)) continue;
       const item = this.host.findInteractable(id);
       if (item) return item;
     }
@@ -145,8 +168,7 @@ export default class CaseRunner {
   }
 
   questRoom(): RoomId | null {
-    const step = this.currentOrStart();
-    return step && step.targets.length ? step.room : null;
+    return this.mission.currentStep?.room ?? null;
   }
 
   update(deltaMs: number): void {
@@ -157,48 +179,78 @@ export default class CaseRunner {
   }
 
   private refreshObjective(): void {
-    const step = this.currentOrStart();
-    if (this.mission.snapshot.status === "completed" && !this.mission.isActive) {
+    const step = this.mission.currentStep;
+    if (!step) {
       this.host.setObjective(null);
       return;
     }
-    if (step?.kind === "inspect" && this.patient.isWalking) {
-      this.host.setObjective(`${this.def.title} · Amina is on her way…`);
-      return;
-    }
-    this.host.setObjective(step && step.targets.length ? `${this.def.title} · ${step.objective}` : null);
+    const progress = CASE_FLOW.indexOf(step.requires) / (CASE_FLOW.length - 1);
+    const name = this.def.patient.name;
+    const text = this.patient.isWalking ? `${name} is on her way to ${getRoomById(step.room).label}…` : step.objective;
+    this.host.setObjective(`${this.def.title} · ${text}`, progress);
   }
 
   // ---------- interactions ----------
 
-  actionLabel(item: InteractableDef): string | null {
-    const step = this.currentOrStart();
-    if (item.id === "care-bed" && (!this.mission.isActive || step?.kind === "call")) {
-      return this.mission.snapshot.status === "completed" ? "📢 Call patient (replay)" : "📢 Call patient";
-    }
-    if (item.id === PATIENT_ID && this.mission.isActive && step && step.kind !== "call" && !this.patient.isWalking) {
-      return this.mission.isDone("inspect") ? "Continue treatment" : "Start treatment";
-    }
-    return null;
+  /** The step (if any) that `item` starts right now. */
+  private stepFor(item: InteractableDef): StepDef | null {
+    const step = this.mission.currentStep;
+    return step && step.targets.includes(item.id) ? step : null;
   }
 
-  /** Handles an interaction if the case cares about it; false = use the item's normal line. */
+  actionLabel(item: InteractableDef): string | null {
+    const step = this.stepFor(item);
+    if (!step) return null;
+    const name = this.def.patient.name;
+    switch (step.kind) {
+      case "call":
+        return `📢 Call ${name} in`;
+      case "interview":
+        return `💬 Talk to ${name}`;
+      case "consult":
+        return "🩺 Look at the skin";
+      case "care":
+        return "🧴 Start care";
+      default:
+        return null; // automatic steps
+    }
+  }
+
+  /** Handles the interaction if it is the current case step. */
   handle(item: InteractableDef): boolean {
-    const step = this.mission.currentStep;
-    if (item.id === "care-bed" && (!this.mission.isActive || step?.kind === "call")) {
-      this.callPatient();
+    const step = this.stepFor(item);
+    if (!step) return false;
+    if (item.id === PATIENT_ID && this.patient.isWalking) {
+      this.host.toast(`🚶  ${this.def.patient.name} is on her way`);
       return true;
     }
-    if (item.id !== PATIENT_ID) return false;
-    if (this.patient.isWalking) {
-      this.host.toast("🚶  Amina is on her way");
-      return true;
+    switch (step.kind) {
+      case "call":
+        this.callPatient(step);
+        break;
+      case "interview":
+        this.openInterview(step);
+        break;
+      case "consult":
+        this.openConsult(step);
+        break;
+      case "care":
+        this.openCare(step);
+        break;
+      default:
+        return false; // automatic steps have no targets
     }
-    if (!this.mission.isActive || step?.kind === "call") {
-      this.quickLine(this.def.patient.name, this.def.patient.portrait, "I'm waiting to be called 🙂");
-      return true;
-    }
-    this.openSession();
+    return true;
+  }
+
+  /**
+   * Out-of-sequence: a target of a later step gets a friendly hint instead of breaking the
+   * flow (brief section 05). Returns false for anything the case doesn't care about.
+   */
+  hint(item: InteractableDef): boolean {
+    const ahead = this.def.steps.find((s) => this.mission.isAhead(s) && s.targets.includes(item.id) && s.early.text);
+    if (!ahead) return false;
+    this.quickLine(ahead.early.who, ahead.early.avatar, ahead.early.text);
     return true;
   }
 
@@ -211,86 +263,177 @@ export default class CaseRunner {
     void this.dialog.say(text, "OK").then(() => this.dialog.end());
   }
 
-  /** "Call patient": PA announcement, then the patient walks into the Care Room. */
-  private callPatient(): void {
-    if (this.patient.isWalking) return;
-    if (!this.mission.isActive) {
-      this.mission.start(this.def.id);
-      this.patient.sitAt(SEAT);
-      this.setPatientListed(true);
-    }
-    if (!this.mission.complete("call")) return;
-    this.announcement.show(this.def.announcement);
-    this.patient.walkTo(
-      CARE_SPOT,
-      () => {
-        this.patient.standAt(CARE_SPOT, "down");
-        this.refreshObjective();
-        // Dentist-Hero style: straight into the treatment if the doctor is in the Care Room
-        if (this.host.playerRoom() === "care") this.openSession();
-        else this.host.toast("🙂  Amina is in the Care Room");
-      },
-      SEAT
-    );
-    this.refreshObjective();
+  /** Moves the case on, saves, and offers a safe point for optional events. */
+  private advance(step: StepDef, points = 0): boolean {
+    if (!this.mission.advance(step.id, points)) return false;
+    if (points) this.host.awardCare(points);
+    this.host.onStatus(this.mission.status);
+    return true;
   }
 
-  // ---------- treatment ----------
+  /** Reward for a care interaction: full when right first time, smaller after a wrong pick. */
+  private carePoints(step: StepDef): number {
+    if (!step.rewarded) return 0;
+    return this.mission.mistakesOf(step.id) === 0 ? REWARDS.correctCare : REWARDS.retriedCare;
+  }
 
-  private openSession(): void {
-    if (this.treatment.isOpen || !this.mission.isActive) return;
+  // ---------- A: call the patient in (Nurul has registered her) ----------
+
+  private callPatient(step: StepDef): void {
+    const d = this.def;
     this.host.lock();
+    this.dialog.begin({ title: `${d.title} · case file`, avatar: "assets/portraits/nurul.webp", subtitle: "Registered by Nurul at Reception" }, () =>
+      this.host.unlock()
+    );
+    const card = document.createElement("div");
+    card.className = "intake-card";
+    const rows: [string, string][] = [
+      ["Patient", `${d.patient.fullName}, ${d.patient.age}`],
+      ["Reason", d.intake.reason],
+      ["Your task", d.intake.objective],
+    ];
+    for (const [k, v] of rows) {
+      const row = document.createElement("div");
+      const key = document.createElement("span");
+      key.textContent = k;
+      const val = document.createElement("strong");
+      val.textContent = v;
+      row.append(key, val);
+      card.append(row);
+    }
+    void this.dialog.say(`${d.patient.name} is registered and waiting in the Waiting Area. Call her in when you're ready.`, `📢  Call ${d.patient.name} in`, card).then((ok) => {
+      if (!ok) return; // closed without calling: nothing changes
+      this.dialog.end();
+      if (!this.advance(step)) return;
+      this.announcement.show(`${d.patient.fullName}, please come to Consultation.`);
+      this.walkPatientForState(() => this.host.toast(`🙂  ${d.patient.name} is here`));
+    });
+  }
+
+  // ---------- B + C: Consultation (chat, then Dr. Lim's assessment, same room) ----------
+
+  private openInterview(step: StepDef): void {
     const m = this.mission;
-    this.treatment.open({
+    this.host.lock();
+    this.interview.open({
       def: this.def,
-      current: () => (m.currentStep?.kind === "handoff" ? null : m.currentStep),
-      isDone: (id) => m.isDone(id),
-      progressOf: (id) => m.progressOf(id),
-      addProgress: (id, v) => m.addProgress(id, v),
-      penalize: (id) => m.penalize(id),
+      asked: () => m.progressOf(step.id),
+      ask: (id) => m.addProgress(step.id, id),
+      done: () => {
+        if (!this.advance(step)) return;
+        // straight on to the assessment once the chat panel has closed
+        this.host.scene.time.delayedCall(250, () => {
+          const next = this.mission.currentStep;
+          if (next?.kind === "consult") this.openConsult(next);
+        });
+      },
+      onClose: () => this.host.unlock(),
+    });
+  }
+
+  private openConsult(step: StepDef): void {
+    if (this.consultation.isOpen) return;
+    const m = this.mission;
+    this.host.lock();
+    this.consultation.open({
+      def: this.def,
+      inspected: () => m.progressOf(step.id),
+      inspect: (id) => m.addProgress(step.id, id),
+      done: () => {
+        if (this.advance(step)) this.walkPatientForState(() => this.host.toast(`🙂  ${this.def.patient.name} is in the Care Room`));
+      },
+      onClose: () => this.host.unlock(),
+    });
+  }
+
+  // ---------- D: Care Room ----------
+
+  private openCare(step: StepDef): void {
+    if (this.treatment.isOpen) return;
+    const m = this.mission;
+    const care = this.def.care;
+    const doneKey = (id: string) => `done:${id}`;
+    const isDone = (id: string) => m.progressOf(step.id).includes(doneKey(id));
+    this.host.lock();
+    this.treatment.open({
+      patient: this.def.patient,
+      session: care,
+      current: () => care.steps.find((s) => !isDone(s.id)) ?? null,
+      isDone,
+      progressOf: (id) => m.progressOf(step.id).filter((v) => v.startsWith(`${id}:`)).map((v) => v.slice(id.length + 1)),
+      addProgress: (id, v) => m.addProgress(step.id, `${id}:${v}`),
+      wrongPick: () => m.mistake(step.id),
       complete: (id) => {
-        if (m.complete(id) && m.currentStep?.kind === "handoff") {
-          // short pause so the patient's smile is seen, then the result
-          this.host.scene.time.delayedCall(900, () => this.finishCase());
+        m.addProgress(step.id, doneKey(id));
+        if (care.steps.every((s) => isDone(s.id))) {
+          // a short pause so the patient's smile is seen
+          this.host.scene.time.delayedCall(1100, () => {
+            this.treatment.close();
+            if (this.advance(step, this.carePoints(step))) this.finishCase();
+          });
         }
       },
       onClose: () => this.host.unlock(),
     });
   }
 
-  /** After the last activity: the patient collects her items at the Pharmacy, then leaves. */
+  // ---------- E + F: automatic — she collects her cream from Grace, then goes home ----------
+
+  /** Closes the case: thank-you and result now; the patient walks to the Pharmacy and out. */
   private finishCase(): void {
-    this.treatment.close();
-    if (!this.mission.complete("handoff")) return;
+    for (const kind of ["handover", "farewell"]) {
+      const step = this.mission.currentStep;
+      if (step?.kind === kind) this.advance(step);
+    }
+    if (this.mission.status !== "COMPLETED") return;
+    const reward = REWARDS.caseComplete;
+    this.mission.recordCompletion(reward.care);
+    this.host.awardCare(reward.care);
+    this.host.completeCase(reward.xp);
+    const toast = this.def.collected;
     this.patient.walkTo(PHARMACY_SPOT, () => {
-      if (this.mission.isActive) return; // a replay already brought her back
-      this.host.toast("💊  Grace checked Amina's items ✓");
-      this.patient.walkTo(EXIT, () => {
-        if (this.mission.isActive) return;
-        this.patient.hide();
-        this.setPatientListed(false);
+      if (this.mission.status !== "COMPLETED") return; // a new shift already brought a patient back
+      this.host.toast(toast);
+      this.host.scene.time.delayedCall(1500, () => {
+        if (this.mission.status !== "COMPLETED") return;
+        this.patient.walkTo(EXIT, () => {
+          if (this.mission.status !== "COMPLETED") return;
+          this.patient.hide();
+          this.setPatientListed(false);
+        });
       });
     });
+    this.setPatientListed(false);
     this.showResult();
   }
 
   private showResult(): void {
     this.host.lock();
+    const rewarded = this.def.steps.filter((s) => s.rewarded).length;
     this.result.open({
       def: this.def,
       state: this.mission.snapshot,
-      onReturn: () => this.host.unlock(),
-      onReplay: () => {
+      xp: REWARDS.caseComplete.xp,
+      maxPoints: REWARDS.caseComplete.care + rewarded * REWARDS.correctCare,
+      onKeepExploring: () => {
         this.host.unlock();
-        this.replay();
+        this.host.toast("🌿  Explore the clinic. End your shift at the Staff Office desk");
+      },
+      onEndShift: () => {
+        this.host.unlock();
+        this.host.endShift();
       },
     });
   }
 
-  /** Replay: fresh case data (best score kept); the patient is back in the Waiting Area. */
-  replay(): void {
-    this.mission.start(this.def.id);
+  /** New shift: if the last patient went home, a new one arrives (Phase 2 reuses Case #001). */
+  newShift(): void {
+    if (this.mission.status === "COMPLETED") this.mission.reset();
     this.placePatientForState();
-    this.host.toast("🔁  Case 001 restarted: call Amina from the Care Room");
+    this.refreshObjective();
+  }
+
+  get caseOpen(): boolean {
+    return this.mission.inProgress;
   }
 }

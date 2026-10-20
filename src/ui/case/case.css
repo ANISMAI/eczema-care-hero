@@ -1076,13 +1076,13 @@
   opacity: 1;
 }
 
-/* after the cream: skin signs fade, a soft sheen */
+/* after the cream: a moisturised sheen; the signs only soften a little (no instant "cure") */
 .treat-stage .hand-signs {
-  transition: opacity 1.2s ease;
+  transition: opacity 2.5s ease;
 }
 
 .treat-stage.healed .hand-signs {
-  opacity: 0.25;
+  opacity: 0.7;
 }
 
 .treat-stage.healed::after {

@@ -14,6 +14,10 @@ import CaseRunner from "../mission/CaseRunner";
 import GameClock from "../systems/GameClock";
 import Amenities from "../systems/Amenities";
 import Announcement from "../ui/case/Announcement";
+import CaseDialog from "../ui/case/CaseDialog";
+import ShiftSummary from "../ui/ShiftSummary";
+import Progress from "../systems/Progress";
+import EventDirector from "../events/EventDirector";
 import { runTap, stallSequence } from "../art/amenityFx";
 import type { StaffCard } from "../data/staff";
 import { CHARACTERS, getCharacter, type CharacterId, type PlayableCharacter } from "../data/assets";
@@ -53,6 +57,8 @@ import {
 /** Floating "!" / "…" bubbles over interactables. Off by design: players explore freely. */
 const SHOW_INTERACT_BUBBLES = false;
 const MARKER_LIFT = 62; // default height of an interaction bubble above its interactable
+/** The Staff Office desk is where the player ends a shift. */
+const SHIFT_DESK = "office-desk";
 
 export default class ClinicScene extends Phaser.Scene {
   private player!: Player;
@@ -70,6 +76,12 @@ export default class ClinicScene extends Phaser.Scene {
   private clock!: GameClock;
   private amenities!: Amenities;
   private announcer!: Announcement;
+  private progress = new Progress();
+  private clinicEvents!: EventDirector;
+  private shiftSummary!: ShiftSummary;
+  private shiftDialog!: CaseDialog;
+  /** The clock reached 5:00 PM while a panel was open; end the shift once it closes. */
+  private shiftEndPending = false;
   private character: PlayableCharacter | undefined;
 
   private markers = new Map<string, Marker>();
@@ -224,6 +236,8 @@ export default class ClinicScene extends Phaser.Scene {
       onClose: () => (this.inputLocked = false),
     });
     this.dialog = new Dialog(uiRoot);
+    this.shiftDialog = new CaseDialog(uiRoot);
+    this.shiftSummary = new ShiftSummary(uiRoot);
     this.characterSelect = new CharacterSelect(
       uiRoot,
       (id) => this.chooseCharacter(id),
@@ -246,15 +260,39 @@ export default class ClinicScene extends Phaser.Scene {
       addInteractable: (item) => this.addInteractable(item),
       removeInteractable: (id) => this.removeInteractable(id),
       findInteractable: (id) => this.interactables.find((i) => i.id === id),
-      playerRoom: () => findRoomAt(this.player.x, this.player.y)?.id ?? null,
       toast: (text) => this.hud.showRoomToast(text),
-      setObjective: (text) => this.hud.setObjective(text),
+      setObjective: (text, progress) => this.hud.setObjective(text, progress),
       npcSolids: this.npcSolids(),
+      awardCare: (points) => this.progress.addCare(points),
+      completeCase: (xp) => this.progress.completeCase(xp),
+      onStatus: (status) => this.clinicEvents.trigger(status, this.progress.shift),
+      endShift: () => this.endShift(),
     });
+    this.clinicEvents = new EventDirector(
+      {
+        scene: this,
+        uiRoot,
+        hudRoot: this.hud.root,
+        lock: () => this.lockInput(),
+        unlock: () => (this.inputLocked = false),
+        toast: (text) => this.hud.showRoomToast(text),
+        findInteractable: (id) => this.interactables.find((i) => i.id === id),
+        walkTo: (target, room) => {
+          if (this.inputLocked) return;
+          if (target) this.walkToItem(target, room, () => this.persist());
+          else this.navigation.walkToRoom(room, () => this.persist());
+          this.hud.showRoomToast(`🚶  Heading to ${this.roomLabel(room).replace(/^\S+\s+/, "")}…`);
+        },
+        reward: (coins, xp) => this.progress.addEventReward(coins, xp),
+      },
+      this.progress.shift
+    );
+    this.progress.onChange(() => this.hud.setStats(this.progress.level, this.progress.snapshot.coins));
     this.announcer = new Announcement(uiRoot);
     this.clock = new GameClock({
       onPrayerTime: (p) => this.announcer.show(p.message, 4500, true),
-      onShiftOver: () => this.announcer.show("🌇  Shift over! A new shift begins", 4000, true),
+      // 5:00 PM: the shift ends as soon as no panel is open
+      onShiftOver: () => (this.shiftEndPending = true),
     });
     this.amenities = new Amenities({
       uiRoot,
@@ -297,6 +335,8 @@ export default class ClinicScene extends Phaser.Scene {
     });
     window.addEventListener("beforeunload", () => this.clock.save());
     if (!this.character) this.openCharacterSelect(true);
+    // refreshed while the shift summary was showing: show it again
+    else if (this.progress.snapshot.shiftEnded) this.showShiftSummary();
 
     this.input.keyboard?.on("keydown-E", () => this.handleInteract());
     this.input.keyboard?.on("keydown-SPACE", () => this.handleInteract());
@@ -307,13 +347,76 @@ export default class ClinicScene extends Phaser.Scene {
     if (this.inputLocked || !this.nearestInteractable) return;
     const item = this.nearestInteractable;
     this.navigation.cancel();
-    // the active patient case decides first; otherwise the item's own line
+    // the patient case's current step decides first, then an optional event at this spot,
+    // then a hint for a later case step; otherwise the item's own line
     if (this.amenities.handle(item)) return;
     if (this.caseRunner.handle(item)) return;
+    if (this.clinicEvents.handle(item)) return;
+    if (item.id === SHIFT_DESK) return this.confirmEndShift();
+    if (this.caseRunner.hint(item)) return;
     this.lockInput();
     this.dialog.open(item.dialogTitle, item.dialogText, item.icon, () => {
       this.inputLocked = false;
     });
+  }
+
+  private actionLabel(item: InteractableDef): string | null {
+    return (
+      this.amenities.actionLabel(item) ??
+      this.caseRunner.actionLabel(item) ??
+      this.clinicEvents.actionLabel(item) ??
+      (item.id === SHIFT_DESK ? "📋 End shift" : null)
+    );
+  }
+
+  // ---------- Shifts ----------
+
+  /** Staff Office desk: end the shift whenever the player chooses (brief section 04, step F). */
+  private confirmEndShift(): void {
+    this.lockInput();
+    const open = this.caseRunner.caseOpen;
+    this.shiftDialog.begin({ title: "End shift?", avatar: "🌇", subtitle: `Shift ${this.progress.shift} · ${this.clock.label()}` }, () => {
+      this.inputLocked = false;
+    });
+    const text = open
+      ? "Your patient case is still open. It will carry over to the next shift. End your shift now?"
+      : "Wrap up for today and see your shift results?";
+    void this.shiftDialog.say(text, "🌇  End shift").then((ok) => {
+      if (!ok) return;
+      this.shiftDialog.end();
+      this.endShift();
+    });
+  }
+
+  /** Closes the shift: unanswered events expire, then the summary opens. */
+  private endShift(): void {
+    this.shiftEndPending = false;
+    if (this.progress.snapshot.shiftEnded) return;
+    this.navigation.cancel();
+    this.clinicEvents.endShift();
+    this.progress.endShift();
+    this.showShiftSummary();
+  }
+
+  private showShiftSummary(): void {
+    if (this.shiftSummary.isOpen) return;
+    this.lockInput();
+    this.shiftSummary.open({
+      progress: this.progress.snapshot,
+      level: this.progress.level,
+      caseOpen: this.caseRunner.caseOpen,
+      onNextShift: () => this.startNextShift(),
+    });
+  }
+
+  private startNextShift(): void {
+    this.progress.startNextShift();
+    this.clinicEvents.startShift(this.progress.shift);
+    this.caseRunner.newShift();
+    this.clock.reset();
+    this.inputLocked = false;
+    this.announcer.show(`☀️  Shift ${this.progress.shift} begins! A new patient has registered. Call them in from Consultation`, 4500);
+    this.persist();
   }
 
   /** Freezes walking control (modal panels). Walking resumes when inputLocked is cleared. */
@@ -349,9 +452,28 @@ export default class ClinicScene extends Phaser.Scene {
     const room = this.caseRunner.questRoom();
     if (!room) return;
     const label = this.roomLabel(room);
-    if (target) this.navigation.walkNear({ x: target.x, y: target.y }, room, () => this.persist());
+    if (target) this.walkToItem(target, room, () => this.persist());
     else this.navigation.walkToRoom(room, () => this.persist());
     this.hud.showRoomToast(`🚶  Heading to ${label.replace(/^\S+\s+/, "")}…`);
+  }
+
+  /**
+   * Auto-walk up to an interactable so its Interact button shows on arrival: the front edge of
+   * furniture (within its reach), or the closest free spot around a person, inside their reach.
+   */
+  private walkToItem(item: InteractableDef, room: RoomId, onArrive: () => void): void {
+    if (item.area) {
+      const front = { x: item.x, y: item.y + item.area.h / 2 + Math.min(22, item.radius - 8) };
+      if (isWalkable(front.x, front.y) && this.navigation.walkTo(front, onArrive)) return;
+    } else {
+      const reach = item.radius * 0.7;
+      const spots = [90, 45, 135, 0, 180, 270, 315, 225]
+        .map((deg) => ({ x: item.x + Math.cos((deg * Math.PI) / 180) * reach, y: item.y + Math.sin((deg * Math.PI) / 180) * reach }))
+        .filter((p) => isWalkable(p.x, p.y))
+        .sort((a, b) => Math.hypot(a.x - this.player.x, a.y - this.player.y) - Math.hypot(b.x - this.player.x, b.y - this.player.y));
+      if (spots.length && this.navigation.walkTo(spots[0], onArrive)) return;
+    }
+    this.navigation.walkNear({ x: item.x, y: item.y }, room, onArrive);
   }
 
   /** `required` on first launch, when no character has been chosen yet. */
@@ -417,7 +539,8 @@ export default class ClinicScene extends Phaser.Scene {
       here,
       { x: this.player.x, y: this.player.y },
       this.caseRunner.questRoom(),
-      this.clock.currentPrayer() ? "surau" : null
+      this.clock.currentPrayer() ? "surau" : null,
+      this.clinicEvents.markerRoom()
     );
   }
 
@@ -460,6 +583,8 @@ export default class ClinicScene extends Phaser.Scene {
     for (const npc of this.poseNpcs) npc.update(delta, playerPos);
     for (const walker of this.walkers) walker.update(delta, playerPos, this.inputLocked);
     this.caseRunner.update(delta);
+    this.clinicEvents.update(delta, this.inputLocked);
+    if (this.shiftEndPending && !this.inputLocked) this.endShift();
     if (!this.inputLocked) this.clock.tick(delta);
     this.hud.setClock(this.clock.label());
     this.amenities.update(room?.id ?? null);
@@ -470,14 +595,15 @@ export default class ClinicScene extends Phaser.Scene {
     this.nearestInteractable = this.interaction.getNearest(this.player.x, this.player.y);
     this.markers.forEach((m, id) => m.setActive(id === this.nearestInteractable?.id));
     const near = this.inputLocked ? null : this.nearestInteractable;
-    const action = near ? (this.amenities.actionLabel(near) ?? this.caseRunner.actionLabel(near)) : null;
+    const action = near ? this.actionLabel(near) : null;
     this.hud.setInteractTarget(near && action ? { ...near, label: action } : near);
 
     const quest = this.caseRunner.questTarget();
     // No "!" bubbles over objects: players explore and find things themselves; the Interact
     // button appears when they are close. (Markers are kept so they can be switched back on.)
     this.markers.forEach((m) => m.setHidden(SHOW_INTERACT_BUBBLES ? this.inputLocked : true));
-    this.miniMap.draw(this.player.x, this.player.y, this.currentRoomId, this.player.lastFacingAngle, quest);
+    const eventAt = this.clinicEvents.markerRoom() ? this.clinicEvents.target() : null;
+    this.miniMap.draw(this.player.x, this.player.y, this.currentRoomId, this.player.lastFacingAngle, quest, eventAt);
   }
 
   private persist(): void {

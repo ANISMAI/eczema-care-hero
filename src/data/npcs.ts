@@ -135,7 +135,7 @@ export const POSE_NPCS: PoseNpcDef[] = [
       "storekeeper",
       "Encik Ravi",
       "📦",
-      "Every shelf is stocked and labelled. Supply missions are coming soon!",
+      "Every shelf is stocked and labelled. I'll give you a shout if we run low!",
       at("storage", 150, 140),
       78
     ),

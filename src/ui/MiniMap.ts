@@ -39,7 +39,8 @@ export default class MiniMap {
     return [this.mx(r.y + r.height), this.my(r.x), r.height * SCALE, r.width * SCALE];
   }
 
-  draw(playerX: number, playerY: number, currentRoomId: RoomId, facingDeg: number, quest?: Point | null): void {
+  /** `quest`: next case destination (pink pin). `event`: optional clinic event (orange "!"). */
+  draw(playerX: number, playerY: number, currentRoomId: RoomId, facingDeg: number, quest?: Point | null, event?: Point | null): void {
     const ctx = this.ctx;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.clearRect(0, 0, MAP_W, MAP_H);
@@ -68,8 +69,28 @@ export default class MiniMap {
       box(room.bounds, toCss(isHere ? room.color : shade(room.color, 0.6)), isHere ? "#ffffff" : undefined);
     }
 
-    // next case destination: pink pin
     this.pulse = (this.pulse + 0.06) % (Math.PI * 2);
+
+    // optional event: orange "!" badge (clamped to the edge when the room is off-screen)
+    if (event) {
+      const ex = Math.min(MAP_W - 6, Math.max(6, this.mx(event.y)));
+      const ey = this.my(event.x);
+      const r = 5.5 + Math.sin(this.pulse * 2) * 0.8;
+      ctx.beginPath();
+      ctx.arc(ex, ey, r, 0, Math.PI * 2);
+      ctx.fillStyle = "#f5a524";
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 1.4;
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "900 8px Nunito, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("!", ex, ey + 0.5);
+    }
+
+    // next case destination: pink pin
     if (quest) {
       const qx = Math.min(MAP_W - 4, Math.max(4, this.mx(quest.y)));
       const qy = this.my(quest.x);

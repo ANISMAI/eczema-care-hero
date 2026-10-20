@@ -68,7 +68,7 @@ export default class FullMap {
       el.setAttribute("aria-label", room.label);
       el.style.setProperty("--room", toCss(room.color));
       el.style.setProperty("--room-soft", toCss(shade(room.color, 0.62)));
-      el.innerHTML = `<span class="fm-room-inner"><span class="fm-room-icon">${room.icon}</span><span class="fm-room-label">${room.label}</span></span>`;
+      el.innerHTML = `<span class="fm-room-inner"><span class="fm-room-icon">${room.icon}</span><span class="fm-room-label">${room.label}</span></span><span class="fm-event-badge" aria-hidden="true">!</span>`;
       el.addEventListener("click", () => this.select(room.id));
       this.map.appendChild(el);
       this.roomEls.set(room.id, el);
@@ -171,13 +171,21 @@ export default class FullMap {
     const isCurrent = roomId === this.currentRoomId;
     this.detailIcon.textContent = room.icon;
     this.detailName.textContent = room.label;
-    this.detailText.textContent = isCurrent ? "You are already here." : room.description;
+    const help = this.roomEls.get(roomId)!.classList.contains("event") ? " ❗ Someone here needs a hand (optional)." : "";
+    this.detailText.textContent = (isCurrent ? "You are already here." : room.description) + help;
     this.goHereBtn.disabled = isCurrent || !room.accessible;
   }
 
   /** `questRoom`: where the active case needs the player next (shown with a "NEXT" tag). */
   /** `prayerRoom`: marked with 🕌 during a prayer time (optional reminder). */
-  open(currentRoomId: RoomId | null, playerPos: Point, questRoom: RoomId | null = null, prayerRoom: RoomId | null = null): void {
+  /** `eventRoom`: an optional clinic event is waiting there (orange "!"). */
+  open(
+    currentRoomId: RoomId | null,
+    playerPos: Point,
+    questRoom: RoomId | null = null,
+    prayerRoom: RoomId | null = null,
+    eventRoom: RoomId | null = null
+  ): void {
     this.currentRoomId = currentRoomId;
     this.selectedRoomId = null;
     this.playerPos = { ...playerPos };
@@ -185,6 +193,8 @@ export default class FullMap {
       el.classList.toggle("here", id === currentRoomId);
       el.classList.toggle("quest", id === questRoom);
       el.classList.toggle("prayer", id === prayerRoom);
+      el.classList.toggle("event", id === eventRoom);
+      el.setAttribute("aria-label", `${ROOMS.find((r) => r.id === id)!.label}${id === eventRoom ? " (help needed)" : ""}`);
       el.classList.remove("selected");
     });
 

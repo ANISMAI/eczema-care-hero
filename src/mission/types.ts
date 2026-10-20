@@ -1,82 +1,142 @@
 import type { RoomId } from "../data/rooms";
 
-// Data-driven patient cases (Phase 2 brief, section 07).
+// Data-driven patient cases (revised Phase 2 brief, sections 04, 05 and 09).
 //
-// Dentist-Hero style: the doctor calls the patient into the Care Room, then a treatment screen
-// opens straight away with a close-up of the hand and a tray of tools. Each step is done with
-// one tool; the patient's face and a comfort bar react. Almost no text.
+// A case is a fixed sequence of steps. Each step has a prerequisite state and the state it
+// leads to, so the case walks the brief's state machine:
+//   AVAILABLE → ACCEPTED → INTERVIEWED → DOCTOR_REVIEWED → CARE_COMPLETED → HANDOVER_DONE → COMPLETED
+
+export type CaseStatus =
+  | "AVAILABLE"
+  | "ACCEPTED"
+  | "INTERVIEWED"
+  | "DOCTOR_REVIEWED"
+  | "CARE_COMPLETED"
+  | "HANDOVER_DONE"
+  | "COMPLETED";
+
+export const CASE_FLOW: CaseStatus[] = [
+  "AVAILABLE",
+  "ACCEPTED",
+  "INTERVIEWED",
+  "DOCTOR_REVIEWED",
+  "CARE_COMPLETED",
+  "HANDOVER_DONE",
+  "COMPLETED",
+];
 
 export type StepKind =
-  | "call" // press "Call patient": announcement, the patient walks in
-  | "inspect" // 🔍 drag the magnifier to find the marked areas
-  | "referral" // 📞 one tap: Dr. Lim approves the cream
-  | "wash" // 🧼 rub to lather, then 🚿 hold to rinse
-  | "dry" // 🧻 pat dry (rubbing doesn't count)
-  | "cream" // 🧴 hold to squeeze the right amount, then smooth it on slowly
-  | "handoff"; // the patient collects her items at the Pharmacy (automatic)
-
-export type ToolId = "lens" | "phone" | "soap" | "water" | "towel" | "cream" | "scrub" | "scented";
+  | "call" // Consultation desk: call the registered patient in (she walks there herself)
+  | "interview" // Consultation: a short chat with the patient
+  | "consult" // Consultation: the doctor assesses, the player inspects highlighted areas
+  | "care" // Care Room: hands-on care as directed by the care plan (Treatment screen)
+  | "handover" // automatic: the patient collects her items from the pharmacist on her own
+  | "farewell"; // automatic: the patient says thank you; case closes
 
 export interface StepDef {
   id: string;
   kind: StepKind;
+  /** State the case must be in for this step to be due. */
+  requires: CaseStatus;
+  /** State the case moves to when the step is done. */
+  result: CaseStatus;
+  room: RoomId;
+  /** Interactables that start this step (first one is where "Go" walks to); empty = automatic. */
+  targets: string[];
   /** Objective banner text while this step is due. */
   objective: string;
-  /** Tools this step uses, in order (wash = soap then water). */
-  tools: ToolId[];
-  room: RoomId;
-  /** Interactables that start / continue this step. */
-  targets: string[];
-  /** Points awarded once on completion; -5 per mistake, floor 0. */
-  maxScore: number;
+  /** Friendly hint when the player tries this step too early: who says it and what. */
+  early: { who: string; avatar: string; text: string };
+  /** Care points for doing this interaction (see REWARDS.correctCare); omit for none. */
+  rewarded?: boolean;
   /** Task name on the result screen. */
   task: string;
+}
+
+// ---------- Care Room (Treatment screen) ----------
+
+export type ToolId = "lens" | "phone" | "soap" | "water" | "towel" | "cream" | "scrub" | "scented";
+
+/** One activity inside the Treatment screen. Its id is its kind. */
+export interface TreatStep {
+  id: "inspect" | "referral" | "wash" | "dry" | "cream";
+  tools: ToolId[];
 }
 
 export interface Tool {
   id: ToolId;
   icon: string;
   label: string;
-  /** Distractor: picking it is a (small) mistake. `why` explains. */
+  /** Distractor: picking it counts as a wrong pick. `why` explains. */
   wrong?: boolean;
   why?: string;
 }
 
 export interface Spot {
   id: string;
-  /** One or two words shown when found. */
+  /** One or two words shown on the hand. */
   label: string;
+  /** Short educational line shown when the spot is inspected. */
+  info: string;
   /** Position on the hand illustration (0..100 box). */
   x: number;
   y: number;
+}
+
+export interface CareSession {
+  steps: TreatStep[];
+  tools: Tool[];
+  spots: Spot[];
+  referral?: { doctor: string; portrait: string; approval: string };
+}
+
+// ---------- Interview and consultation ----------
+
+export interface InterviewPrompt {
+  id: string;
+  question: string;
+  answer: string;
+  /** Line added to the case notes. */
+  note: string;
 }
 
 export interface CaseDefinition {
   id: string;
   title: string;
   patient: { name: string; fullName: string; age: number; portrait: string };
+  /** Case file shown when the doctor calls the patient in. */
+  intake: { reason: string; objective: string };
   steps: StepDef[];
-  announcement: string;
-  tools: Tool[];
-  spots: Spot[];
-  referral: { doctor: string; portrait: string; approval: string };
+  interview: { intro: string; prompts: InterviewPrompt[]; outro: string };
+  consult: {
+    doctor: string;
+    portrait: string;
+    intro: string;
+    spots: Spot[];
+    /** The doctor's assessment, said before the plan. */
+    summary: string;
+    plan: string[];
+    /** When to seek help again (referral / escalation messaging). */
+    safety: string;
+  };
+  care: CareSession;
+  /** Toast when the patient has collected her items at the Pharmacy. */
+  collected: string;
+  thanks: string;
   takeaway: string;
 }
 
-export type CaseStatus = "idle" | "active" | "completed";
-
-/** Saved progress for the active case (brief section 07). */
+/** Saved progress of the current patient case. */
 export interface CaseState {
   version: number;
-  activeCaseId: string | null;
+  caseId: string;
   status: CaseStatus;
-  currentStep: string | null;
-  completedStepIds: string[];
-  /** Progress inside a step that should survive a refresh (e.g. areas already found). */
+  /** Progress inside a step that should survive a refresh (prompts asked, spots inspected...). */
   progress: Record<string, string[]>;
-  scoresByStep: Record<string, number>;
-  penaltiesByStep: Record<string, number>;
-  mistakes: number;
-  bestScore: Record<string, number>;
-  lastResult: { caseId: string; score: number; mistakes: number; finishedAt: number } | null;
+  /** Wrong picks per step. */
+  mistakes: Record<string, number>;
+  /** Care points earned per step (and "case" for completion). */
+  points: Record<string, number>;
+  /** Best total per case id. */
+  best: Record<string, number>;
 }

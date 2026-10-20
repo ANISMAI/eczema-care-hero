@@ -30,28 +30,42 @@ export default class GameClock {
   private minutes = SHIFT_START;
   private events: ClockEvents;
   private saveTimer = 0;
+  private over = false;
 
   constructor(events: ClockEvents) {
     this.events = events;
     try {
       const v = Number(localStorage.getItem(STORAGE_KEY));
-      if (v >= SHIFT_START && v < SHIFT_END) this.minutes = v;
+      if (v >= SHIFT_START && v <= SHIFT_END) this.minutes = v;
     } catch {
       // storage unavailable: start of shift
     }
   }
 
-  /** Advance the clock; call every frame while the player is free to move. */
+  /**
+   * Advance the clock; call every frame while the player is free to move. At 5:00 PM the clock
+   * stops and reports the end of the shift once; `reset()` starts the next shift at 8:00 AM.
+   */
   tick(deltaMs: number): void {
-    const before = this.minutes;
-    this.minutes += deltaMs * GAME_MINUTES_PER_MS;
-    for (const p of PRAYER_TIMES) if (before < p.at && this.minutes >= p.at) this.events.onPrayerTime(p);
     if (this.minutes >= SHIFT_END) {
-      this.minutes = SHIFT_START;
-      this.events.onShiftOver();
+      if (!this.over) {
+        this.over = true;
+        this.events.onShiftOver();
+      }
+      return;
     }
+    const before = this.minutes;
+    this.minutes = Math.min(SHIFT_END, this.minutes + deltaMs * GAME_MINUTES_PER_MS);
+    for (const p of PRAYER_TIMES) if (before < p.at && this.minutes >= p.at) this.events.onPrayerTime(p);
     this.saveTimer += deltaMs;
     if (this.saveTimer > 2000) this.save();
+  }
+
+  /** New shift: back to 8:00 AM. */
+  reset(): void {
+    this.minutes = SHIFT_START;
+    this.over = false;
+    this.save();
   }
 
   save(): void {

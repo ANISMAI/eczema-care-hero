@@ -1,16 +1,19 @@
 import Overlay, { el } from "./Overlay";
 import { STAGE_ZONE, handSvg, toStage } from "./HandArt";
-import type { CaseDefinition, StepDef, Tool, ToolId } from "../../mission/types";
+import type { CareSession, Tool, ToolId, TreatStep } from "../../mission/types";
 
 /** What the treatment screen needs from the case runner. */
 export interface TreatmentHooks {
-  def: CaseDefinition;
-  /** The step currently due (null when the treatment is finished). */
-  current(): StepDef | null;
+  patient: { fullName: string; portrait: string };
+  /** The activities, tools and hotspots of this care session (from the case's care plan). */
+  session: CareSession;
+  /** The activity currently due (null when the treatment is finished). */
+  current(): TreatStep | null;
   isDone(stepId: string): boolean;
   progressOf(stepId: string): string[];
   addProgress(stepId: string, value: string): void;
-  penalize(stepId: string): void;
+  /** A wrong tool or amount: the patient winces; lowers the reward a little. */
+  wrongPick(stepId: string): void;
   complete(stepId: string): void;
   onClose(): void;
 }
@@ -28,7 +31,8 @@ const GRID = 16;
 /**
  * Dentist-Hero style treatment screen: a close-up of the patient's hand, a tray of tools,
  * the patient's face and a comfort bar. Pick the right tool, use it on the hand. Wrong tools
- * (scrub, scented lotion) make the patient wince and cost a few points. Hardly any text.
+ * (scrub, scented lotion) make the patient wince. Hardly any text. Which activities run
+ * (inspect, wash, dry, cream...) comes from the case's care plan.
  */
 export default class Treatment {
   private overlay: Overlay;
@@ -82,7 +86,7 @@ export default class Treatment {
     this.squeezed = false;
     this.cells.clear();
     this.penalised.clear();
-    this.overlay.setHeader({ title: "Treatment", avatar: h.def.patient.portrait, subtitle: h.def.patient.fullName });
+    this.overlay.setHeader({ title: "Care Room", avatar: h.patient.portrait, subtitle: h.patient.fullName });
     this.build();
     this.overlay.open(() => {
       this.clearTimers();
@@ -117,7 +121,7 @@ export default class Treatment {
     this.lens = el("div", "lens");
     this.lens.appendChild(el("span", "lens-handle"));
     this.stage.append(this.zone, this.canvas, this.water, this.blob, this.towel, this.lens);
-    for (const s of this.h.def.spots) {
+    for (const s of this.h.session.spots) {
       const m = el("div", "found-spot");
       m.dataset.spot = s.id;
       m.style.left = `${toStage(s.x)}%`;
@@ -133,7 +137,7 @@ export default class Treatment {
     this.pill = el("div", "session-flash");
 
     this.tray = el("div", "treat-tray");
-    for (const tool of this.h.def.tools) {
+    for (const tool of this.h.session.tools) {
       const b = el("button", "treat-tool");
       b.dataset.tool = tool.id;
       b.setAttribute("aria-label", tool.label);
@@ -150,23 +154,23 @@ export default class Treatment {
   private neededTool(): ToolId | null {
     const step = this.h.current();
     if (!step || !step.tools.length) return null;
-    if (step.kind === "wash") return this.h.progressOf("wash").includes("lather") ? "water" : "soap";
+    if (step.id === "wash") return this.h.progressOf("wash").includes("lather") ? "water" : "soap";
     return step.tools[0];
   }
 
   private refresh(): void {
     const step = this.h.current();
     const need = this.neededTool();
-    const scoring = this.h.def.steps.filter((s) => s.maxScore > 0);
-    const done = scoring.filter((s) => this.h.isDone(s.id)).length;
-    this.comfort.style.width = `${(done / scoring.length) * 100}%`;
-    this.face.textContent = performance.now() < this.winceUntil ? "😖" : done >= 4 ? "😊" : done >= 2 ? "🙂" : "😣";
+    const steps = this.h.session.steps;
+    const done = steps.filter((s) => this.h.isDone(s.id)).length / steps.length;
+    this.comfort.style.width = `${done * 100}%`;
+    this.face.textContent = performance.now() < this.winceUntil ? "😖" : done >= 1 ? "😊" : done >= 0.5 ? "🙂" : "😣";
 
     this.tray.querySelectorAll<HTMLButtonElement>(".treat-tool").forEach((b) => {
       const id = b.dataset.tool as ToolId;
       b.classList.toggle("next", id === need);
       b.classList.toggle("active", id === this.active);
-      const usedUp = this.h.def.steps.some((s) => s.tools.includes(id) && this.h.isDone(s.id)) ||
+      const usedUp = this.h.session.steps.some((s) => s.tools.includes(id) && this.h.isDone(s.id)) ||
         (id === "soap" && this.h.progressOf("wash").includes("lather"));
       b.classList.toggle("used", usedUp);
     });
@@ -180,7 +184,7 @@ export default class Treatment {
     this.zone.classList.toggle("show", this.active === "cream" && this.squeezed && !this.h.isDone("cream"));
     this.lens.classList.toggle("show", this.active === "lens");
     this.towel.classList.toggle("show", this.active === "towel");
-    this.gauge.classList.toggle("hidden", !(this.active === "cream" && !this.squeezed && step?.kind === "cream"));
+    this.gauge.classList.toggle("hidden", !(this.active === "cream" && !this.squeezed && step?.id === "cream"));
 
     const hints: Partial<Record<ToolId, string>> = {
       lens: "Drag over the hand",
@@ -215,7 +219,7 @@ export default class Treatment {
   private mistake(stepId: string, key: string, why: string): void {
     if (!this.penalised.has(`${stepId}:${key}`)) {
       this.penalised.add(`${stepId}:${key}`);
-      this.h.penalize(stepId);
+      this.h.wrongPick(stepId);
     }
     this.winceUntil = performance.now() + 1300;
     this.flash(why, "bad");
@@ -230,8 +234,9 @@ export default class Treatment {
     this.refresh();
   }
 
-  private callDoctor(step: StepDef): void {
-    const r = this.h.def.referral;
+  private callDoctor(step: TreatStep): void {
+    const r = this.h.session.referral;
+    if (!r) return this.stepDone(step.id, "Approved");
     const card = el("div", "treat-doctor");
     const img = el("img");
     img.src = r.portrait;
@@ -240,7 +245,7 @@ export default class Treatment {
     this.stage.appendChild(card);
     this.later(() => {
       card.remove();
-      this.stepDone(step.id, "Dr. Lim approved");
+      this.stepDone(step.id, `${r.doctor} approved`);
     }, 1800);
   }
 
@@ -364,13 +369,13 @@ export default class Treatment {
     this.lens.style.left = `${lx}%`;
     this.lens.style.top = `${ly}%`;
     const found = this.h.progressOf("inspect");
-    for (const s of this.h.def.spots) {
+    for (const s of this.h.session.spots) {
       if (found.includes(s.id)) continue;
       if (Math.hypot(toStage(s.x) - lx, toStage(s.y) - ly) < 11) {
         this.h.addProgress("inspect", s.id);
         this.flash(s.label, "good");
         this.refresh();
-        if (this.h.progressOf("inspect").length === this.h.def.spots.length) {
+        if (this.h.progressOf("inspect").length === this.h.session.spots.length) {
           this.later(() => this.stepDone("inspect", "All found"), 700);
         }
       }

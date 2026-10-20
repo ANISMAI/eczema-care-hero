@@ -4,11 +4,19 @@ import type { CaseDefinition, CaseState } from "../../mission/types";
 export interface ResultOptions {
   def: CaseDefinition;
   state: Readonly<CaseState>;
-  onReturn: () => void;
-  onReplay: () => void;
+  /** XP earned for the case. */
+  xp: number;
+  /** Highest possible care points for this case (for the ring). */
+  maxPoints: number;
+  onKeepExploring: () => void;
+  onEndShift: () => void;
 }
 
-/** End-of-case result screen (brief section 06). Local score only; no leaderboard. */
+/**
+ * Step F, case complete (brief section 04): the patient says thank you, then a short summary of
+ * care points, XP and what was learned. Local only; no leaderboard. The player chooses to keep
+ * exploring or end the shift.
+ */
 export default class CaseResult {
   private overlay: Overlay;
 
@@ -22,49 +30,55 @@ export default class CaseResult {
 
   open(o: ResultOptions): void {
     const { def, state } = o;
-    const total = Object.values(state.scoresByStep).reduce((a, b) => a + b, 0);
-    const best = state.bestScore[def.id] ?? total;
+    const total = Object.values(state.points).reduce((a, b) => a + b, 0);
+    const best = state.best[def.id] ?? total;
     this.overlay.setHeader({ title: `${def.title} complete!`, avatar: def.patient.portrait, subtitle: `${def.patient.name} was helped 💜` });
+
+    const thanks = el("div", "case-speech", def.thanks);
 
     const score = el("div", "result-score");
     const ring = el("div", "result-ring");
-    ring.style.setProperty("--p", `${total}%`);
-    ring.append(el("strong", "", String(total)), el("span", "", "/ 100"));
-    const stars = total >= 90 ? "⭐⭐⭐" : total >= 70 ? "⭐⭐" : "⭐";
+    ring.style.setProperty("--p", `${Math.round((total / o.maxPoints) * 100)}%`);
+    ring.append(el("strong", "", String(total)), el("span", "", "care pts"));
+    const mistakes = Object.values(state.mistakes).reduce((a, b) => a + b, 0);
     const side = el("div", "result-side");
     side.append(
-      el("div", "result-stars", stars),
-      el("div", "result-best", `Best: ${best} / 100`),
-      el("div", "result-acc", state.mistakes === 0 ? "No mistakes. Perfect accuracy!" : `${state.mistakes} wrong ${state.mistakes === 1 ? "choice" : "choices"} along the way`)
+      el("div", "result-stars", total >= o.maxPoints ? "⭐⭐⭐" : total >= o.maxPoints - 20 ? "⭐⭐" : "⭐"),
+      el("div", "result-best", `+${o.xp} XP · Best: ${best}`),
+      el("div", "result-acc", mistakes === 0 ? "Every check right first time!" : "Double-checking is part of good care 👍")
     );
     score.append(ring, side);
 
     const tasks = el("ul", "result-tasks");
     for (const step of def.steps) {
-      if (!step.maxScore) continue;
-      const got = state.scoresByStep[step.id] ?? 0;
-      const li = el("li", got === step.maxScore ? "full" : "");
-      li.append(el("span", "result-check", "✓"), el("span", "", step.task), el("strong", "", `${got}/${step.maxScore}`));
+      const got = state.points[step.id];
+      const li = el("li", step.rewarded && got === undefined ? "" : "full");
+      li.append(el("span", "result-check", "✓"), el("span", "", step.task), el("strong", "", got ? `+${got}` : ""));
+      tasks.appendChild(li);
+    }
+    if (state.points.case) {
+      const li = el("li", "full");
+      li.append(el("span", "result-check", "💜"), el("span", "", "Patient case completed"), el("strong", "", `+${state.points.case}`));
       tasks.appendChild(li);
     }
 
     const takeaway = el("div", "result-takeaway");
     takeaway.append(el("strong", "", "💡 Learning takeaway"), el("p", "", def.takeaway));
 
-    const note = el("div", "result-note", "Prototype · Local Score (saved on this device only)");
+    const note = el("div", "result-note", "Care points are your main score. Event bonuses and arcade coins are counted separately. Saved on this device only.");
 
-    // closing with ✕ / Esc counts as "Return to Clinic"
-    let next: () => void = o.onReturn;
-    const ret = el("button", "secondary-btn", "Return to Clinic");
-    ret.addEventListener("click", () => this.overlay.close());
-    const replay = el("button", "primary-btn", "Replay Case");
-    replay.addEventListener("click", () => {
-      next = o.onReplay;
+    // closing with ✕ / Esc counts as "Keep exploring"
+    let next: () => void = o.onKeepExploring;
+    const keep = el("button", "secondary-btn", "Keep exploring");
+    keep.addEventListener("click", () => this.overlay.close());
+    const end = el("button", "primary-btn", "End shift");
+    end.addEventListener("click", () => {
+      next = o.onEndShift;
       this.overlay.close();
     });
 
-    this.overlay.body.replaceChildren(score, tasks, takeaway, note);
-    this.overlay.footer.replaceChildren(ret, replay);
+    this.overlay.body.replaceChildren(thanks, score, tasks, takeaway, note);
+    this.overlay.footer.replaceChildren(keep, end);
     this.overlay.open(() => next());
   }
 }

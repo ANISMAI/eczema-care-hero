@@ -24,6 +24,7 @@ export default class HUD {
   private interactTargetId: string | null = null;
   private objective: HTMLButtonElement;
   private objectiveText: HTMLSpanElement;
+  private objectiveFill: HTMLSpanElement;
   private avatarBtn: HTMLButtonElement;
   private avatarFace: HTMLSpanElement;
   private levelLabel: HTMLSpanElement;
@@ -124,7 +125,12 @@ export default class HUD {
     const go = document.createElement("span");
     go.className = "hud-objective-go";
     go.textContent = "Go ›";
-    this.objective.append(this.objectiveText, go);
+    // case tracker: how far through the patient's visit
+    const track = document.createElement("span");
+    track.className = "hud-objective-track";
+    this.objectiveFill = document.createElement("span");
+    track.append(this.objectiveFill);
+    this.objective.append(this.objectiveText, go, track);
     this.objective.addEventListener("click", callbacks.onObjectiveTap);
 
     this.root.append(statsBar, right, this.objective, this.toast, joystickBase, this.interactBtn);
@@ -183,11 +189,14 @@ export default class HUD {
     base.addEventListener("pointercancel", handleEnd);
   }
 
-  /** Shows the Interact button for the given target, or hides it when null. */
-  /** Shows the current case objective ("Case 001 · Talk to Amina…"), or hides the banner. */
-  setObjective(text: string | null): void {
+  /**
+   * Shows the current case objective ("Case #001 · Talk to Amina…") and how far through the
+   * visit the case is (0..1), or hides the banner.
+   */
+  setObjective(text: string | null, progress = 0): void {
     this.objective.classList.toggle("hidden", !text);
     if (!text) return;
+    this.objectiveFill.style.width = `${Math.round(progress * 100)}%`;
     const [title, rest] = text.split(" · ");
     this.objectiveText.replaceChildren();
     const tag = document.createElement("strong");
@@ -196,6 +205,7 @@ export default class HUD {
     this.objective.setAttribute("aria-label", `Objective: ${text}. Tap to go there.`);
   }
 
+  /** Shows the Interact button for the given target, or hides it when null. */
   setInteractTarget(item: InteractableDef | null): void {
     const id = item ? `${item.id}|${item.label}` : null;
     if (id === this.interactTargetId) return;

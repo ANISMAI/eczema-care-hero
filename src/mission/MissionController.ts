@@ -1,57 +1,37 @@
-import { CASES } from "../data/cases/case001";
-import type { CaseDefinition, CaseState, StepDef } from "./types";
+import { CASES, CASE_001 } from "../data/cases/case001";
+import { CASE_FLOW, type CaseDefinition, type CaseState, type CaseStatus, type StepDef } from "./types";
 
-// Central mission state (Phase 2 brief, section 07). Every change goes through the guarded
-// functions below, so steps can't be completed out of order or twice, and points can't be
+// Central patient-case state (revised Phase 2 brief, section 05). Every change goes through the
+// guarded functions below, so a step can't be done out of order or twice, and points can't be
 // farmed by reopening a panel. Progress is saved to localStorage on every change, under its own
 // versioned key; the Phase 1 save is untouched.
 
-// v2: steps redesigned around the Care Room session; v1 progress is dropped (best scores kept).
-const STORAGE_KEY = "eczema-care-hero-case-v2";
-const OLD_KEY = "eczema-care-hero-case-v1";
-const STATE_VERSION = 2;
-export const PENALTY = 5;
+// v3: revised brief state machine (AVAILABLE ... COMPLETED). Older progress is dropped.
+const STORAGE_KEY = "eczema-care-hero-case-v3";
+const OLD_KEYS = ["eczema-care-hero-case-v1", "eczema-care-hero-case-v2"];
+const STATE_VERSION = 3;
 
-function emptyState(): CaseState {
-  return {
-    version: STATE_VERSION,
-    activeCaseId: null,
-    status: "idle",
-    currentStep: null,
-    completedStepIds: [],
-    progress: {},
-    scoresByStep: {},
-    penaltiesByStep: {},
-    mistakes: 0,
-    bestScore: {},
-    lastResult: null,
-  };
+function freshState(caseId: string, best: Record<string, number> = {}): CaseState {
+  return { version: STATE_VERSION, caseId, status: "AVAILABLE", progress: {}, mistakes: {}, points: {}, best };
 }
 
-/** Loads saved state; anything unreadable or inconsistent falls back to a clean state. */
+/** Loads saved state; anything unreadable or inconsistent falls back to a fresh case. */
 function load(): CaseState {
   try {
+    OLD_KEYS.forEach((k) => localStorage.removeItem(k));
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      const old = localStorage.getItem(OLD_KEY);
-      localStorage.removeItem(OLD_KEY);
-      const best = old ? (JSON.parse(old).bestScore ?? {}) : {};
-      return { ...emptyState(), bestScore: best };
-    }
-    const s = { ...emptyState(), ...JSON.parse(raw) } as CaseState;
-    if (s.version !== STATE_VERSION) return { ...emptyState(), bestScore: s.bestScore ?? {} };
-    const def = s.activeCaseId ? CASES[s.activeCaseId] : undefined;
-    if (s.status === "active") {
-      const valid = def && def.steps.some((st) => st.id === s.currentStep);
-      if (!valid) return { ...emptyState(), bestScore: s.bestScore ?? {} };
+    if (!raw) return freshState(CASE_001.id);
+    const s = { ...freshState(CASE_001.id), ...JSON.parse(raw) } as CaseState;
+    if (s.version !== STATE_VERSION || !CASES[s.caseId] || !CASE_FLOW.includes(s.status)) {
+      return freshState(CASE_001.id, s.best ?? {});
     }
     return s;
   } catch {
-    return emptyState();
+    return freshState(CASE_001.id);
   }
 }
 
-export type MissionListener = (state: CaseState) => void;
+export type MissionListener = (state: Readonly<CaseState>) => void;
 
 export default class MissionController {
   private state: CaseState = load();
@@ -66,60 +46,58 @@ export default class MissionController {
     return this.state;
   }
 
-  get definition(): CaseDefinition | null {
-    return this.state.activeCaseId ? CASES[this.state.activeCaseId] ?? null : null;
+  get definition(): CaseDefinition {
+    return CASES[this.state.caseId];
   }
 
-  get isActive(): boolean {
-    return this.state.status === "active";
+  get status(): CaseStatus {
+    return this.state.status;
   }
 
-  /** The step that has to be done next, or null if no case is running. */
+  /** Accepted and not yet closed. */
+  get inProgress(): boolean {
+    return this.state.status !== "AVAILABLE" && this.state.status !== "COMPLETED";
+  }
+
+  /** The step that is due now, or null once the case is completed. */
   get currentStep(): StepDef | null {
-    const def = this.definition;
-    if (!def || !this.isActive) return null;
-    return def.steps.find((s) => s.id === this.state.currentStep) ?? null;
+    return this.definition.steps.find((s) => s.requires === this.state.status) ?? null;
+  }
+
+  /** Position of the current state in the flow (0 = AVAILABLE). */
+  get stage(): number {
+    return CASE_FLOW.indexOf(this.state.status);
   }
 
   onChange(fn: MissionListener): void {
     this.listeners.push(fn);
   }
 
-  /** True only for the step that is currently due. */
   isCurrent(stepId: string): boolean {
-    return this.isActive && this.state.currentStep === stepId;
+    return this.currentStep?.id === stepId;
   }
 
-  isDone(stepId: string): boolean {
-    return this.state.completedStepIds.includes(stepId);
+  /** A step that is still ahead of the current one. */
+  isAhead(step: StepDef): boolean {
+    return CASE_FLOW.indexOf(step.requires) > this.stage;
   }
 
-  /** Starts (or restarts) a case. Keeps best scores; resets only case-specific data. */
-  start(caseId: string): void {
-    const def = CASES[caseId];
-    if (!def) return;
-    this.state = {
-      ...emptyState(),
-      bestScore: this.state.bestScore,
-      lastResult: this.state.lastResult,
-      activeCaseId: caseId,
-      status: "active",
-      currentStep: def.steps[0].id,
-    };
-    this.commit();
+  isDone(step: StepDef): boolean {
+    return CASE_FLOW.indexOf(step.result) <= this.stage;
   }
 
-  /** A wrong choice during the current step: -5 (step score can't go below 0). */
-  penalize(stepId: string): void {
+  /** A wrong pick during the current step (no score is taken away; it only lowers that step's reward). */
+  mistake(stepId: string): void {
     if (!this.isCurrent(stepId)) return;
-    const step = this.currentStep!;
-    const now = this.state.penaltiesByStep[stepId] ?? 0;
-    this.state.penaltiesByStep[stepId] = Math.min(step.maxScore, now + PENALTY);
-    this.state.mistakes += 1;
+    this.state.mistakes[stepId] = (this.state.mistakes[stepId] ?? 0) + 1;
     this.commit();
   }
 
-  /** Records progress inside the current step (e.g. an area found). Idempotent. */
+  mistakesOf(stepId: string): number {
+    return this.state.mistakes[stepId] ?? 0;
+  }
+
+  /** Records progress inside the current step (e.g. a prompt asked). Idempotent. */
   addProgress(stepId: string, value: string): void {
     if (!this.isCurrent(stepId)) return;
     const list = (this.state.progress[stepId] ??= []);
@@ -133,34 +111,36 @@ export default class MissionController {
   }
 
   /**
-   * Completes a step. Guarded: returns false (and changes nothing) if the step isn't the one
-   * currently due, so a step can't be skipped, repeated or scored twice.
+   * Completes the current step and moves to its result state. Guarded: returns false (and
+   * changes nothing) if `stepId` isn't the step that is due, so nothing can be skipped,
+   * repeated or rewarded twice. `points` are the care points earned by the step.
    */
-  complete(stepId: string): boolean {
-    const def = this.definition;
+  advance(stepId: string, points = 0): boolean {
     const step = this.currentStep;
-    if (!def || !step || step.id !== stepId || this.isDone(stepId)) return false;
-
-    const penalty = this.state.penaltiesByStep[stepId] ?? 0;
-    this.state.scoresByStep[stepId] = Math.max(0, step.maxScore - penalty);
-    this.state.completedStepIds.push(stepId);
-
-    const next = def.steps[def.steps.indexOf(step) + 1];
-    if (next) {
-      this.state.currentStep = next.id;
-    } else {
-      this.state.currentStep = null;
-      this.state.status = "completed";
-      const total = this.totalScore();
-      this.state.bestScore[def.id] = Math.max(this.state.bestScore[def.id] ?? 0, total);
-      this.state.lastResult = { caseId: def.id, score: total, mistakes: this.state.mistakes, finishedAt: Date.now() };
-    }
+    if (!step || step.id !== stepId) return false;
+    if (points) this.state.points[stepId] = points;
+    this.state.status = step.result;
     this.commit();
     return true;
   }
 
-  totalScore(): number {
-    return Object.values(this.state.scoresByStep).reduce((a, b) => a + b, 0);
+  /** Records the completion reward and updates the best total. */
+  recordCompletion(points: number): void {
+    if (this.state.status !== "COMPLETED" || this.state.points.case) return;
+    this.state.points.case = points;
+    const id = this.state.caseId;
+    this.state.best[id] = Math.max(this.state.best[id] ?? 0, this.totalPoints());
+    this.commit();
+  }
+
+  totalPoints(): number {
+    return Object.values(this.state.points).reduce((a, b) => a + b, 0);
+  }
+
+  /** A new patient arrives (next shift): fresh case data, best totals kept. */
+  reset(caseId = this.state.caseId): void {
+    this.state = freshState(caseId, this.state.best);
+    this.commit();
   }
 
   private commit(): void {
