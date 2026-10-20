@@ -1,16 +1,75 @@
-# Eczema Care Hero — Phase 2 (revised)
+# Eczema Care Hero — Phase 3
 
 Mobile-first walkable clinic game, built with **Phaser 4 + TypeScript + Vite**. Phase 1 built the
-clinic, characters, movement and maps; Phase 2 (revised brief) adds a patient-care vertical slice
-and occasional optional clinic events. No online leaderboard, accounts or backend; everything
-is saved locally in the browser.
+clinic, characters, movement and maps. Phase 2 added patient care and optional clinic events.
+Phase 3 makes it a living clinic: visitors keep arriving all day. No online leaderboard,
+accounts or backend; everything is saved locally in the browser.
+
+## Phase 3 — living clinic and continuous patient flow
+
+**A day:** the clinic opens at 8:00 AM. Visitors arrive every 12–25 in-game minutes (about every
+25–50 real seconds) until the last-arrival cut-off. Each one is either:
+
+- **a doctor patient (≈60%):** registers with Nurul at Reception (speech bubbles), sits in the
+  Waiting Area and joins the **doctor queue** (panel on the left; on the right in landscape)
+  with a **patience bar**. The doctor calls the first one in at the Consultation desk. Then the
+  visit works as in Phase 2: chat, Dr. Lim's assessment, Care Room if the plan needs it, and the
+  patient collects any approved item from Grace and leaves on their own.
+- **a routine visitor (≈40%):** Nurul answers them, or sends them on to Grace, then they leave.
+  Never in the doctor queue, no patience bar, no score.
+
+Patience only drains while the patient waits (it stops when the doctor calls them, and while
+panels are open). At 0% the patient says "I'll come back another day 🙂" and walks out calmly.
+That's counted in the summary, and no points are taken away.
+
+**Visitors** (`src/data/patients.ts`): 8 reusable identities (Amina, Daniel, Siti, Sarah,
+Uncle Wong, Farid, Mak Cik Rohana, Suresh). An identity is never in the clinic twice at once.
+The same person can come back for a different reason; a **follow-up** is only offered to someone
+who has already completed a doctor visit. All eight have their own walking and seated sprites and
+a portrait (prompts in `art-source/CHARACTER_PROMPTS.md`). A future identity without art can borrow
+Amina's sprites with a `tint`; it then gets a name tag automatically. Sheets are sliced with `node tools/slice-sprite-sheet.mjs`
+and portraits made with `node tools/make-portrait.mjs` (Node ports of the Python tools; they
+need the `sharp` dev dependency, no Python).
+
+**Visit templates** are separate from identities. Doctor: `case001` (dry hands, with Care Room
+moisturiser, max **120**), `itchy-patch` (consultation only, max 100), `follow-up` (consultation
+only, max 100), in `src/data/cases/`. Routine: opening hours, appointment booking, collect a
+prepared item, stock question, storage question (`src/data/visits.ts`). On day 1 the first
+patient is always Amina with `case001`, as a regression check.
+
+**Closing** (5:00 PM or the Staff Office desk, same policy): no more arrivals; a patient still
+with the doctor and everyone waiting are **rebooked** for another day; routine visitors are
+finished off; unanswered events expire; one summary opens. The summary is now per **Day** and
+shows patients helped, left while waiting, rebooked, and visitors Nurul & Grace looked after,
+next to the care / event / arcade ledgers.
+
+**Configurable values** (`src/data/gameplay.ts`, `CLINIC`):
+
+| Setting | Default |
+|---|---|
+| Clinic hours | 8:00 AM – 5:00 PM (clock) |
+| First arrival / last arrival | 8:02 AM / 4:15 PM |
+| Time between arrivals | 12–25 in-game minutes (retry after 3 when full). The brief suggests 30–60, but at 30 game minutes per real minute that felt empty |
+| Doctor patients waiting at once | 3 (one per free waiting seat) |
+| Routine visitors at once | 2 |
+| Visit mix | 60% doctor / 40% routine |
+| Doctor patience | 3–5 minutes of play time |
+| Registration / service time | 2.6 s / 3.2 s |
+| Doctor visit weights | `DOCTOR_VISITS` in `src/data/visits.ts` |
+
+**Testing switches:** `?clinic=busy` (first visitor at once, arrivals every 5–10 in-game
+minutes; caps unchanged). It combines with `?events=always` / `?events=off`, e.g.
+`?clinic=busy&events=off`. `?reset=1` wipes all saved progress and starts again from Day 1.
+
+The first time the living clinic runs on an older save, the day restarts at 8:00 AM so a
+late saved clock doesn't leave the clinic empty.
 
 ## Phase 2 — patient care first, occasional optional events
 
 **Core loop:** start shift → the patient registers with Nurul → the doctor calls her into
 Consultation → chat + Dr. Lim's assessment (same room) → moisturiser in the Care Room →
-thank-you and result → keep exploring or end the shift (Staff Office desk, the result screen,
-or automatically at 5:00 PM).
+thank-you and result (one **Continue** button; the day carries on) → the day ends at the Staff
+Office desk ("Close the clinic") or automatically at 5:00 PM.
 
 **The patient comes to the doctor**, not the other way round: the doctor only walks between
 Consultation and the Care Room. Amina walks there herself, then collects her cream from Grace at
@@ -47,6 +106,19 @@ and expires quietly after 4 minutes of play. Ignoring an event never blocks the 
   card. Pick the matching item, tick the label checks.
 - **Pharmacy shelf mix-up** (Pharmacy counter): put three items back on the slots their labels
   name (same drag / tap mechanic as Low stock).
+- **Clean a used care tray** (Care Room sink): not random, see Care trays below.
+
+**Care trays** (`src/systems/CareTrays.ts`): the Care Room has 3 trays. There is no display in
+the world: the treatment screen shows how many clean trays are left ("🧺 2/3 clean", orange when
+none will be left after this session). Each care session needs a clean tray and uses it.
+Nurse Amy normally cleans used trays herself (about 40 s of play each). But when a tray is used
+there's a 50% chance she's busy, and she asks the doctor through the event system (same notice,
+"!" markers, Later / Dismiss, counts toward the 2-per-shift cap). Cleaning is a short mini-game
+at the sink: scrub off the cream smudges, hold to rinse, tap the drops to pat dry, put it on
+the rack (+15 coins, +5 XP). The doctor may also clean a tray any time at the sink (no reward).
+With no clean tray, a care session waits and Amy says when one will be ready, so nothing gets
+stuck. A new shift starts with all trays clean. This matters more once a shift has several
+patients.
 
 **Scoring** (`src/data/gameplay.ts`, `src/systems/Progress.ts`): three separate ledgers.
 Care points (case +100, each care interaction +20, or +10 after a wrong pick) are the main
@@ -115,8 +187,14 @@ src/
   mission/                Case state machine (MissionController) and world flow (CaseRunner)
   events/                 Optional event registry, scheduler/lifecycle (EventDirector), types
   systems/Progress.ts     Shifts, XP/level, separate care / event / arcade ledgers
+  systems/CareTrays.ts    Care Room trays: clean/used, Nurse Amy cleaning, rack display
+  clinic/ClinicFlow.ts    Phase 3: arrival scheduler, visitor states, doctor queue + patience, Nurul/Grace service
+  data/patients.ts        Phase 3: the 8 reusable patient identities
+  data/visits.ts          Phase 3: doctor visit weights and routine service visits
+  data/cases/             Doctor visit templates (case001, itchyPatch, followUp) + shared steps
+  ui/QueuePanel.ts        Phase 3: doctor queue with patience bars
   ui/case/                Case panels: Interview, Consultation, Treatment, CaseResult
-  ui/events/              Event notice + RegistrationPanel, ShelfPanel (Storage + Pharmacy), PharmacyCheckPanel
+  ui/events/              Event notice + RegistrationPanel, ShelfPanel (Storage + Pharmacy), PharmacyCheckPanel, TrayCleanPanel
   ui/ShiftSummary.ts      End-of-shift results
   art/palette.ts          Pastel colour palette + small drawing helpers
   art/environment.ts      Floors, walls, garden, doors, wall plaques, interaction bubbles

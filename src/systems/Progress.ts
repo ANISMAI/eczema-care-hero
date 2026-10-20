@@ -18,7 +18,27 @@ export interface ShiftTally {
   arcadeCoins: number;
   casesCompleted: number;
   eventsResolved: number;
+  /** Phase 3 clinic traffic. */
+  doctorArrivals: number;
+  doctorLeft: number;
+  doctorRebooked: number;
+  serviceArrivals: number;
+  serviceServed: number;
+  /** Each doctor patient helped today, for the end-of-day summary. */
+  visits: VisitRecord[];
 }
+
+/** One completed doctor visit, as the end-of-day summary lists it. */
+export interface VisitRecord {
+  name: string;
+  portrait: string;
+  title: string;
+  points: number;
+  maxPoints: number;
+  takeaway: string;
+}
+
+export type VisitStat = "doctorArrivals" | "doctorLeft" | "doctorRebooked" | "serviceArrivals" | "serviceServed";
 
 export interface ProgressState {
   version: number;
@@ -33,7 +53,21 @@ export interface ProgressState {
 }
 
 function emptyTally(): ShiftTally {
-  return { care: 0, caseXp: 0, eventCoins: 0, eventXp: 0, arcadeCoins: 0, casesCompleted: 0, eventsResolved: 0 };
+  return {
+    care: 0,
+    caseXp: 0,
+    eventCoins: 0,
+    eventXp: 0,
+    arcadeCoins: 0,
+    casesCompleted: 0,
+    eventsResolved: 0,
+    doctorArrivals: 0,
+    doctorLeft: 0,
+    doctorRebooked: 0,
+    serviceArrivals: 0,
+    serviceServed: 0,
+    visits: [],
+  };
 }
 
 function fresh(): ProgressState {
@@ -105,6 +139,18 @@ export default class Progress {
     this.state.arcadeCoins += coins;
     this.state.coins += coins;
     this.state.current.arcadeCoins += coins;
+    this.commit();
+  }
+
+  /** A doctor visit was completed: kept for the end-of-day summary (no extra score). */
+  recordVisit(v: VisitRecord): void {
+    this.state.current.visits = [...this.state.current.visits, v];
+    this.commit();
+  }
+
+  /** Clinic traffic counters for the shift summary (no score attached). */
+  countVisit(stat: VisitStat): void {
+    this.state.current[stat] += 1;
     this.commit();
   }
 

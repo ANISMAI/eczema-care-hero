@@ -1,33 +1,42 @@
-import { CASES, CASE_001 } from "../data/cases/case001";
-import { CASE_FLOW, type CaseDefinition, type CaseState, type CaseStatus, type StepDef } from "./types";
+import { CASE_TEMPLATES, buildCase } from "../data/cases";
+import { CASE_001 } from "../data/cases/case001";
+import { getPatient, PATIENTS } from "../data/patients";
+import { CASE_FLOW, type CaseDefinition, type CaseState, type CaseStatus, type CaseVisit, type StepDef } from "./types";
 
-// Central patient-case state (revised Phase 2 brief, section 05). Every change goes through the
-// guarded functions below, so a step can't be done out of order or twice, and points can't be
-// farmed by reopening a panel. Progress is saved to localStorage on every change, under its own
-// versioned key; the Phase 1 save is untouched.
+// Central patient-case state (revised Phase 2 brief, section 05; Phase 3 adds the visitor).
+// One doctor case is open at a time: the patient the doctor called in from the queue. Every
+// change goes through the guarded functions below, so a step can't be done out of order or
+// twice, and points can't be farmed by reopening a panel. Saved on every change under its own
+// versioned key.
 
-// v3: revised brief state machine (AVAILABLE ... COMPLETED). Older progress is dropped.
-const STORAGE_KEY = "eczema-care-hero-case-v3";
-const OLD_KEYS = ["eczema-care-hero-case-v1", "eczema-care-hero-case-v2"];
-const STATE_VERSION = 3;
+// v4: Phase 3 — the case belongs to a visitor; templates are separate from patients.
+const STORAGE_KEY = "eczema-care-hero-case-v4";
+const OLD_KEYS = ["eczema-care-hero-case-v1", "eczema-care-hero-case-v2", "eczema-care-hero-case-v3"];
+const STATE_VERSION = 4;
 
-function freshState(caseId: string, best: Record<string, number> = {}): CaseState {
-  return { version: STATE_VERSION, caseId, status: "AVAILABLE", progress: {}, mistakes: {}, points: {}, best };
+function freshState(best: Record<string, number> = {}): CaseState {
+  return { version: STATE_VERSION, templateId: CASE_001.id, visit: null, status: "AVAILABLE", progress: {}, mistakes: {}, points: {}, best };
 }
 
-/** Loads saved state; anything unreadable or inconsistent falls back to a fresh case. */
+/** Loads saved state; anything unreadable or inconsistent falls back to "no case open". */
 function load(): CaseState {
   try {
-    OLD_KEYS.forEach((k) => localStorage.removeItem(k));
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return freshState(CASE_001.id);
-    const s = { ...freshState(CASE_001.id), ...JSON.parse(raw) } as CaseState;
-    if (s.version !== STATE_VERSION || !CASES[s.caseId] || !CASE_FLOW.includes(s.status)) {
-      return freshState(CASE_001.id, s.best ?? {});
+    if (!raw) {
+      const old = OLD_KEYS.map((k) => localStorage.getItem(k)).find(Boolean);
+      OLD_KEYS.forEach((k) => localStorage.removeItem(k));
+      const best = old ? (JSON.parse(old).best ?? {}) : {};
+      return freshState(best);
     }
-    return s;
+    const s = { ...freshState(), ...JSON.parse(raw) } as CaseState;
+    const valid =
+      s.version === STATE_VERSION &&
+      CASE_TEMPLATES[s.templateId] &&
+      CASE_FLOW.includes(s.status) &&
+      (s.visit === null ? s.status === "AVAILABLE" || s.status === "COMPLETED" : !!getPatient(s.visit.identityId));
+    return valid ? s : freshState(s.best ?? {});
   } catch {
-    return freshState(CASE_001.id);
+    return freshState();
   }
 }
 
@@ -36,32 +45,45 @@ export type MissionListener = (state: Readonly<CaseState>) => void;
 export default class MissionController {
   private state: CaseState = load();
   private listeners: MissionListener[] = [];
+  private def: CaseDefinition;
 
   constructor() {
+    this.def = this.build();
     // write back what was loaded, so an unreadable/inconsistent save is replaced right away
     this.commit();
+  }
+
+  private build(): CaseDefinition {
+    const patient = getPatient(this.state.visit?.identityId ?? "") ?? PATIENTS[0];
+    return buildCase(this.state.templateId, patient);
   }
 
   get snapshot(): Readonly<CaseState> {
     return this.state;
   }
 
+  /** The open case, filled in for its patient. */
   get definition(): CaseDefinition {
-    return CASES[this.state.caseId];
+    return this.def;
+  }
+
+  get visit(): CaseVisit | null {
+    return this.state.visit;
   }
 
   get status(): CaseStatus {
     return this.state.status;
   }
 
-  /** Accepted and not yet closed. */
+  /** A patient has been called in and the case isn't closed yet. */
   get inProgress(): boolean {
-    return this.state.status !== "AVAILABLE" && this.state.status !== "COMPLETED";
+    return !!this.state.visit && this.state.status !== "AVAILABLE" && this.state.status !== "COMPLETED";
   }
 
-  /** The step that is due now, or null once the case is completed. */
+  /** The step that is due now, or null when no case is open or it is completed. */
   get currentStep(): StepDef | null {
-    return this.definition.steps.find((s) => s.requires === this.state.status) ?? null;
+    if (!this.state.visit) return null;
+    return this.def.steps.find((s) => s.requires === this.state.status) ?? null;
   }
 
   /** Position of the current state in the flow (0 = AVAILABLE). */
@@ -84,6 +106,15 @@ export default class MissionController {
 
   isDone(step: StepDef): boolean {
     return CASE_FLOW.indexOf(step.result) <= this.stage;
+  }
+
+  /** Opens a case for the patient the doctor just called in (only when none is open). */
+  start(templateId: string, visit: CaseVisit): boolean {
+    if (this.inProgress || !CASE_TEMPLATES[templateId] || !getPatient(visit.identityId)) return false;
+    this.state = { ...freshState(this.state.best), templateId, visit };
+    this.def = this.build();
+    this.commit();
+    return true;
   }
 
   /** A wrong pick during the current step (no score is taken away; it only lowers that step's reward). */
@@ -128,7 +159,7 @@ export default class MissionController {
   recordCompletion(points: number): void {
     if (this.state.status !== "COMPLETED" || this.state.points.case) return;
     this.state.points.case = points;
-    const id = this.state.caseId;
+    const id = this.state.templateId;
     this.state.best[id] = Math.max(this.state.best[id] ?? 0, this.totalPoints());
     this.commit();
   }
@@ -137,9 +168,10 @@ export default class MissionController {
     return Object.values(this.state.points).reduce((a, b) => a + b, 0);
   }
 
-  /** A new patient arrives (next shift): fresh case data, best totals kept. */
-  reset(caseId = this.state.caseId): void {
-    this.state = freshState(caseId, this.state.best);
+  /** Closes the case record (patient gone home, or the day ended): no case open. Best totals kept. */
+  reset(): void {
+    this.state = freshState(this.state.best);
+    this.def = this.build();
     this.commit();
   }
 

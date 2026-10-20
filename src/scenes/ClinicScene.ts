@@ -18,6 +18,11 @@ import CaseDialog from "../ui/case/CaseDialog";
 import ShiftSummary from "../ui/ShiftSummary";
 import Progress from "../systems/Progress";
 import EventDirector from "../events/EventDirector";
+import CareTrays from "../systems/CareTrays";
+import ClinicFlow from "../clinic/ClinicFlow";
+import QueuePanel from "../ui/QueuePanel";
+import Pathfinder from "../systems/Pathfinding";
+import { amyBusyChance, TRAYS } from "../data/gameplay";
 import { runTap, stallSequence } from "../art/amenityFx";
 import type { StaffCard } from "../data/staff";
 import { CHARACTERS, getCharacter, type CharacterId, type PlayableCharacter } from "../data/assets";
@@ -78,6 +83,10 @@ export default class ClinicScene extends Phaser.Scene {
   private announcer!: Announcement;
   private progress = new Progress();
   private clinicEvents!: EventDirector;
+  private flow!: ClinicFlow;
+  private queuePanel!: QueuePanel;
+  private queueKey = "";
+  private trays!: CareTrays;
   private shiftSummary!: ShiftSummary;
   private shiftDialog!: CaseDialog;
   /** The clock reached 5:00 PM while a panel was open; end the shift once it closes. */
@@ -252,6 +261,21 @@ export default class ClinicScene extends Phaser.Scene {
       onChangeCharacter: () => this.characterSelect.open(this.character?.id, false),
       onClose: () => (this.inputLocked = false),
     });
+    // Phase 3: visitors arrive all day; the doctor queue and Nurul / Grace's routine visits
+    this.flow = new ClinicFlow(
+      {
+        scene: this,
+        pathfinder: new Pathfinder(this.npcSolids()),
+        minutes: () => this.clock.minutesOfDay,
+        toast: (text) => this.hud.showRoomToast(text),
+        arrived: (type) => this.progress.countVisit(type === "DOCTOR" ? "doctorArrivals" : "serviceArrivals"),
+        leftWaiting: () => this.progress.countVisit("doctorLeft"),
+        serviceDone: () => this.progress.countVisit("serviceServed"),
+        rebooked: () => this.progress.countVisit("doctorRebooked"),
+      },
+      this.progress.shift
+    );
+    this.queuePanel = new QueuePanel(this.hud.queueMount, () => this.goToObjective());
     this.caseRunner = new CaseRunner({
       scene: this,
       uiRoot,
@@ -262,17 +286,29 @@ export default class ClinicScene extends Phaser.Scene {
       findInteractable: (id) => this.interactables.find((i) => i.id === id),
       toast: (text) => this.hud.showRoomToast(text),
       setObjective: (text, progress) => this.hud.setObjective(text, progress),
-      npcSolids: this.npcSolids(),
+      nextInQueue: () => this.flow.queue()[0] ?? null,
+      callNext: () => this.flow.callNext(),
+      patientNpc: (id) => this.flow.npc(id),
+      caseCompleted: (id) => this.flow.caseCompleted(id),
+      visitorGone: (id) => this.flow.remove(id),
       awardCare: (points) => this.progress.addCare(points),
       completeCase: (xp) => this.progress.completeCase(xp),
       onStatus: (status) => this.clinicEvents.trigger(status, this.progress.shift),
-      endShift: () => this.endShift(),
+      trayReady: () => this.trays.clean > 0,
+      trayStatus: () => ({ clean: this.trays.clean, total: TRAYS.count }),
+      recordVisit: (v) => this.progress.recordVisit(v),
+      noTrayLine: () => this.trays.noTrayMessage(),
+      useTray: () => {
+        this.trays.use();
+        // usually Nurse Amy cleans it; sometimes she's busy and asks the doctor
+        if (Math.random() < amyBusyChance()) this.clinicEvents.offer("tray-cleaning");
+      },
     });
     this.clinicEvents = new EventDirector(
       {
         scene: this,
         uiRoot,
-        hudRoot: this.hud.root,
+        hudRoot: this.hud.stack,
         lock: () => this.lockInput(),
         unlock: () => (this.inputLocked = false),
         toast: (text) => this.hud.showRoomToast(text),
@@ -284,9 +320,21 @@ export default class ClinicScene extends Phaser.Scene {
           this.hud.showRoomToast(`🚶  Heading to ${this.roomLabel(room).replace(/^\S+\s+/, "")}…`);
         },
         reward: (coins, xp) => this.progress.addEventReward(coins, xp),
+        resolved: (id) => {
+          if (id === "tray-cleaning") this.trays.cleanOne();
+        },
       },
       this.progress.shift
     );
+    this.trays = new CareTrays({
+      scene: this,
+      uiRoot,
+      lock: () => this.lockInput(),
+      unlock: () => (this.inputLocked = false),
+      toast: (text) => this.hud.showRoomToast(text),
+      findInteractable: (id) => this.interactables.find((i) => i.id === id),
+      amyBusy: () => this.clinicEvents.isActive("tray-cleaning"),
+    });
     this.progress.onChange(() => this.hud.setStats(this.progress.level, this.progress.snapshot.coins));
     this.announcer = new Announcement(uiRoot);
     this.clock = new GameClock({
@@ -294,6 +342,9 @@ export default class ClinicScene extends Phaser.Scene {
       // 5:00 PM: the shift ends as soon as no panel is open
       onShiftOver: () => (this.shiftEndPending = true),
     });
+    // First run of the living clinic on an older save: the saved clock may be late in the day
+    // (after the last arrival), so start this day fresh at 8:00 AM for a full day of patients.
+    if (this.flow.isNewSave && !this.progress.snapshot.shiftEnded) this.clock.reset();
     this.amenities = new Amenities({
       uiRoot,
       lock: () => this.lockInput(),
@@ -352,6 +403,7 @@ export default class ClinicScene extends Phaser.Scene {
     if (this.amenities.handle(item)) return;
     if (this.caseRunner.handle(item)) return;
     if (this.clinicEvents.handle(item)) return;
+    if (this.trays.handle(item)) return;
     if (item.id === SHIFT_DESK) return this.confirmEndShift();
     if (this.caseRunner.hint(item)) return;
     this.lockInput();
@@ -365,34 +417,44 @@ export default class ClinicScene extends Phaser.Scene {
       this.amenities.actionLabel(item) ??
       this.caseRunner.actionLabel(item) ??
       this.clinicEvents.actionLabel(item) ??
-      (item.id === SHIFT_DESK ? "📋 End shift" : null)
+      this.trays.actionLabel(item) ??
+      (item.id === SHIFT_DESK ? "🌇 Close the clinic" : null)
     );
   }
 
   // ---------- Shifts ----------
 
-  /** Staff Office desk: end the shift whenever the player chooses (brief section 04, step F). */
+  /** Staff Office desk: end the day whenever the player chooses (same cleanup as 5 PM). */
   private confirmEndShift(): void {
     this.lockInput();
-    const open = this.caseRunner.caseOpen;
-    this.shiftDialog.begin({ title: "End shift?", avatar: "🌇", subtitle: `Shift ${this.progress.shift} · ${this.clock.label()}` }, () => {
+    const waiting = this.flow.queue().length;
+    this.shiftDialog.begin({ title: "Close the clinic?", avatar: "🌇", subtitle: `Day ${this.progress.shift} · ${this.clock.label()}` }, () => {
       this.inputLocked = false;
     });
-    const text = open
-      ? "Your patient case is still open. It will carry over to the next shift. End your shift now?"
-      : "Wrap up for today and see your shift results?";
-    void this.shiftDialog.say(text, "🌇  End shift").then((ok) => {
+    const parts: string[] = [];
+    if (this.caseRunner.caseOpen) parts.push("You're still with a patient.");
+    if (waiting) parts.push(`${waiting} ${waiting === 1 ? "patient is" : "patients are"} waiting.`);
+    const text = parts.length
+      ? `${parts.join(" ")} They'll be rebooked for another day (no points are lost). Close the clinic now?`
+      : "Wrap up for today and see your results?";
+    void this.shiftDialog.say(text, "🌇  Close for today").then((ok) => {
       if (!ok) return;
       this.shiftDialog.end();
       this.endShift();
     });
   }
 
-  /** Closes the shift: unanswered events expire, then the summary opens. */
+  /**
+   * Closes the day (5 PM or the Staff Office desk, one policy): no more arrivals; a patient
+   * still with the doctor and anyone waiting are rebooked; routine visitors are finished off;
+   * unanswered events expire; then the summary opens once.
+   */
   private endShift(): void {
     this.shiftEndPending = false;
     if (this.progress.snapshot.shiftEnded) return;
     this.navigation.cancel();
+    if (this.caseRunner.closeDay()) this.progress.countVisit("doctorRebooked");
+    this.flow.closeDay();
     this.clinicEvents.endShift();
     this.progress.endShift();
     this.showShiftSummary();
@@ -404,18 +466,19 @@ export default class ClinicScene extends Phaser.Scene {
     this.shiftSummary.open({
       progress: this.progress.snapshot,
       level: this.progress.level,
-      caseOpen: this.caseRunner.caseOpen,
       onNextShift: () => this.startNextShift(),
     });
   }
 
   private startNextShift(): void {
     this.progress.startNextShift();
+    this.flow.openDay(this.progress.shift);
     this.clinicEvents.startShift(this.progress.shift);
-    this.caseRunner.newShift();
+    this.trays.reset();
     this.clock.reset();
     this.inputLocked = false;
-    this.announcer.show(`☀️  Shift ${this.progress.shift} begins! A new patient has registered. Call them in from Consultation`, 4500);
+    this.caseRunner.refreshObjective();
+    this.announcer.show(`☀️  Day ${this.progress.shift}: the clinic is open! Patients will arrive soon`, 4500);
     this.persist();
   }
 
@@ -582,11 +645,21 @@ export default class ClinicScene extends Phaser.Scene {
     const playerPos = { x: this.player.x, y: this.player.y };
     for (const npc of this.poseNpcs) npc.update(delta, playerPos);
     for (const walker of this.walkers) walker.update(delta, playerPos, this.inputLocked);
-    this.caseRunner.update(delta);
+    this.flow.update(delta, this.inputLocked);
+    const queue = this.flow.queue();
+    this.queuePanel.update(queue);
+    const queueKey = queue.map((q) => q.instanceId).join(",");
+    if (queueKey !== this.queueKey) {
+      // someone joined or left the queue: the "call next" objective may change
+      this.queueKey = queueKey;
+      this.caseRunner.refreshObjective();
+    }
+    this.caseRunner.update();
     this.clinicEvents.update(delta, this.inputLocked);
+    this.trays.update(delta, this.inputLocked);
     if (this.shiftEndPending && !this.inputLocked) this.endShift();
     if (!this.inputLocked) this.clock.tick(delta);
-    this.hud.setClock(this.clock.label());
+    this.hud.setClock(`Day ${this.progress.shift} · ${this.clock.label()}`);
     this.amenities.update(room?.id ?? null);
     for (const item of [...WALKER_NPCS.map((d) => d.talk), ...this.dynamic]) {
       this.markers.get(item.id)?.setPosition(item.x, item.y - (item.markerLift ?? MARKER_LIFT));

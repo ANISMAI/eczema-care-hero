@@ -198,19 +198,22 @@ function waiting() {
     furniture: [
       wall("picture", 52),
       wall("tv", 262),
-      f("chair", 120, 120, 3),
-      f("chair", 156, 120, 3),
-      f("chair", 192, 120, 3),
-      f("chair", 228, 120, 3),
-      f("chair", 264, 120, 3),
-      f("coffeeTable", 190, 228),
-      f("bench", 190, 322),
+      // rows of waiting chairs facing the TV wall, with a walkway from the door on the left and
+      // between the rows (seat positions in WAITING_SEATS below)
+      ...WAITING_ROWS.flatMap((y) => WAITING_COLS.map((x) => f("chair", x, y, 3))),
       f("plant", 36, 70),
       f("plant", 36, 322),
-      f("plant", 276, 200),
     ],
     spawn: p(55, 180),
   };
+}
+
+/** Waiting Area chair grid (room-local centres): 4 rows x 5 chairs. */
+const WAITING_COLS = [120, 156, 192, 228, 264];
+const WAITING_ROWS = [120, 188, 256, 324];
+/** Feet of someone seated on chair (col, row): just in front of the chair. */
+export function waitingSeat(col: number, row: number): Point {
+  return { x: W.x + WAITING_COLS[col], y: W.y + WAITING_ROWS[row] + 12 };
 }
 
 function care() {
@@ -454,6 +457,19 @@ export const ROOMS: RoomDef[] = [
         radius: 36,
         dialogTitle: "Care Bed",
         dialogText: "A tidy care bed, ready for the next patient.",
+      },
+      {
+        // care trays are cleaned here and kept on the rack beside it (systems/CareTrays.ts)
+        id: "care-sink",
+        kind: "object",
+        label: "Tray rack & sink",
+        icon: "🧽",
+        x: C.x + 252,
+        y: C.y + 68,
+        area: FURNITURE.sink.footprint,
+        radius: 36,
+        dialogTitle: "Tray rack",
+        dialogText: "Clean care trays wait here for the next patient.",
       },
     ],
   },

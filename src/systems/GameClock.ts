@@ -61,6 +61,11 @@ export default class GameClock {
     if (this.saveTimer > 2000) this.save();
   }
 
+  /** In-game minutes since midnight (the visitor scheduler runs on this). */
+  get minutesOfDay(): number {
+    return this.minutes;
+  }
+
   /** New shift: back to 8:00 AM. */
   reset(): void {
     this.minutes = SHIFT_START;

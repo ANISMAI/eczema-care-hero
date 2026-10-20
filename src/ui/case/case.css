@@ -1303,7 +1303,7 @@
   justify-content: flex-end;
   padding-bottom: calc(150px + var(--safe-bottom));
   background: linear-gradient(transparent 55%, rgba(24, 32, 48, 0.55));
-  pointer-events: auto;
+  /* catches taps only while showing (.fader.show); it stays tagged "caption" after hiding */
 }
 
 .fader.caption .fader-text {

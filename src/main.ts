@@ -5,6 +5,22 @@ import "./style.css";
 import "./ui/case/case.css";
 import "./ui/case/care.css";
 
+// `?reset=1`: wipe this game's saved progress (all its localStorage keys) and start over.
+// The flag is removed from the address bar so a later reload doesn't wipe again.
+const params = new URLSearchParams(window.location.search);
+if (params.has("reset")) {
+  try {
+    Object.keys(localStorage)
+      .filter((k) => k.startsWith("eczema-care-hero"))
+      .forEach((k) => localStorage.removeItem(k));
+  } catch {
+    // storage unavailable: nothing to wipe
+  }
+  params.delete("reset");
+  const rest = params.toString();
+  window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : "") + window.location.hash);
+}
+
 const game = new Phaser.Game(gameConfig);
 
 // Keep the canvas matched to the screen on rotation / window resize.

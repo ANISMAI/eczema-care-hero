@@ -18,6 +18,10 @@ export interface HUDCallbacks {
 export default class HUD {
   root: HTMLDivElement;
   miniMapMount: HTMLButtonElement;
+  /** Column under the stats: task card (objective + queue), then the event notice. */
+  stack: HTMLDivElement;
+  /** Where the doctor queue strip goes: its own panel under the mini-map. */
+  queueMount: HTMLDivElement;
   private interactBtn: HTMLButtonElement;
   private interactIcon: HTMLSpanElement;
   private interactLabel: HTMLSpanElement;
@@ -133,7 +137,21 @@ export default class HUD {
     this.objective.append(this.objectiveText, go, track);
     this.objective.addEventListener("click", callbacks.onObjectiveTap);
 
-    this.root.append(statsBar, right, this.objective, this.toast, joystickBase, this.interactBtn);
+    // Task card (the objective banner), stacked with the event notice so they never overlap
+    // whatever their height.
+    this.stack = document.createElement("div");
+    this.stack.className = "hud-stack";
+    const card = document.createElement("div");
+    card.className = "task-card";
+    card.append(this.objective);
+    this.stack.append(card);
+
+    // Doctor queue: its own horizontal panel under the mini-map (QueuePanel mounts here)
+    this.queueMount = document.createElement("div");
+    this.queueMount.className = "queue-dock";
+    right.append(this.queueMount);
+
+    this.root.append(statsBar, right, this.stack, this.toast, joystickBase, this.interactBtn);
     parent.appendChild(this.root);
 
     this.setupJoystick(joystickBase, callbacks.onJoystickMove);

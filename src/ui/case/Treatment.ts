@@ -12,6 +12,8 @@ export interface TreatmentHooks {
   isDone(stepId: string): boolean;
   progressOf(stepId: string): string[];
   addProgress(stepId: string, value: string): void;
+  /** Care trays: clean ones left on the rack besides the one in use, and the total. */
+  trays?: { left: number; total: number };
   /** A wrong tool or amount: the patient winces; lowers the reward a little. */
   wrongPick(stepId: string): void;
   complete(stepId: string): void;
@@ -108,6 +110,13 @@ export default class Treatment {
     this.comfort = el("div", "treat-comfort-fill");
     bar.append(this.comfort, el("span", "treat-comfort-label", "Comfort"));
     top.append(this.face, bar);
+    if (this.h.trays) {
+      const { left, total } = this.h.trays;
+      const pill = el("span", left ? "treat-trays" : "treat-trays empty", `🧺 ${left}/${total} clean`);
+      pill.title = left ? `${left} more clean ${left === 1 ? "tray" : "trays"} after this one` : "No clean trays left after this one";
+      pill.setAttribute("aria-label", pill.title);
+      top.append(pill);
+    }
 
     this.stage = el("div", "hand-stage treat-stage");
     this.stage.innerHTML = handSvg();

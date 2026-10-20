@@ -2,6 +2,7 @@ import { REWARDS } from "../data/gameplay";
 import RegistrationPanel from "../ui/events/RegistrationPanel";
 import ShelfPanel, { PHARMACY_SORT, RESTOCK } from "../ui/events/ShelfPanel";
 import PharmacyCheckPanel from "../ui/events/PharmacyCheckPanel";
+import TrayCleanPanel from "../ui/events/TrayCleanPanel";
 import type { ClinicEventDef } from "./types";
 
 // Optional event catalogue. Room problems happen now and then, not every day (brief section 06);
@@ -60,6 +61,21 @@ export const EVENTS: ClinicEventDef[] = [
     expired: "✅  Grace tidied the shelf herself. Thanks anyway!",
     rewards: { ...REWARDS.event },
     createPanel: (parent) => new ShelfPanel(parent, PHARMACY_SORT),
+  },
+  {
+    // not random: offered when a care tray is used while Nurse Amy is busy (systems/CareTrays.ts)
+    id: "tray-cleaning",
+    title: "Clean a used care tray",
+    icon: "🧽",
+    room: "care",
+    targets: ["care-sink"],
+    actionLabel: "❗ Clean the used tray",
+    from: { name: "Nurse Amy · Care Room", portrait: "assets/portraits/amy.webp" },
+    notice: "My hands are full with the bed linen! Could you clean the used care tray at the sink?",
+    expired: "✨  Nurse Amy found a moment and cleaned the tray",
+    rewards: { ...REWARDS.event },
+    random: false,
+    createPanel: (parent) => new TrayCleanPanel(parent),
   },
 ];
 

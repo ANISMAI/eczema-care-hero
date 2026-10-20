@@ -50,6 +50,8 @@ export interface EventHost {
   /** Walk the player to an interactable (or the room if it's not found). */
   walkTo(target: InteractableDef | null, room: RoomId): void;
   reward(coins: number, xp: number): void;
+  /** An event was completed (for effects in the world, e.g. a tray is clean again). */
+  resolved(id: string): void;
 }
 
 export default class EventDirector {
@@ -114,15 +116,35 @@ export default class EventDirector {
     if (!tutorial && Math.random() >= c.probability) return;
 
     // avoid the same type (and, when possible, the same room) twice in a row
+    const random = EVENTS.filter((e) => e.random !== false);
     const lastRoom = getEvent(this.state.lastId ?? "")?.room;
-    const otherType = EVENTS.filter((e) => e.id !== this.state.lastId);
+    const otherType = random.filter((e) => e.id !== this.state.lastId);
     const otherRoom = otherType.filter((e) => e.room !== lastRoom);
-    const pool = otherRoom.length ? otherRoom : otherType.length ? otherType : EVENTS;
-    const def = pool[Math.floor(Math.random() * pool.length)];
-    this.state.active = { id: def.id, status: "available", seed: Math.floor(Math.random() * 1024), remainingMs: c.expireMs };
+    const pool = otherRoom.length ? otherRoom : otherType.length ? otherType : random;
+    this.start(pool[Math.floor(Math.random() * pool.length)]);
+  }
+
+  /**
+   * Offers a specific event because of game state (not chance), e.g. a used care tray while
+   * Amy is busy. Same rules: one active at a time, counts toward the per-shift cap.
+   * Returns false if it couldn't be offered.
+   */
+  offer(id: string): boolean {
+    const def = getEvent(id);
+    if (!def || this.state.active || this.state.offered >= this.config.maxEventsPerShift) return false;
+    this.start(def);
+    return true;
+  }
+
+  isActive(id: string): boolean {
+    return this.state.active?.id === id;
+  }
+
+  private start(def: ClinicEventDef): void {
+    this.state.active = { id: def.id, status: "available", seed: Math.floor(Math.random() * 1024), remainingMs: this.config.expireMs };
     this.state.offered += 1;
     this.state.lastId = def.id;
-    this.noticeIn = c.noticeDelayMs;
+    this.noticeIn = this.config.noticeDelayMs;
     this.commit();
   }
 
@@ -218,6 +240,7 @@ export default class EventDirector {
     if (outcome === "resolved") {
       this.host.reward(def.rewards.coins, def.rewards.xp);
       this.host.toast(`🎉  +${def.rewards.coins} 🪙  +${def.rewards.xp} XP`);
+      this.host.resolved(def.id);
     }
     if (outcome === "dismissed") this.host.toast("👌  No problem, someone else will handle it");
     this.state.log = [...this.state.log, { id: def.id, outcome, shift: this.state.shift }].slice(-20);

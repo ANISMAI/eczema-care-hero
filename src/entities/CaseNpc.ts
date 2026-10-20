@@ -2,15 +2,16 @@ import Phaser from "phaser";
 import Pathfinder from "../systems/Pathfinding";
 import { addBaked } from "../art/bake";
 import { PAL } from "../art/palette";
+import { textStyle } from "../art/environment";
 import type { CharacterDirection, CharacterSheet, SheetDef } from "../data/assets";
-import type { InteractableDef, Point, Rect } from "../data/rooms";
+import type { InteractableDef, Point } from "../data/rooms";
 
 const WALK_SPEED = 70;
 
 /**
- * The patient of the active case. She can sit on a chair (pose sheet), walk somewhere on her own
- * (walk sheet + path finding) and stand waiting. `talk` follows her so the player can interact
- * wherever she is.
+ * A visiting patient. They can sit on a chair (pose sheet), walk somewhere on their own
+ * (walk sheet + path finding) and stand waiting. `talk` follows them so the player can interact
+ * wherever they are. Phase 3: one per visitor; `destroy()` when they leave the clinic.
  */
 export default class CaseNpc {
   readonly talk: InteractableDef;
@@ -21,6 +22,8 @@ export default class CaseNpc {
   private sitter: Phaser.GameObjects.Sprite | null = null;
   private shadow: Phaser.GameObjects.Image;
   private shadowOffset: Point;
+  /** Small name pill over the head (used while placeholder art makes visitors look alike). */
+  private nameTag: Phaser.GameObjects.Container | null = null;
   private pos: Point = { x: 0, y: 0 };
   private path: Point[] = [];
   private onArrive: (() => void) | null = null;
@@ -29,18 +32,21 @@ export default class CaseNpc {
   private visible = false;
   private blinkAt = 2000;
   private time = 0;
+  private dead = false;
 
   constructor(
     scene: Phaser.Scene,
     walkSheet: CharacterSheet,
     sitSheet: SheetDef,
     talk: InteractableDef,
-    extraSolids: Rect[]
+    pathfinder: Pathfinder,
+    tint?: number,
+    nameTag?: string
   ) {
     this.scene = scene;
     this.walkSheet = walkSheet;
     this.talk = talk;
-    this.pathfinder = new Pathfinder(extraSolids);
+    this.pathfinder = pathfinder;
 
     this.shadow = addBaked(scene, "case-npc-shadow", 0, 0, (g) => {
       g.fillStyle(PAL.shadow, 0.22);
@@ -51,7 +57,31 @@ export default class CaseNpc {
       this.walker = this.sprite(walkSheet, walkSheet.rows.down * 3);
     }
     if (scene.textures.exists(sitSheet.key)) this.sitter = this.sprite(sitSheet, 0);
+    if (tint !== undefined) {
+      this.walker?.setTint(tint);
+      this.sitter?.setTint(tint);
+    }
+    if (nameTag) this.nameTag = this.makeNameTag(nameTag);
     this.hide();
+  }
+
+  /** Removes the sprites for good (the visitor has left the clinic). */
+  destroy(): void {
+    this.dead = true;
+    this.onArrive = null;
+    this.path = [];
+    this.visible = false;
+    this.walker?.destroy();
+    this.sitter?.destroy();
+    this.shadow.destroy();
+    this.nameTag?.destroy();
+    this.nameTag = null;
+    this.walker = null;
+    this.sitter = null;
+  }
+
+  get isSeated(): boolean {
+    return this.seated;
   }
 
   private sprite(sheet: SheetDef, frame: number): Phaser.GameObjects.Sprite {
@@ -122,7 +152,7 @@ export default class CaseNpc {
   }
 
   update(deltaMs: number): void {
-    if (!this.visible) return;
+    if (!this.visible || this.dead) return;
     this.time += deltaMs;
 
     if (this.seated && this.sitter) {
@@ -164,7 +194,17 @@ export default class CaseNpc {
     cb?.();
   }
 
+  private makeNameTag(name: string): Phaser.GameObjects.Container {
+    const label = this.scene.add.text(0, 0, name, textStyle(8, "#ffffff", "900")).setOrigin(0.5);
+    const w = label.width + 10;
+    const bg = this.scene.add.graphics();
+    bg.fillStyle(0x23364f, 0.85);
+    bg.fillRoundedRect(-w / 2, -7, w, 14, 7);
+    return this.scene.add.container(0, 0, [bg, label]).setVisible(false);
+  }
+
   private sync(): void {
+    if (this.dead) return;
     const { x, y } = this.pos;
     const showWalker = this.visible && !this.seated;
     const showSitter = this.visible && this.seated;
@@ -173,5 +213,6 @@ export default class CaseNpc {
     this.shadow.setVisible(showWalker).setPosition(x + this.shadowOffset.x, y + this.shadowOffset.y).setDepth(y - 1);
     this.talk.x = x;
     this.talk.y = this.seated ? y - 12 : y;
+    this.nameTag?.setVisible(this.visible).setPosition(x, y - (this.seated ? 56 : 72)).setDepth(y + 13);
   }
 }

@@ -100,10 +100,15 @@ export interface InterviewPrompt {
   note: string;
 }
 
-export interface CaseDefinition {
+/**
+ * A doctor visit template (Phase 3): the case without a specific patient. Text may contain
+ * `{name}`, filled in with the visiting patient's name. Any identity can come with any template.
+ */
+export interface CaseTemplate {
   id: string;
   title: string;
-  patient: { name: string; fullName: string; age: number; portrait: string };
+  /** Short reason shown in the doctor queue ("Dry, itchy hands"). */
+  reason: string;
   /** Case file shown when the doctor calls the patient in. */
   intake: { reason: string; objective: string };
   steps: StepDef[];
@@ -119,17 +124,31 @@ export interface CaseDefinition {
     /** When to seek help again (referral / escalation messaging). */
     safety: string;
   };
-  care: CareSession;
-  /** Toast when the patient has collected her items at the Pharmacy. */
-  collected: string;
+  /** Hands-on care in the Care Room; omitted for consultation-only visits. */
+  care?: CareSession;
+  /** Toast when the patient has collected their items at the Pharmacy (omit: no collection). */
+  collected?: string;
   thanks: string;
   takeaway: string;
+}
+
+/** A template filled in for one visiting patient. */
+export interface CaseDefinition extends CaseTemplate {
+  patient: { name: string; fullName: string; age: number; portrait: string };
+}
+
+/** Which visitor the current case belongs to. */
+export interface CaseVisit {
+  instanceId: string;
+  identityId: string;
 }
 
 /** Saved progress of the current patient case. */
 export interface CaseState {
   version: number;
-  caseId: string;
+  templateId: string;
+  /** The patient being seen; null while no case is open (status AVAILABLE). */
+  visit: CaseVisit | null;
   status: CaseStatus;
   /** Progress inside a step that should survive a refresh (prompts asked, spots inspected...). */
   progress: Record<string, string[]>;
@@ -137,6 +156,6 @@ export interface CaseState {
   mistakes: Record<string, number>;
   /** Care points earned per step (and "case" for completion). */
   points: Record<string, number>;
-  /** Best total per case id. */
+  /** Best total per template id. */
   best: Record<string, number>;
 }

@@ -108,6 +108,56 @@ export const NPC_WALKER_SHEETS = {
     ...WALKER,
     displayHeight: 60,
   },
+  // Phase 3 patients (art-source/characters/patient-<id>-walk-sheet.webp -> tools/slice-sprite-sheet.mjs)
+  daniel: {
+    key: "npc-daniel-walk",
+    url: "assets/characters/daniel-walk.webp",
+    frameWidth: 100,
+    ...WALKER,
+    displayHeight: 62,
+  },
+  siti: {
+    key: "npc-siti-walk",
+    url: "assets/characters/siti-walk.webp",
+    frameWidth: 106,
+    ...WALKER,
+    displayHeight: 56,
+  },
+  sarah: {
+    key: "npc-sarah-walk",
+    url: "assets/characters/sarah-walk.webp",
+    frameWidth: 108,
+    ...WALKER,
+    displayHeight: 60,
+  },
+  wong: {
+    key: "npc-wong-walk",
+    url: "assets/characters/wong-walk.webp",
+    frameWidth: 104,
+    ...WALKER,
+    displayHeight: 58,
+  },
+  farid: {
+    key: "npc-farid-walk",
+    url: "assets/characters/farid-walk.webp",
+    frameWidth: 110,
+    ...WALKER,
+    displayHeight: 62,
+  },
+  rohana: {
+    key: "npc-rohana-walk",
+    url: "assets/characters/rohana-walk.webp",
+    frameWidth: 120,
+    ...WALKER,
+    displayHeight: 58,
+  },
+  suresh: {
+    key: "npc-suresh-walk",
+    url: "assets/characters/suresh-walk.webp",
+    frameWidth: 108,
+    ...WALKER,
+    displayHeight: 62,
+  },
 } satisfies Record<string, CharacterSheet>;
 
 /**
@@ -118,12 +168,19 @@ export const NPC_WALKER_SHEETS = {
 export const NPC_POSE_SHEETS = {
   receptionist: { key: "npc-receptionist", url: "assets/characters/receptionist.webp", frameWidth: 108, ...FRAME, displayHeight: 62 },
   specialist: { key: "npc-specialist", url: "assets/characters/specialist.webp", frameWidth: 96, ...FRAME, displayHeight: 64 },
-  aminaSit: { key: "npc-amina-sit", url: "assets/characters/amina-sit.webp", frameWidth: 96, ...FRAME, displayHeight: 48 },
+  aminaSit: { key: "npc-amina-sit", url: "assets/characters/amina-sit.webp", frameWidth: 96, ...FRAME, displayHeight: 56 },
+  danielSit: { key: "npc-daniel-sit", url: "assets/characters/daniel-sit.webp", frameWidth: 98, ...FRAME, displayHeight: 56 },
+  sitiSit: { key: "npc-siti-sit", url: "assets/characters/siti-sit.webp", frameWidth: 98, ...FRAME, displayHeight: 54 },
+  sarahSit: { key: "npc-sarah-sit", url: "assets/characters/sarah-sit.webp", frameWidth: 98, ...FRAME, displayHeight: 56 },
+  wongSit: { key: "npc-wong-sit", url: "assets/characters/wong-sit.webp", frameWidth: 104, ...FRAME, displayHeight: 56 },
+  faridSit: { key: "npc-farid-sit", url: "assets/characters/farid-sit.webp", frameWidth: 94, ...FRAME, displayHeight: 56 },
+  rohanaSit: { key: "npc-rohana-sit", url: "assets/characters/rohana-sit.webp", frameWidth: 108, ...FRAME, displayHeight: 56 },
+  sureshSit: { key: "npc-suresh-sit", url: "assets/characters/suresh-sit.webp", frameWidth: 96, ...FRAME, displayHeight: 56 },
   pharmacist: { key: "npc-pharmacist", url: "assets/characters/pharmacist.webp", frameWidth: 106, ...FRAME, displayHeight: 62 },
   storekeeper: { key: "npc-storekeeper", url: "assets/characters/storekeeper.webp", frameWidth: 94, ...FRAME, displayHeight: 64 },
-  motherSon: { key: "npc-mother-son", url: "assets/characters/patients-mother-son.webp", frameWidth: 94, ...FRAME, displayHeight: 48 },
-  teenYouth: { key: "npc-teen-youth", url: "assets/characters/patients-teen-youth.webp", frameWidth: 112, ...FRAME, displayHeight: 48 },
-  elderly: { key: "npc-elderly", url: "assets/characters/patients-elderly.webp", frameWidth: 112, ...FRAME, displayHeight: 50 },
+  motherSon: { key: "npc-mother-son", url: "assets/characters/patients-mother-son.webp", frameWidth: 94, ...FRAME, displayHeight: 56 },
+  teenYouth: { key: "npc-teen-youth", url: "assets/characters/patients-teen-youth.webp", frameWidth: 112, ...FRAME, displayHeight: 56 },
+  elderly: { key: "npc-elderly", url: "assets/characters/patients-elderly.webp", frameWidth: 112, ...FRAME, displayHeight: 56 },
 } satisfies Record<string, SheetDef>;
 
 /** Every spritesheet BootScene should load. */

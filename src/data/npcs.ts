@@ -88,7 +88,6 @@ function seated(
 
 const S = NPC_POSE_SHEETS;
 const CHAIR = 12; // feet land just in front of a chair's footprint
-const BENCH = 14;
 
 export const POSE_NPCS: PoseNpcDef[] = [
   {
@@ -144,8 +143,8 @@ export const POSE_NPCS: PoseNpcDef[] = [
   seated("visitor-son", S.motherSon, 1, 156, 120, CHAIR, "Adam", "👦", "Can I play in the Arcade Room later? Pleeease?", 1),
   seated("visitor-teen", S.teenYouth, 0, 228, 120, CHAIR, "Mei Ling", "🎧", "Oh, hi doctor! I'm just catching up with my friends.", 2),
   seated("visitor-youth", S.teenYouth, 1, 264, 120, CHAIR, "Arjun", "🎵", "Sorry, I had my music on! Nice and calm in here.", 1),
-  seated("visitor-paati", S.elderly, 0, 160, 322, BENCH, "Paati Lakshmi", "👵", "Such a peaceful place. You young doctors work so hard!", 0),
-  seated("visitor-tokwan", S.elderly, 1, 220, 322, BENCH, "Tok Wan Ismail", "👴", "I always come early so I can read the newspaper here.", 2),
+  seated("visitor-paati", S.elderly, 0, 228, 324, CHAIR, "Paati Lakshmi", "👵", "Such a peaceful place. You young doctors work so hard!", 0),
+  seated("visitor-tokwan", S.elderly, 1, 264, 324, CHAIR, "Tok Wan Ismail", "👴", "I always come early so I can read the newspaper here.", 2),
 ];
 
 const hallX = HALLWAY.x + HALLWAY.width / 2 + 18;

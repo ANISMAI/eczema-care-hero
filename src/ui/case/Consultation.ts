@@ -99,7 +99,7 @@ export default class Consultation {
     const safety = el("div", "case-feedback info");
     safety.append(el("span", "case-feedback-icon", "!"), el("span", "", c.safety));
 
-    const ok = el("button", "primary-btn wide", "👍  Got it, to the Care Room");
+    const ok = el("button", "primary-btn wide", this.h.def.care ? "👍  Got it, to the Care Room" : "👍  Got it, thank you");
     ok.addEventListener("click", () => {
       this.h.done();
       this.overlay.close();

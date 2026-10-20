@@ -35,5 +35,10 @@ export interface ClinicEventDef {
   /** Toast when the event expires unanswered (no penalty). */
   expired: string;
   rewards: EventRewards;
+  /**
+   * false: never picked at random; only offered by game state through EventDirector.offer()
+   * (e.g. a used care tray while Nurse Amy is busy).
+   */
+  random?: boolean;
   createPanel(parent: HTMLElement): EventPanel;
 }

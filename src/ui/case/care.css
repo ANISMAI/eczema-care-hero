@@ -427,9 +427,9 @@
   font-weight: 900;
 }
 
-/* the room-name toast moves down while an event notice is showing */
-.hud-root.has-event .hud-toast {
-  top: calc(222px + var(--safe-top));
+/* the room-name toast shows briefly over the queue panel rather than behind it */
+.hud-toast {
+  z-index: 2;
 }
 
 /* full map: an optional event is waiting in this room */
@@ -738,10 +738,6 @@
     min-width: 220px;
   }
 
-  .hud-root.has-event .hud-toast {
-    top: calc(112px + var(--safe-top));
-  }
-
   /* short screens: keep the shelf and the boxes in view without scrolling */
   .event-panel .case-body {
     gap: 6px;
@@ -779,4 +775,627 @@
   .case-footer:has(.event-actions) {
     flex-direction: row;
   }
+}
+
+/* ---------- care trays: cleaning at the Care Room sink ---------- */
+
+.tray-steps {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.tray-steps span {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #eef2f7;
+  color: var(--ink-soft);
+  font-size: 11.5px;
+  font-weight: 900;
+}
+
+.tray-steps span.now {
+  background: #2f7fe0;
+  color: #fff;
+}
+
+.tray-steps span.done {
+  background: #e5f7f0;
+  color: #146b52;
+}
+
+.tray-stage {
+  position: relative;
+  width: min(280px, 72vw);
+  aspect-ratio: 4 / 3;
+  align-self: center;
+  overflow: hidden;
+  border-radius: 18px;
+  background: radial-gradient(circle at 50% 40%, #fff, #e3eef6 80%);
+  box-shadow: inset 0 0 0 2px #dbe6ee;
+  touch-action: none;
+  user-select: none;
+  cursor: pointer;
+}
+
+.tray {
+  position: absolute;
+  inset: 16% 10%;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  place-items: center;
+  border: 4px solid #8fb7d8;
+  border-radius: 16px;
+  background: #d9e9f5;
+  box-shadow: inset 0 -6px 0 #bcd5ea;
+  pointer-events: none;
+}
+
+.tray-item {
+  font-size: 30px;
+}
+
+.tray-smudge {
+  position: absolute;
+  width: 15%;
+  aspect-ratio: 1.3;
+  margin: -5% 0 0 -7.5%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(236, 220, 196, 0.95), rgba(214, 190, 160, 0.6) 70%, transparent 72%);
+  pointer-events: none;
+  transition: opacity 0.15s linear;
+}
+
+.tray-smudge.gone {
+  display: none;
+}
+
+.tray-drop {
+  position: absolute;
+  display: none;
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.6);
+  font-size: 22px;
+  cursor: pointer;
+  animation: pulse-tag 1.3s ease-in-out infinite;
+}
+
+.tray-drop.show {
+  display: block;
+}
+
+.tray-drop.gone {
+  display: none;
+}
+
+.tray-meter {
+  width: min(280px, 72vw);
+  height: 10px;
+  align-self: center;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e3eaf1;
+}
+
+.tray-meter.hidden {
+  display: none;
+}
+
+.tray-meter span {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: #5aa6ff;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .tray-stage {
+    width: min(240px, 50vw);
+  }
+
+  .tray-panel .case-feedback.info {
+    display: none;
+  }
+}
+
+/* ---------- Landscape phones: compact HUD ----------
+   The screen is short, so nothing stacks down the middle: stats in one row top-left with the
+   objective and event notice under them, staff + map + queue on the right, and the room toast
+   moves to the empty bottom centre between the joystick and the Interact button. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .hud-stats {
+    top: calc(8px + var(--safe-top));
+    left: calc(10px + var(--safe-left));
+    gap: 4px;
+  }
+
+  .hud-avatar {
+    margin: 0;
+    transform: scale(0.86);
+  }
+
+  .hud-pills {
+    flex-direction: row;
+    gap: 4px;
+  }
+
+  .hud-pills .hud-pill {
+    min-height: 28px;
+    gap: 4px;
+    padding: 2px 10px 2px 3px;
+    font-size: 13px;
+  }
+
+  .hud-pill-icon {
+    width: 22px;
+    height: 22px;
+    font-size: 12px;
+  }
+
+  .hud-objective {
+    top: calc(48px + var(--safe-top));
+    left: calc(10px + var(--safe-left));
+    width: min(360px, 48vw);
+    min-width: 0;
+    min-height: 34px;
+    padding: 4px 4px 4px 10px;
+    transform: none;
+  }
+
+  .hud-objective:active {
+    transform: scale(0.98);
+  }
+
+  .hud-objective-text {
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: 11.5px;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .hud-objective-go {
+    padding: 5px 8px;
+    font-size: 11px;
+  }
+
+  .event-notice {
+    top: calc(100px + var(--safe-top));
+    left: calc(10px + var(--safe-left));
+    width: min(360px, 48vw);
+    min-width: 0;
+    transform: none;
+    animation: none;
+  }
+
+  .hud-right {
+    top: calc(8px + var(--safe-top));
+    gap: 6px;
+  }
+
+  /* the lanyard card is drawn at a fixed size: scale it towards the map and take back the
+     space it leaves on its left and bottom (never on the map side, or the two overlap) */
+  .hud-staff-btn {
+    margin: 0 0 -18px -14px;
+    transform: scale(0.78);
+    transform-origin: top right;
+  }
+
+  /* smaller mini-map: the canvas keeps drawing at 120x66 (and screen resolution), just shown smaller */
+  .hud-minimap {
+    gap: 2px;
+    padding: 4px 4px 3px;
+    border-radius: 12px;
+  }
+
+  .hud-minimap .minimap-canvas {
+    width: 84px !important;
+    height: 46px !important;
+    border-radius: 6px;
+  }
+
+  .hud-minimap-caption {
+    font-size: 8px;
+    letter-spacing: 0.1em;
+  }
+
+}
+
+/* care trays: shown only in the treatment screen (clean trays left besides the one in use) */
+.treat-trays {
+  flex: none;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: #e5f7f0;
+  color: #146b52;
+  font-size: 11.5px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.treat-trays.empty {
+  background: #fdf0e6;
+  color: #b55a00;
+}
+
+/* ---------- Task card: objective + doctor queue, with the event notice under it ----------
+   One column (.hud-stack) holds the task card and the event notice, so they never overlap
+   whatever their height. Phone portrait: under the top bar, full width. Tablet and phone
+   landscape: top-left under the stats (which go into one row there). */
+.hud-stack {
+  position: absolute;
+  top: calc(128px + var(--safe-top));
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: min(366px, calc(100% - 24px));
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.hud-stack > * {
+  pointer-events: auto;
+}
+
+.task-card {
+  overflow: hidden;
+  border: 2px solid #fff;
+  border-radius: 14px;
+  background: linear-gradient(120deg, #8f6ee0, #6f4fc4);
+  box-shadow: var(--shadow);
+}
+
+/* nothing to do right now: no card */
+.task-card:has(> .hud-objective.hidden) {
+  display: none;
+}
+
+.hud-stack .hud-objective {
+  position: relative;
+  top: auto;
+  left: auto;
+  right: auto;
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  transform: none;
+}
+
+.hud-stack .hud-objective:active {
+  transform: none;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.hud-stack .event-notice {
+  position: relative;
+  top: auto;
+  left: auto;
+  width: 100%;
+  min-width: 0;
+  transform: none;
+  animation: none;
+}
+
+/* doctor queue: its own horizontal panel under the mini-map, styled like the map card */
+.queue-dock {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+}
+
+.queue-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px 5px 10px;
+  border: 2px solid var(--panel-edge);
+  border-radius: 14px;
+  background: var(--panel);
+  box-shadow: var(--shadow-sm);
+  color: #fff;
+  font-family: var(--font);
+  text-align: left;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.queue-strip:active {
+  transform: scale(0.97);
+}
+
+.queue-strip.hidden {
+  display: none;
+}
+
+.queue-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.9;
+}
+
+.queue-count {
+  display: grid;
+  place-items: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #fff;
+  color: #6f4fc4;
+  font-size: 10px;
+}
+
+.queue-faces {
+  display: flex;
+  gap: 6px;
+}
+
+/* the ring is a conic gradient: --p of it in the patience colour --c */
+.queue-ring {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: conic-gradient(var(--c, #4fd1a1) var(--p, 360deg), rgba(255, 255, 255, 0.22) 0);
+}
+
+.queue-ring.first {
+  box-shadow: 0 0 0 2px #fff;
+}
+
+
+
+.queue-face {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  overflow: hidden;
+  border-radius: 50%;
+  background: #ece4f7;
+  font-size: 16px;
+}
+
+.queue-face img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+
+/* room-name toast: bottom centre, above the joystick / Interact row, clear of the task card */
+.hud-root .hud-toast {
+  top: auto;
+  bottom: calc(150px + var(--safe-bottom));
+}
+
+/* tablets: stats in one row, task card top-left under them */
+@media (min-width: 700px) and (min-height: 501px) {
+  .hud-pills {
+    flex-direction: row;
+  }
+
+  .hud-stack {
+    top: calc(64px + var(--safe-top));
+    left: calc(12px + var(--safe-left));
+    width: 380px;
+    transform: none;
+  }
+}
+
+/* phone landscape: same idea, compact (stats row is set in the landscape block above) */
+@media (orientation: landscape) and (max-height: 500px) {
+  .hud-stack {
+    top: calc(48px + var(--safe-top));
+    left: calc(10px + var(--safe-left));
+    width: min(360px, 48vw);
+    transform: none;
+  }
+
+  .queue-strip {
+    padding: 3px 6px 3px 8px;
+  }
+
+  .queue-ring {
+    width: 28px;
+    height: 28px;
+  }
+
+  .queue-face {
+    width: 22px;
+    height: 22px;
+    font-size: 13px;
+  }
+
+  .hud-root .hud-toast {
+    bottom: calc(22px + var(--safe-bottom));
+  }
+}
+
+/* ---------- Phone portrait: compact top bar ----------
+   A narrow phone can't fit stacked full-width pills, the staff card, a full-size map and the
+   queue. So: smaller map and staff card (as in landscape), Lv + coins on one row with the clock
+   under them (each pill only as wide as its text), the queue (count + faces, no word) under the
+   map beside the clock, and the task card at a fixed spot under all of it. */
+@media (max-width: 500px) and (orientation: portrait) {
+  .hud-stats {
+    align-items: flex-start;
+  }
+
+  .hud-pills {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 4px;
+    width: 150px;
+  }
+
+  .hud-pills .hud-pill {
+    min-height: 28px;
+    gap: 4px;
+    padding: 2px 10px 2px 3px;
+    font-size: 13px;
+  }
+
+  .hud-pills .hud-clock {
+    white-space: nowrap;
+  }
+
+  .hud-pill-icon {
+    width: 22px;
+    height: 22px;
+    font-size: 12px;
+  }
+
+  .hud-right {
+    gap: 6px;
+  }
+
+  .hud-staff-btn {
+    margin: 0 0 -18px -14px;
+    transform: scale(0.78);
+    transform-origin: top right;
+  }
+
+  .hud-minimap {
+    gap: 2px;
+    padding: 4px 4px 3px;
+    border-radius: 12px;
+  }
+
+  .hud-minimap .minimap-canvas {
+    width: 84px !important;
+    height: 46px !important;
+    border-radius: 6px;
+  }
+
+  .hud-minimap-caption {
+    font-size: 8px;
+    letter-spacing: 0.1em;
+  }
+
+  .queue-strip {
+    gap: 6px;
+    padding: 3px 5px 3px 6px;
+  }
+
+  /* the faces say it all on a narrow screen: just the count */
+  .queue-label {
+    font-size: 0;
+  }
+
+  .queue-ring {
+    width: 28px;
+    height: 28px;
+  }
+
+  .queue-face {
+    width: 22px;
+    height: 22px;
+    font-size: 13px;
+  }
+
+  .hud-stack {
+    top: calc(132px + var(--safe-top));
+  }
+}
+
+/* very narrow phones (≤ 374 px): a little more room between the pills and the staff card */
+@media (max-width: 374px) and (orientation: portrait) {
+  .hud-pills .hud-pill {
+    padding-right: 8px;
+  }
+
+  .hud-staff-btn {
+    margin: 0 0 -28px -22px;
+    transform: scale(0.66);
+  }
+}
+
+/* end-of-day summary: the patients helped today */
+.shift-box.helped {
+  border-color: #c9b5ef;
+}
+
+.helped-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.helped-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 10px;
+  background: #f7f2fe;
+}
+
+.helped-face {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  overflow: hidden;
+  border-radius: 50%;
+  background: #ece4f7;
+  font-size: 17px;
+}
+
+.helped-face img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+
+.helped-text {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  font-size: 12.5px;
+  line-height: 1.2;
+}
+
+.helped-text span {
+  overflow: hidden;
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.helped-pts {
+  color: #6f4fc4;
+  font-size: 13px;
+}
+
+.helped-pts.full::after {
+  content: " ⭐";
+}
+
+.shift-summary .result-takeaway p + p {
+  margin-top: 6px;
 }
