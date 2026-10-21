@@ -4,7 +4,7 @@ import type { RoomId } from "../data/rooms";
 // Lifecycle: idle → available → accepted → resolved | dismissed | expired.
 // "Later" returns an accepted event to available. Events never block the patient case.
 
-export type EventOutcome = "resolved" | "later" | "dismissed";
+export type EventOutcome = "resolved" | "later" | "dismissed" | "expired";
 
 export interface EventRewards {
   coins: number;
@@ -15,7 +15,9 @@ export interface EventRewards {
 export interface EventPanel {
   readonly isOpen: boolean;
   /** `seed` picks the variation (stable across a refresh); `done` is called exactly once. */
-  open(seed: number, rewards: EventRewards, done: (outcome: EventOutcome) => void): void;
+  open(seed: number, rewards: EventRewards, done: (outcome: EventOutcome) => void, occurrence?: number): void;
+  /** Lifecycle close; the director invalidates completion callbacks before cancellation. */
+  close(): void;
 }
 
 export interface ClinicEventDef {
@@ -32,6 +34,8 @@ export interface ClinicEventDef {
   /** Who asks for help, and the notification text. */
   from: { name: string; portrait: string };
   notice: string;
+  repeatNotices?: string[];
+  category?: "routine" | "comedy";
   /** Toast when the event expires unanswered (no penalty). */
   expired: string;
   rewards: EventRewards;

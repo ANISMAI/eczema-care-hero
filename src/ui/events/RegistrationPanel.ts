@@ -50,6 +50,8 @@ export default class RegistrationPanel implements EventPanel {
     return this.overlay.isOpen;
   }
 
+  close(): void { this.overlay.close(); }
+
   open(seed: number, rewards: EventRewards, done: (o: EventOutcome) => void): void {
     const sc = SCENARIOS[seed % SCENARIOS.length];
     const records = (seed >> 3) % 2 ? [sc.decoy, sc.form] : [sc.form, sc.decoy];

@@ -86,6 +86,8 @@ export default class ShelfPanel implements EventPanel {
     return this.overlay.isOpen;
   }
 
+  close(): void { this.overlay.close(); }
+
   open(seed: number, rewards: EventRewards, done: (o: EventOutcome) => void): void {
     const c = this.cfg;
     const all = c.supplies;
@@ -240,6 +242,10 @@ export default class ShelfPanel implements EventPanel {
     const caption = el("div", "tray-caption", c.missing > 1 ? "Drag each box to its empty slot 👆" : "Drag a box to the empty slot 👆");
     this.overlay.body.replaceChildren(speech, shelf, caption, trayEl, note);
     this.overlay.footer.replaceChildren(actions, skip);
-    this.overlay.open(() => done(outcome));
+    this.overlay.open(() => {
+      // A lifecycle close can happen before pointerup; leave no drag image over the summary.
+      document.querySelectorAll(".drag-ghost").forEach(ghost => ghost.remove());
+      done(outcome);
+    });
   }
 }

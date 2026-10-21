@@ -400,6 +400,10 @@ export default class ClinicScene extends Phaser.Scene {
           this.hud.showRoomToast(`🚶  ${t("toast.heading", { place: this.roomLabel(room).replace(/^\S+\s+/, "") })}`);
         },
         reward: (coins, xp) => this.progress.addEventReward(coins, xp),
+        minutes: () => this.clock.minutesOfDay,
+        shiftActive: () => !this.onTitle && this.progress.snapshot.shiftStarted && !this.progress.snapshot.shiftEnded,
+        canNotify: () => !this.inputLocked && !this.caseRunner.caseOpen,
+        eligible: (id) => id !== "tray-cleaning" || this.trays.dirty > 0,
         resolved: (id) => {
           if (id === "tray-cleaning") this.trays.cleanOne();
         },

@@ -3,13 +3,31 @@ import RegistrationPanel from "../ui/events/RegistrationPanel";
 import ShelfPanel, { PHARMACY_SORT, RESTOCK } from "../ui/events/ShelfPanel";
 import PharmacyCheckPanel from "../ui/events/PharmacyCheckPanel";
 import TrayCleanPanel from "../ui/events/TrayCleanPanel";
+import CockroachPanel from "../ui/events/CockroachPanel";
+import PrinterPanel from "../ui/events/PrinterPanel";
+import { t } from "../game/i18n";
 import type { ClinicEventDef } from "./types";
 
-// Optional event catalogue. Room problems happen now and then, not every day (brief section 06);
-// the scheduler picks from this list. Future events (queue complaint, missing file, staff
-// drink...) are added here with their own panel.
+// The seven optional incidents share one scheduler and reward channel.
+// The tray is condition-driven; all other incidents participate in weighted draws.
 
 export const EVENTS: ClinicEventDef[] = [
+  {
+    id: "cockroach-panic", title: t("roach.title"), icon: "☕", category: "comedy",
+    room: "lounge", targets: ["lounge-coffee"], actionLabel: t("roach.action"),
+    from: { name: t("roach.from"), portrait: "assets/portraits/amy.webp" },
+    notice: t("roach.notice"), repeatNotices: [t("roach.repeat1"), t("roach.repeat2")],
+    expired: t("roach.expired"), rewards: { ...REWARDS.event },
+    createPanel: parent => new CockroachPanel(parent),
+  },
+  {
+    id: "printer-panic", title: t("printer.title"), icon: "🖨️", category: "comedy",
+    room: "office", targets: ["office-printer"], actionLabel: t("printer.action"),
+    from: { name: t("printer.from"), portrait: "assets/portraits/nurul.webp" },
+    notice: t("printer.notice"), repeatNotices: [t("printer.repeat1"), t("printer.repeat2")],
+    expired: t("printer.expired"), rewards: { ...REWARDS.event },
+    createPanel: parent => new PrinterPanel(parent),
+  },
   {
     id: "registration-error",
     title: "Registration error",

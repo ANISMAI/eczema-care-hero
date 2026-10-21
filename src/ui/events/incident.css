@@ -1,0 +1,56 @@
+/* Two optional incidents, styled with the existing staff-card palette. */
+.case-card.incident-panel { width: min(700px, 100%); }
+.incident-panel .case-body { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 18px; }
+.incident-copy, .incident-play { min-width: 0; }
+.incident-instruction { margin: 12px 0; color: var(--ink); font-size: 14px; font-weight: 800; line-height: 1.45; }
+.incident-hint { color: var(--ink-soft); font-size: 12px; line-height: 1.4; }
+.incident-stage { position: relative; height: clamp(160px, 39vh, 230px); overflow: hidden; border: 2px solid #d9cceb; border-radius: 18px; background: #f6eee3; }
+.incident-progress { padding-top: 8px; text-align: center; font-size: 13px; font-weight: 900; color: #6852a2; }
+.incident-panel .case-footer { gap: 12px; }
+.incident-panel button { touch-action: manipulation; }
+.incident-panel button:focus-visible { outline: 3px solid #f6ba35; outline-offset: 3px; }
+.incident-panel .case-x { min-width: 44px; min-height: 44px; }
+.incident-skip { font-size: 12px; }
+.incident-coffee { position: absolute; left: 9%; bottom: 8%; font-size: 38px; opacity: 0.65; }
+.roach-exit { position: absolute; right: 0; top: 12%; height: 74%; width: 21%; display: grid; place-items: center; border: 3px solid #a9cbb7; border-right: 0; border-radius: 12px 0 0 12px; background: #dff0e4; color: #397257; font-size: 10px; font-weight: 900; writing-mode: vertical-rl; }
+.roach-visitor { position: absolute; width: 64px; height: 64px; padding: 3px; border: 2px dashed #b19a78; border-radius: 50%; background: #fff9ef; cursor: pointer; transition: left 0.18s ease-out, top 0.18s ease-out, opacity 0.2s; }
+.roach-visitor svg { width: 100%; height: 100%; pointer-events: none; }
+.roach-visitor.resting { border-style: solid; background: #e4f3e8; }
+.roach-visitor.roach-leaving { left: 98% !important; opacity: 0; }
+.printer-stage { background: #eaf0fa; }
+.incident-printer { position: absolute; left: 32%; top: 14%; width: 36%; height: 33%; border: 3px solid #60758f; border-radius: 10px; background: #b5c8de; box-shadow: 0 5px 0 #d5dfe9; }
+.printer-input { position: absolute; left: 23%; top: -27%; width: 54%; height: 35%; border: 2px solid #a8b8ce; background: #fff; }
+.printer-slot { position: absolute; bottom: 12%; left: 14%; width: 72%; height: 14%; border-radius: 4px; background: #40536c; }
+.printer-light { position: absolute; top: 20%; right: 10%; width: 8px; height: 8px; border-radius: 50%; background: #5ad2a5; }
+.printer-stop { position: absolute; z-index: 2; left: 24%; top: 22%; width: 52%; min-height: 48px; padding: 8px; border: 3px solid #fff; border-radius: 12px; background: #b93f63; color: white; font-size: 15px; font-weight: 900; box-shadow: 0 3px 0 #82344d; cursor: pointer; }
+.printer-stop:disabled { background: #7c718d; }
+.printer-sheet { position: absolute; z-index: 1; width: 48px; height: 48px; padding: 0; border: 2px solid #9db1cd; border-radius: 6px; background: #fff; color: #728aaa; font-size: 32px; line-height: 1; transform: rotate(var(--tilt)); cursor: pointer; transition: transform 0.35s ease, opacity 0.35s ease; }
+.printer-sheet:disabled { cursor: default; }
+.printer-sheet.collecting { transform: translateY(24px) scale(0.65); opacity: 0.35; }
+.printer-sheet.collected { visibility: hidden; }
+.printer-tray { position: absolute; bottom: 0; left: 20%; width: 60%; height: 17%; display: grid; place-items: center; border: 3px solid #99b8ad; border-bottom: 0; border-radius: 8px 8px 0 0; background: #d4e9e0; color: #3e6c5f; font-size: 10px; font-weight: 900; }
+.printer-confetti { position: absolute; inset: 0; pointer-events: none; }
+.printer-confetti i { position: absolute; top: 30%; left: calc(25% + var(--i) * 14%); width: 15px; height: 20px; border: 1px solid #a8b8ce; background: white; animation: printer-paper 2.6s calc(var(--i) * -0.65s) linear infinite; }
+.printer-stage:not(.printing) .printer-confetti { display: none; }
+@keyframes printer-paper { from { transform: translateY(-12px) rotate(-12deg); opacity: 0; } 30% { opacity: 1; } to { transform: translateY(75px) rotate(22deg); opacity: 0; } }
+@media (max-width: 520px) and (orientation: portrait) {
+  .incident-panel .case-body { grid-template-columns: 1fr; gap: 12px; }
+  .incident-stage { height: 190px; }
+  .incident-panel .case-speech { font-size: 14px; }
+}
+@media (orientation: landscape) and (max-height: 420px) {
+  .incident-panel .case-body { padding: 10px 12px; gap: 12px; }
+  .incident-panel .case-speech { padding: 8px 10px; font-size: 13px; }
+  .incident-panel .case-header { padding: 6px 12px; }
+  .incident-panel .case-footer { padding: 0 12px 10px; }
+  .incident-stage { height: 158px; }
+  .incident-instruction { margin: 8px 0; font-size: 13px; }
+  .incident-hint { font-size: 11px; }
+  .roach-visitor { width: 54px; height: 54px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .incident-panel, .incident-panel *, .incident-panel *::before, .incident-panel *::after { animation: none !important; transition: none !important; }
+}
+@media (orientation: landscape) and (max-height: 360px) {
+  .incident-stage { height: 130px; }
+}

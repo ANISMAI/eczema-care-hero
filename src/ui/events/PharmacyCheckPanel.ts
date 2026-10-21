@@ -70,6 +70,8 @@ export default class PharmacyCheckPanel implements EventPanel {
     return this.overlay.isOpen;
   }
 
+  close(): void { this.overlay.close(); }
+
   open(seed: number, rewards: EventRewards, done: (o: EventOutcome) => void): void {
     const sc = SCENARIOS[seed % SCENARIOS.length];
     let outcome: EventOutcome = "later";

@@ -8,6 +8,7 @@ import "./ui/title.css";
 import "./ui/howto.css";
 import "./ui/briefing.css";
 import "./ui/clockin.css";
+import "./ui/events/incident.css";
 import TitleScreen from "./ui/TitleScreen";
 import { resetAllProgress } from "./game/settings";
 

@@ -1,9 +1,78 @@
-# Eczema Care Hero — Phase 3
+# Eczema Care Hero — Phase 4
 
 Mobile-first walkable clinic game, built with **Phaser 4 + TypeScript + Vite**. Phase 1 built the
 clinic, characters, movement and maps. Phase 2 added patient care and optional clinic events.
-Phase 3 makes it a living clinic: visitors keep arriving all day. No online leaderboard,
+Phase 3 makes it a living clinic: visitors keep arriving all day. Phase 4 adds two optional
+comedy incidents and repeatable event scheduling. No online leaderboard,
 accounts or backend; everything is saved locally in the browser.
+
+## Phase 4 — optional comedy and repeatable events
+
+Two new incidents join the five existing mini-games, which retain their interactions:
+
+- **Cockroach Panic / Panik Lipas (Staff Lounge):** interact at the coffee machine, then tap
+  a small cartoon visitor five times to guide it outside. It is never squashed. Amy reacts
+  afterwards; repeat appearances use alternate dialogue.
+- **Printer Gone Crazy / Pencetak Buat Hal (Staff Office):** interact at the **Office printer**,
+  tap STOP, then tap four loose sheets to collect them in the paper tray. The printer is a
+  separate target from the End Shift desk; existing furniture, collisions and room geometry
+  are unchanged.
+
+Both incidents have English/BM titles, notices, dialogue, instructions, accessible labels,
+success and expiry text. Touch and keyboard work; reduced motion disables the extra animation.
+There are no added sounds. Later / Close returns to the request, and **Let the team handle it**
+dismisses it. After 30 seconds in an unfinished mini-game the staff finish it without reward.
+Completing one awards the existing **15 bonus coins / 5 XP**, never care points. The existing
+maximum of 120 care points per full care case is unchanged. Unfinished-shift rollback also
+rolls back these bonuses.
+
+The scheduler now runs through the shift as well as accepting existing patient-step triggers.
+There is **no event quota per shift**. It activates at most one incident, waits through locked
+panels and patient cases, and starts only after fingerprint clock-in. Global and individual
+cooldowns use the existing in-game clock, which pauses during panels. Requests whose condition
+disappears (such as Amy cleaning a queued dirty tray) are dropped. Pending conditions never
+stop Amy's normal cleanup. At 5 PM or manual closing, active panels, notices, effects, requests
+and markers are cleared before the summary; canceled callbacks cannot award a bonus.
+
+Tuning lives in `src/data/gameplay.ts` (`EVENT_CONFIG` and `COMEDY`):
+
+| Setting | Default |
+|---|---|
+| Global cooldown, including the first activation | 45–90 in-game minutes |
+| Retry after a failed draw | 10 in-game minutes |
+| Chance per eligible draw / patient-step opportunity | 35% |
+| Weight per routine random event / per comedy event | 8 / 1 |
+| Individual cooldown: routine / dirty tray / comedy | 120 / 90 / 180 in-game minutes |
+| Unanswered notice expiry | 4 minutes of unlocked play |
+| Unfinished comedy mini-game staff fallback | 30 seconds |
+| Repeat dialogue selection | Cycle (configurable to seeded random) |
+
+Avoid consecutive identical incidents when alternatives exist; prefer a different room.
+The tray event remains condition-driven, excluded from random draws. The old first-day
+tutorial requests routine help and cannot force a comedy event.
+
+**QA controls:** `?events=always` guarantees eligible draws but retains cooldowns and safety.
+`?events=off` suppresses all optional incidents; normal staff tray cleaning continues. Add
+`&event=cockroach-panic` or `&event=printer-panic` to `events=always` to select a comedy incident
+deterministically (still after cooldown and only when safe). `?title=off` skips the opening.
+
+Run `npm test` for scheduler regression tests (tested with Node 24), and
+`npm run build` for TypeScript and the production build. Manual acceptance procedure:
+
+1. Start with `?title=off&events=always&event=cockroach-panic`. Choose a doctor. Confirm no
+   incidents appear at the 7:45 briefing or during clock-in. Start the shift and wait for the
+   first cooldown; Go should navigate to the lounge and mark that room on both maps.
+2. Complete the five taps; verify +15 coins / +5 XP, no care-point change, and cleared markers.
+   Let the same incident recur after its 180-minute cooldown; check alternate dialogue. Try
+   Later, Close, Skip and ignoring a request until staff resolution.
+3. Repeat with `event=printer-panic`: STOP, collect four sheets, Done. Verify the Staff Desk's
+   End Shift action remains distinct. Check EN/BM and 568×320 landscape / phone portrait.
+4. Complete each of the five original events. Use a care tray while Amy is busy; if the event
+   is delayed, let her clean it herself and confirm its stale request disappears.
+5. Use Later to close an incident, then end the shift at the Staff Desk; verify markers and
+   notices clear. An incident at closing time must not trap input or award on cancellation.
+   Exit during an unfinished shift after earning a bonus: re-enter at 7:45 with that bonus rolled
+   back. A completed day's rewards should remain. Repeat with `events=off`: no incidents.
 
 ## Opening, title and settings
 
@@ -33,7 +102,8 @@ Settings: sound on/off (announcement chimes), prayer time reminders (announcemen
 
 **Language** (`src/game/i18n.ts`): English / Bahasa Melayu for menus and UI (title, How to play,
 doctor picker, HUD, map, profile and staff cards, closing dialog, day summary, room names).
-Patient dialogue, case content and events are still English. Changing language reloads the page
+Patient dialogue, case content and the five original events are still English; Phase 4 comedy
+incidents support both languages. Changing language reloads the page
 (the clouds part straight away) so every label, including the room plaques, follows. Add a string:
 one entry in `STRINGS` with `en` and `ms`, then `t("key")`.
 
@@ -131,9 +201,10 @@ The objective banner (with a progress bar) always shows the next step; **Go ›*
 Talking to a later step's person or object early gives a friendly hint instead of breaking
 anything.
 
-**Optional events** (`src/events/`): after a patient step, an event *may* be offered (default
-35% per step, max 2 per shift, one active at a time, never the same type, and preferably not
-the same room, twice in a row; a guaranteed tutorial event on shift 1). Its notice waits until no panel is open. It shows a
+**Optional events** (`src/events/`): after a patient step, an event *may* be requested (default
+35% per step). Phase 4 replaces the old two-event cap with global and per-event cooldowns;
+one event is active at a time, avoiding the same type and preferably the same room on consecutive
+draws. A first-day tutorial requests routine help. Its notice waits until patient care and panels finish. It shows a
 HUD notice (Go / Later / Dismiss), an orange **!** on the mini map, full map and over the spot,
 and expires quietly after 4 minutes of play. Ignoring an event never blocks the patient.
 
@@ -151,7 +222,7 @@ the world: the treatment screen shows how many clean trays are left ("🧺 2/3 c
 none will be left after this session). Each care session needs a clean tray and uses it.
 Nurse Amy normally cleans used trays herself (about 40 s of play each). But when a tray is used
 there's a 50% chance she's busy, and she asks the doctor through the event system (same notice,
-"!" markers, Later / Dismiss, counts toward the 2-per-shift cap). Cleaning is a short mini-game
+"!" markers, Later / Dismiss, with the same cooldown scheduling). Cleaning is a short mini-game
 at the sink: scrub off the cream smudges, hold to rinse, tap the drops to pat dry, put it on
 the rack (+15 coins, +5 XP). The doctor may also clean a tray any time at the sink (no reward).
 With no clean tray, a care session waits and Amy says when one will be ready, so nothing gets
@@ -163,8 +234,8 @@ Care points (case +100, each care interaction +20, or +10 after a wrong pick) ar
 score. Event rewards (+15 coins, +5 XP each) never add care points. Arcade coins stay
 separate too (the arcade games aren't connected yet). The end-of-shift summary shows all three.
 
-**Testing switches:** add `?events=always` to the URL to offer an event at every trigger point
-(still capped at 2 per shift) or `?events=off` to disable them. To start over, clear the site's
+**Testing switches:** add `?events=always` to guarantee eligible event draws (cooldowns and
+safety still apply) or `?events=off` to disable them. To start over, clear the site's
 localStorage.
 
 ## Setup
@@ -221,10 +292,10 @@ src/
   data/rooms.ts           Single source of truth: room bounds, doors, spawns, furniture, interactables
   data/furniture.ts       Furniture catalog: collision footprint + render layer per kind
   data/save.ts            localStorage save/load with validation + safe fallback
-  data/gameplay.ts        Phase 2 tunables: rewards, event odds / cap / expiry, ?events= override
+  data/gameplay.ts        Rewards, event weights / cooldowns / expiry, comedy pacing, QA overrides
   data/cases/case001.ts   Patient Case #001 (all case text and clinical content)
   mission/                Case state machine (MissionController) and world flow (CaseRunner)
-  events/                 Optional event registry, scheduler/lifecycle (EventDirector), types
+  events/                 Event registry, repeatable schedule, lifecycle, small world effects
   systems/Progress.ts     Shifts, XP/level, separate care / event / arcade ledgers
   systems/CareTrays.ts    Care Room trays: clean/used, Nurse Amy cleaning, rack display
   clinic/ClinicFlow.ts    Phase 3: arrival scheduler, visitor states, doctor queue + patience, Nurul/Grace service
@@ -233,7 +304,7 @@ src/
   data/cases/             Doctor visit templates (case001, itchyPatch, followUp) + shared steps
   ui/QueuePanel.ts        Phase 3: doctor queue with patience bars
   ui/case/                Case panels: Interview, Consultation, Treatment, CaseResult
-  ui/events/              Event notice + RegistrationPanel, ShelfPanel (Storage + Pharmacy), PharmacyCheckPanel, TrayCleanPanel
+  ui/events/              Event notice, five original mini-games, CockroachPanel, PrinterPanel
   ui/ShiftSummary.ts      End-of-shift results
   art/palette.ts          Pastel colour palette + small drawing helpers
   art/environment.ts      Floors, walls, garden, doors, wall plaques, interaction bubbles

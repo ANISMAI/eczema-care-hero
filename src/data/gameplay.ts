@@ -1,4 +1,4 @@
-// Tunable gameplay numbers for Phase 2 (revised brief, sections 07 and 08). Everything a
+// Tunable rewards, clinic flow and Phase 4 optional-event scheduling. Everything a
 // designer may want to adjust lives here; nothing else hard-codes rewards or event odds.
 
 import type { CaseStatus } from "../mission/types";
@@ -20,7 +20,11 @@ export const REWARDS = {
 export interface EventConfig {
   /** Chance that an event is offered at each safe trigger point. */
   probability: number;
-  maxEventsPerShift: number;
+  /** In-game minutes between activations; no per-shift quota. */
+  globalCooldownMinutes: { min: number; max: number };
+  retryMinutes: number;
+  perEvent: Record<string, { weight: number; cooldownMinutes: number }>;
+  repeatDialogue: "cycle" | "random";
   /** Patient states after which an event may be offered (never during a step). */
   triggerOn: CaseStatus[];
   /** Shifts that guarantee one tutorial event, at the given trigger point. */
@@ -33,7 +37,18 @@ export interface EventConfig {
 
 export const EVENT_CONFIG: EventConfig = {
   probability: 0.35,
-  maxEventsPerShift: 2,
+  globalCooldownMinutes: { min: 45, max: 90 },
+  retryMinutes: 10,
+  perEvent: {
+    "registration-error": { weight: 8, cooldownMinutes: 120 },
+    "low-stock": { weight: 8, cooldownMinutes: 120 },
+    "pharmacy-check": { weight: 8, cooldownMinutes: 120 },
+    "pharmacy-shelf": { weight: 8, cooldownMinutes: 120 },
+    "tray-cleaning": { weight: 0, cooldownMinutes: 90 },
+    "cockroach-panic": { weight: 1, cooldownMinutes: 180 },
+    "printer-panic": { weight: 1, cooldownMinutes: 180 },
+  },
+  repeatDialogue: "cycle",
   triggerOn: ["ACCEPTED", "INTERVIEWED", "DOCTOR_REVIEWED", "CARE_COMPLETED", "COMPLETED"],
   tutorial: { shifts: [1], at: "INTERVIEWED" },
   expireMs: 4 * 60 * 1000,
@@ -41,8 +56,8 @@ export const EVENT_CONFIG: EventConfig = {
 };
 
 /**
- * Testing override from the URL: `?events=always` offers an event at every trigger point
- * (still at most maxEventsPerShift), `?events=off` never offers one.
+ * Testing override from the URL: `?events=always` guarantees eligible event draws
+ * (still respects cooldowns and safety), `?events=off` suppresses optional events.
  */
 export function eventConfig(): EventConfig {
   const mode = new URLSearchParams(window.location.search).get("events");
@@ -50,6 +65,17 @@ export function eventConfig(): EventConfig {
   if (mode === "off") return { ...EVENT_CONFIG, probability: 0, tutorial: { ...EVENT_CONFIG.tutorial, shifts: [] } };
   return EVENT_CONFIG;
 }
+
+/** Short, accessible interactions; no time pressure or failure penalty. */
+export const COMEDY = {
+  cockroachTaps: 5,
+  cockroachTapCooldownMs: 1800,
+  cockroachMoveMs: 1900,
+  printerStopMs: 1800,
+  printerSheets: 4,
+  paperCollectMs: 2000,
+  staffResolveMs: 30000,
+} as const;
 
 /**
  * Care trays (Care Room): each care session uses one clean tray. Nurse Amy cleans used trays

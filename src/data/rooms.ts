@@ -15,7 +15,7 @@
 // Toilet and Surau are half-height rooms sharing one slot.
 
 import { FURNITURE, type FurnitureKind } from "./furniture";
-import { roomName } from "../game/i18n";
+import { roomName, t as translate } from "../game/i18n";
 
 export type RoomId =
   | "reception"
@@ -524,6 +524,11 @@ export const ROOMS: RoomDef[] = [
         radius: 36,
         dialogTitle: "Staff Desk",
         dialogText: "The shift board. End your shift here when you're ready.",
+      },
+      {
+        id: "office-printer", kind: "object", label: translate("printer.label"), icon: "🖨️",
+        x: O.x + 264, y: O.y + 66, radius: 34, area: { w: 44, h: 24 },
+        dialogTitle: translate("printer.label"), dialogText: translate("printer.idle"),
       },
     ],
   },

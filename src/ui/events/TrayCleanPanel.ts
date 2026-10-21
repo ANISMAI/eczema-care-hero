@@ -37,6 +37,8 @@ export default class TrayCleanPanel implements EventPanel {
     return this.overlay.isOpen;
   }
 
+  close(): void { this.overlay.close(); }
+
   open(seed: number, rewards: EventRewards, done: (o: EventOutcome) => void): void {
     let outcome: EventOutcome = "later";
     let step = 0;
