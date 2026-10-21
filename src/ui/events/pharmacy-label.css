@@ -1,0 +1,121 @@
+/* Printed clinic labels, with checkable fields on the selected product. */
+.case-card.pharmacy-check { width: min(880px, 100%); }
+.pharmacy-check .case-body { align-items: stretch; }
+
+.pharmacy-label-caption {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+  margin-bottom: 6px;
+  color: #35445b;
+  font-size: 13px;
+}
+
+.pharmacy-reference, .pharmacy-selected { min-width: 0; }
+.pharmacy-reference .rx-tag { color: #7243bd; }
+.pharmacy-label {
+  overflow: hidden;
+  border: 4px double #35445b;
+  border-radius: 3px;
+  background: #fffef9;
+  color: #253044;
+  text-align: left;
+  box-shadow: 0 3px 0 #d8dde5;
+}
+
+.pharmacy-label-header {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 6px 8px;
+  border-bottom: 2px solid #35445b;
+  text-align: center;
+}
+.pharmacy-clinic { font: bold 18px/1.1 Georgia, serif; }
+.pharmacy-department { font-size: 9px; font-weight: 800; letter-spacing: .06em; }
+.pharmacy-label-fields { display: grid; }
+.pharmacy-label-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  min-height: 54px;
+  padding: 8px 10px;
+  border: 0;
+  border-bottom: 1px solid #7d8795;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.pharmacy-label-field:last-child { border-bottom: 0; }
+.pharmacy-field-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.pharmacy-field-title { color: #596271; font-size: 10px; font-weight: 700; }
+.pharmacy-field-value { font-size: 14px; line-height: 1.25; overflow-wrap: anywhere; }
+
+.pharmacy-reference.compact .pharmacy-label-fields { grid-template-columns: 1fr 1.3fr 1fr; }
+.pharmacy-reference.compact .pharmacy-label-field { border-bottom: 0; border-right: 1px solid #7d8795; }
+.pharmacy-reference.compact .pharmacy-label-field:last-child { border-right: 0; }
+.pharmacy-reference.compact .pharmacy-label-header { padding: 5px 6px; }
+.pharmacy-reference.compact .pharmacy-clinic { font-size: 14px; }
+
+.pharmacy-label-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.pharmacy-label-option {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 8px;
+  border: 2px solid #b9a5d5;
+  border-radius: 12px;
+  background: #eae0f7;
+  color: #253044;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.pharmacy-option-caption { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 12px; font-weight: 900; }
+.pharmacy-product-icon { font-size: 19px; line-height: 1; }
+.pharmacy-label-option .pharmacy-label { flex: 1; align-self: stretch; box-shadow: none; }
+.pharmacy-label-option .pharmacy-label-header { padding: 6px 3px; }
+.pharmacy-label-option .pharmacy-clinic { font-size: 12px; }
+.pharmacy-label-option .pharmacy-department { font-size: 8px; letter-spacing: 0; }
+.pharmacy-label-option .pharmacy-label-field { min-height: 40px; padding: 6px 8px; }
+.pharmacy-label-option .pharmacy-field-value { font-size: 12px; }
+.pharmacy-label-option:not(:disabled):hover { border-color: #7243bd; background: #ddcaf2; }
+.pharmacy-label-option.wrong { border-color: #bb425b; background: #f7e2e7; opacity: .65; }
+.pharmacy-label-option:disabled { cursor: default; }
+
+.pharmacy-label-comparison { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.pharmacy-label-comparison .pharmacy-label-field { min-height: 58px; }
+.pharmacy-check-count { color: #237154; font-size: 11px; font-weight: 800; }
+.pharmacy-label-field.checkable { width: 100%; min-height: 58px; cursor: pointer; }
+.pharmacy-field-tick { display: grid; place-items: center; flex: none; width: 24px; height: 24px; border: 2px solid #8a7a9f; border-radius: 4px; color: #fff; font-size: 17px; font-weight: 900; }
+.pharmacy-label-field.checkable:hover { background: #eee5f8; }
+.pharmacy-label-field.checked { background: #d8f2e5; }
+.pharmacy-label-field.checked .pharmacy-field-tick { background: #23825e; border-color: #23825e; }
+.pharmacy-label-option:focus-visible, .pharmacy-label-field.checkable:focus-visible { outline: 3px solid #7243bd; outline-offset: -3px; }
+
+@media (max-width: 540px) {
+  .pharmacy-label-options { grid-template-columns: 1fr; }
+  .pharmacy-label-option .pharmacy-label-fields { grid-template-columns: 1fr 1.3fr 1fr; }
+  .pharmacy-label-option .pharmacy-label-field { border-bottom: 0; border-right: 1px solid #7d8795; }
+  .pharmacy-label-option .pharmacy-label-field:last-child { border-right: 0; }
+  .pharmacy-label-comparison { grid-template-columns: 1fr; }
+  .pharmacy-label-comparison .pharmacy-reference .pharmacy-label-fields { grid-template-columns: 1fr 1.3fr 1fr; }
+  .pharmacy-label-comparison .pharmacy-reference .pharmacy-label-field { border-bottom: 0; border-right: 1px solid #7d8795; }
+  .pharmacy-label-comparison .pharmacy-reference .pharmacy-label-field:last-child { border-right: 0; }
+  .pharmacy-clinic { font-size: 16px; }
+  .pharmacy-reference .pharmacy-field-value { font-size: 12px; }
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .pharmacy-check .case-body { padding: 8px 12px; gap: 8px; }
+  .pharmacy-label-header { padding: 6px; }
+  .pharmacy-label-field { min-height: 48px; padding: 6px 8px; }
+  .pharmacy-label-option .pharmacy-label-field { min-height: 36px; }
+  .pharmacy-label-comparison .pharmacy-clinic { font-size: 15px; }
+}

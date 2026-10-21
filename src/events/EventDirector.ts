@@ -227,6 +227,26 @@ export default class EventDirector {
     return this.isTarget(item)?.actionLabel ?? null;
   }
 
+  /** Dev: open an event's panel right away (skips the schedule and the usual checks). */
+  devOpen(id: string): boolean {
+    const def = getEvent(id);
+    if (!def) return false;
+    const a = { id, status: "accepted" as const, seed: Math.floor(Math.random() * 1024), remainingMs: this.config.expireMs };
+    this.state.active = a;
+    this.notice.hide();
+    let panel = this.panels.get(def.id);
+    if (!panel) {
+      panel = def.createPanel(this.host.uiRoot);
+      this.panels.set(def.id, panel);
+    }
+    this.host.lock();
+    panel.open(a.seed, def.rewards, (outcome) => {
+      this.host.unlock();
+      if (this.state.active === a) this.finish(outcome);
+    }, this.schedule.state.occurrences[def.id]);
+    return true;
+  }
+
   handle(item: InteractableDef): boolean {
     const def = this.isTarget(item);
     const a = this.state.active;

@@ -18,11 +18,15 @@ import CaseDialog from "../ui/case/CaseDialog";
 import ShiftSummary from "../ui/ShiftSummary";
 import ShiftBriefing from "../ui/ShiftBriefing";
 import { playClockIn } from "../ui/ClockIn";
+import type { DevApi } from "../dev/DevPanel";
+import { PATIENTS } from "../data/patients";
+import { CASE_TEMPLATES } from "../data/cases";
+import { EVENTS } from "../events/registry";
 import { STAFF } from "../data/staff";
 import Progress from "../systems/Progress";
 import EventDirector from "../events/EventDirector";
 import { eventBus } from "../game/EventBus";
-import { prayerReminders } from "../game/settings";
+import { prayerReminders, resetAllProgress } from "../game/settings";
 import CareTrays from "../systems/CareTrays";
 import ClinicFlow from "../clinic/ClinicFlow";
 import QueuePanel from "../ui/QueuePanel";
@@ -102,6 +106,8 @@ export default class ClinicScene extends Phaser.Scene {
   private shiftEndPending = false;
   /** The title screen is up: overview camera, game paused. */
   private onTitle = true;
+  /** Dev panel: how fast the clock, visitors and events run. */
+  private devSpeed = 1;
   private character: PlayableCharacter | undefined;
 
   private markers = new Map<string, Marker>();
@@ -148,6 +154,10 @@ export default class ClinicScene extends Phaser.Scene {
     this.navigation = new NavigationSystem(this, this.player, this.npcSolids(), () => this.hud.showRoomToast(t("toast.noPath")));
 
     this.buildUI();
+    // developer panel: `npm run dev` only (the whole module is left out of production builds)
+    if (import.meta.env.DEV) {
+      void import("../dev/DevPanel").then((m) => new m.default(document.getElementById("game-container")!, this.devApi()));
+    }
     this.hud.showRoomToast(this.roomLabel(findRoomAt(this.player.x, this.player.y)?.id ?? null));
 
     this.time.addEvent({ delay: 2000, loop: true, callback: () => this.persist() });
@@ -587,6 +597,117 @@ export default class ClinicScene extends Phaser.Scene {
     this.persist();
   }
 
+  // ---------- developer panel (src/dev/DevPanel.ts) ----------
+
+  /**
+   * Dev: get past the title, the doctor picker and the briefing straight into an open clinic,
+   * closing whatever panel is up. Saved progress is otherwise left as it is.
+   */
+  private devReady(): void {
+    document.querySelector(".title-screen")?.remove();
+    document.querySelectorAll("#ui-root .modal-overlay:not(.hidden)").forEach((o) => o.classList.add("hidden"));
+    if (this.onTitle) {
+      this.onTitle = false;
+      const cam = this.cameras.main;
+      cam.setZoom(RENDER_SCALE);
+      cam.startFollow(this.player, true, 0.12, 0.12);
+      this.fitCamera();
+      this.hud.root.classList.remove("hud-off");
+    }
+    if (!this.character) {
+      this.character = CHARACTERS[0];
+      this.player.setCharacter(this.character.sheet);
+      this.hud.setAvatar(this.character);
+    }
+    if (this.progress.snapshot.shiftEnded) this.progress.startNextShift();
+    if (this.preShift) {
+      this.progress.startShift();
+      this.clock.reset();
+    }
+    this.navigation.cancel();
+    this.inputLocked = false;
+    this.persist();
+  }
+
+  private devApi(): DevApi {
+    return {
+      patients: PATIENTS.map((p) => ({ id: p.id, name: p.name })),
+      visits: Object.values(CASE_TEMPLATES).map((v) => ({ id: v.id, title: v.title, care: !!v.care })),
+      events: EVENTS.map((e) => ({ id: e.id, title: e.title })),
+      openCase: (identityId, templateId, stage) => {
+        this.devReady();
+        this.caseRunner.closeDay();
+        const id = this.flow.devSeat(identityId, templateId);
+        if (!id) return "The waiting seats are full";
+        this.flow.devTake(id);
+        const room = ROOMS.find((r) => r.id === (stage === "care" ? "care" : "consult"))!;
+        this.player.teleportTo(room.spawn.x, room.spawn.y);
+        this.caseRunner.devOpen(id, identityId, templateId, stage);
+        return null;
+      },
+      openEvent: (id) => {
+        this.devReady();
+        // the tray request only stays open while a tray is waiting to be cleaned
+        if (id === "tray-cleaning" && !this.trays.dirty) this.trays.use();
+        this.clinicEvents.devOpen(id);
+      },
+      clockIn: () => {
+        this.devReady();
+        this.lockInput();
+        const card = STAFF.find((c) => c.characterId === this.character?.id);
+        void playClockIn(document.getElementById("game-container")!, card?.name ?? "", "8:00 AM").then(() => (this.inputLocked = false));
+      },
+      briefing: () => {
+        this.devReady();
+        this.lockInput();
+        const card = STAFF.find((c) => c.characterId === this.character?.id);
+        this.briefing.open({
+          day: this.progress.shift,
+          time: this.clock.label(),
+          doctor: { name: card?.name ?? this.character?.label ?? "", portrait: card?.portrait ?? "" },
+          trays: { clean: this.trays.clean, total: TRAYS.count },
+          prayerReminders: prayerReminders(),
+          onStart: () => (this.inputLocked = false),
+          onChangeDoctor: () => this.characterSelect.open(this.character?.id, false),
+          onExplore: () => (this.inputLocked = false),
+        });
+      },
+      summary: () => {
+        this.devReady();
+        this.endShift();
+      },
+      title: () => window.location.reload(),
+      setClock: (minutes) => {
+        this.devReady();
+        this.clock.devSet(minutes);
+      },
+      setSpeed: (x) => (this.devSpeed = x),
+      addPatient: () => {
+        this.devReady();
+        this.flow.arriveNow();
+      },
+      fillQueue: () => {
+        this.devReady();
+        const here = new Set(this.flow.present.map((v) => v.identityId));
+        const doctorVisits = Object.values(CASE_TEMPLATES).filter((v) => v.id !== "follow-up");
+        for (const p of PATIENTS) {
+          if (this.flow.queue().length >= 3) break;
+          if (here.has(p.id)) continue;
+          if (!this.flow.devSeat(p.id, doctorVisits[Math.floor(Math.random() * doctorVisits.length)].id)) break;
+        }
+      },
+      status: () => {
+        const m = this.caseRunner.mission;
+        const visit = m.visit ? `${m.definition.patient.name}: ${m.status}` : "no case";
+        return `Day ${this.progress.shift} · ${this.clock.label()} · ${visit} · queue ${this.flow.queue().length} · x${this.devSpeed}`;
+      },
+      reset: () => {
+        resetAllProgress();
+        window.location.reload();
+      },
+    };
+  }
+
   /** Before the day's shift has started (the clinic is closed, nothing runs yet). */
   private get preShift(): boolean {
     const p = this.progress.snapshot;
@@ -837,7 +958,8 @@ export default class ClinicScene extends Phaser.Scene {
     for (const npc of this.poseNpcs) npc.update(delta, playerPos);
     for (const walker of this.walkers) walker.update(delta, playerPos, this.inputLocked);
     const paused = this.inputLocked || this.preShift;
-    this.flow.update(delta, paused);
+    const simDelta = delta * this.devSpeed;
+    this.flow.update(simDelta, paused);
     const queue = this.flow.queue();
     this.queuePanel.update(queue);
     const queueKey = queue.map((q) => q.instanceId).join(",");
@@ -847,10 +969,10 @@ export default class ClinicScene extends Phaser.Scene {
       this.caseRunner.refreshObjective();
     }
     this.caseRunner.update();
-    this.clinicEvents.update(delta, paused);
-    this.trays.update(delta, paused);
+    this.clinicEvents.update(simDelta, paused);
+    this.trays.update(simDelta, paused);
     if (this.shiftEndPending && !this.inputLocked) this.endShift();
-    if (!paused) this.clock.tick(delta);
+    if (!paused) this.clock.tick(simDelta);
     this.hud.setStartShift(this.preShift && !this.onTitle && !this.briefing.isOpen);
     this.hud.setClock(`${t("hud.day", { day: this.progress.shift })} · ${this.clock.label()}`);
     this.amenities.update(room?.id ?? null);

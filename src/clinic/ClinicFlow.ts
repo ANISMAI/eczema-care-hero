@@ -359,6 +359,46 @@ export default class ClinicFlow {
     return true;
   }
 
+  // ---------- dev tools (src/dev/DevPanel.ts) ----------
+
+  /**
+   * Dev: seats a doctor patient in the Waiting Area at once (no walk, no registration). An
+   * identity already in the clinic is removed first. Returns the visitor id, or null if full.
+   */
+  devSeat(identityId: string, templateId: string): string | null {
+    for (const v of this.state.visitors.filter((o) => o.identityId === identityId)) this.remove(v.instanceId);
+    const seat = this.freeSeat();
+    if (seat === null || !getPatient(identityId)) return null;
+    const v: Visitor = {
+      instanceId: `v${++this.state.counter}`,
+      identityId,
+      visitType: "DOCTOR",
+      templateId,
+      state: "waiting",
+      order: this.state.counter,
+      seat,
+      doctorPatience: 1,
+      patienceMs: rand(CFG.patienceMs.min, CFG.patienceMs.max),
+      slot: null,
+      timerMs: 0,
+      line: 0,
+    };
+    this.state.visitors.push(v);
+    this.npcFor(v).sitAt(SEATS[seat]);
+    this.save();
+    return v.instanceId;
+  }
+
+  /** Dev: the doctor takes this visitor (they leave the queue). */
+  devTake(instanceId: string): void {
+    const v = this.visitor(instanceId);
+    if (!v) return;
+    v.state = "with-doctor";
+    v.doctorPatience = null;
+    v.seat = null;
+    this.save();
+  }
+
   // ---------- per-visitor flow ----------
 
   private npcFor(v: Visitor): CaseNpc {

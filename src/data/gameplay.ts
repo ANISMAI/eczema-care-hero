@@ -78,9 +78,6 @@ export function eventConfig(): EventConfig {
 
 /** Short, accessible interactions; no time pressure or failure penalty. */
 export const COMEDY = {
-  cockroachTaps: 5,
-  cockroachTapCooldownMs: 1800,
-  cockroachMoveMs: 1900,
   printerStopMs: 1800,
   printerSheets: 4,
   paperCollectMs: 2000,

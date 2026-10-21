@@ -1,0 +1,140 @@
+/* ---------- developer panel (npm run dev only, src/dev/DevPanel.ts) ---------- */
+.devp {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  z-index: 90;
+  display: flex;
+  align-items: flex-start;
+  font-family: var(--font);
+  transform: translate(calc(100% - 26px), -50%);
+  transition: transform 0.22s ease;
+}
+
+.devp.open {
+  transform: translate(0, -50%);
+}
+
+.devp-tab {
+  width: 26px;
+  padding: 10px 0;
+  border: 0;
+  border-radius: 10px 0 0 10px;
+  background: #23364f;
+  color: #ffcf3a;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  writing-mode: vertical-rl;
+  cursor: pointer;
+}
+
+.devp-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: min(300px, 86vw);
+  max-height: 92vh;
+  overflow-y: auto;
+  padding: 10px;
+  border-radius: 0 0 0 12px;
+  background: rgba(20, 30, 50, 0.96);
+  color: #ffffff;
+  box-shadow: -6px 0 20px rgba(0, 0, 0, 0.35);
+}
+
+.devp-h {
+  margin-top: 4px;
+  color: #ffcf3a;
+  font-size: 10.5px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.devp-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+}
+
+.devp-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.devp-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 10px;
+  font-weight: 800;
+  opacity: 0.9;
+}
+
+.devp-field select {
+  padding: 5px;
+  border: 0;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 12px;
+}
+
+.devp-btn {
+  padding: 7px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.devp-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.devp-speed {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.devp-speed .devp-btn {
+  flex: 1;
+  padding: 5px 0;
+}
+
+.devp-speed .devp-btn.on {
+  background: #ffcf3a;
+  color: #23364f;
+}
+
+.devp-status {
+  margin-top: 4px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.3);
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.devp-body {
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+.devp-field {
+  min-width: 0;
+}
+
+.devp-field select {
+  width: 100%;
+  min-width: 0;
+}

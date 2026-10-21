@@ -74,6 +74,12 @@ export default class GameClock {
     this.over = false;
   }
 
+  /** Dev panel: jump to a time of day (minutes since midnight). */
+  devSet(minutes: number): void {
+    this.minutes = minutes;
+    this.over = false;
+  }
+
   /** New shift: back to 8:00 AM. */
   reset(): void {
     this.minutes = SHIFT_START;

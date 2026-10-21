@@ -1,5 +1,6 @@
 import Overlay, { el, feedback } from "../case/Overlay";
 import type { EventOutcome, EventPanel, EventRewards } from "../../events/types";
+import "./pharmacy-label.css";
 
 interface Item {
   id: string;
@@ -55,6 +56,42 @@ const SCENARIOS: Scenario[] = [
 
 const GRACE = "assets/portraits/grace.webp";
 
+/** Printed pharmacy label; the same fields are compared and checked in both steps. */
+function productLabel(patient: string, name: string, detail: string, checks?: {
+  checked: Set<number>;
+  descriptions: string[];
+  onCheck(index: number): void;
+}): HTMLDivElement {
+  const label = el("div", "pharmacy-label");
+  const header = el("div", "pharmacy-label-header");
+  header.append(el("strong", "pharmacy-clinic", "ECZEMA CARE CLINIC"), el("span", "pharmacy-department", "PHARMACY · CARE PRODUCT"));
+  const fields = el("div", "pharmacy-label-fields");
+  const values = [["Name / Nama", patient], ["Product / Produk", name], ["Label note / Ciri", detail]];
+  values.forEach(([title, value], i) => {
+    const contents = el("span", "pharmacy-field-text");
+    contents.append(el("span", "pharmacy-field-title", title), el("strong", "pharmacy-field-value", value));
+    if (checks) {
+      const field = el("button", "pharmacy-label-field checkable");
+      field.type = "button";
+      field.dataset.labelCheck = String(i);
+      field.classList.toggle("checked", checks.checked.has(i));
+      field.setAttribute("aria-label", checks.descriptions[i]);
+      field.setAttribute("aria-pressed", String(checks.checked.has(i)));
+      const tick = el("span", "pharmacy-field-tick", checks.checked.has(i) ? "✓" : "");
+      tick.setAttribute("aria-hidden", "true");
+      field.append(contents, tick);
+      field.addEventListener("click", () => checks.onCheck(i));
+      fields.append(field);
+    } else {
+      const field = el("div", "pharmacy-label-field");
+      field.append(contents);
+      fields.append(field);
+    }
+  });
+  label.append(header, fields);
+  return label;
+}
+
 /**
  * Pharmacy event, "Which item?": Grace isn't sure which product matches an approved card.
  * Pick the matching item, confirm the label checks. A wrong pick only gets a hint.
@@ -63,7 +100,7 @@ export default class PharmacyCheckPanel implements EventPanel {
   private overlay: Overlay;
 
   constructor(parent: HTMLElement) {
-    this.overlay = new Overlay(parent, "event-panel");
+    this.overlay = new Overlay(parent, "event-panel pharmacy-check");
   }
 
   get isOpen(): boolean {
@@ -90,7 +127,9 @@ export default class PharmacyCheckPanel implements EventPanel {
       this.overlay.close();
     });
     const confirm = el("button", "primary-btn", "Confirm for Grace");
+    confirm.type = "button";
     confirm.addEventListener("click", () => {
+      if (!picked || checked.size !== sc.checks.length) return;
       outcome = "resolved";
       const ok = el("button", "primary-btn wide", "Done");
       ok.addEventListener("click", () => this.overlay.close());
@@ -104,18 +143,26 @@ export default class PharmacyCheckPanel implements EventPanel {
     actions.append(later, confirm);
 
     const render = () => {
-      const card = el("div", "rx-card");
-      card.append(el("span", "rx-tag", "✔ Approved care card"), el("strong", "", sc.card.item), el("span", "", sc.card.note), el("span", "rx-for", `For: ${sc.patient}`));
-      const parts: HTMLElement[] = [card];
+      const reference = el("div", "pharmacy-reference");
+      reference.append(el("div", "pharmacy-label-caption rx-tag", "✔ Approved care card"), productLabel(sc.patient, sc.card.item, sc.card.note));
+      const parts: HTMLElement[] = [];
 
       if (!picked) {
-        parts.push(el("div", "case-speech", "I have a few similar products here. Which one matches the card?"));
-        const grid = el("div", "icon-cards wide item-grid");
+        reference.classList.add("compact");
+        parts.push(reference, el("div", "case-speech", "Which product label matches the approved care card?"));
+        const grid = el("div", "pharmacy-label-options");
+        grid.setAttribute("role", "group");
+        grid.setAttribute("aria-label", "Product labels");
         for (const item of sc.items) {
-          const b = el("button", "icon-card");
-          const t = el("span", "item-text");
-          t.append(el("strong", "", item.name), el("span", "", item.detail));
-          b.append(el("span", "icon-card-icon", item.icon), t);
+          const b = el("button", "pharmacy-label-option");
+          b.type = "button";
+          b.dataset.item = item.id;
+          b.setAttribute("aria-label", `${item.name}, ${item.detail}, for ${sc.patient}`);
+          const caption = el("span", "pharmacy-option-caption");
+          const illustration = el("span", "pharmacy-product-icon", item.icon);
+          illustration.setAttribute("aria-hidden", "true");
+          caption.append(illustration, el("span", "", `Product ${sc.items.indexOf(item) + 1}`));
+          b.append(caption, productLabel(sc.patient, item.name, item.detail));
           b.classList.toggle("wrong", wrong.has(item.id));
           b.disabled = wrong.has(item.id);
           b.addEventListener("click", () => {
@@ -133,24 +180,24 @@ export default class PharmacyCheckPanel implements EventPanel {
         parts.push(grid);
       } else {
         const chosen = sc.items.find((i) => i.approved)!;
-        const label = el("div", "item-label");
-        const lt = el("div", "item-text");
-        lt.append(el("strong", "", chosen.name), el("span", "", `${chosen.detail} · ${sc.patient}`));
-        label.append(el("span", "icon-card-icon", chosen.icon), lt);
-        parts.push(el("div", "case-speech", "Now check the label against the card. Tap each line."), label);
-        const list = el("div", "check-list");
-        sc.checks.forEach((text, i) => {
-          const row = el("button", "check-row");
-          row.classList.toggle("on", checked.has(i));
-          row.append(el("span", "check-box", "✓"), el("span", "", text));
-          row.addEventListener("click", () => {
+        const selected = el("div", "pharmacy-selected");
+        const count = el("span", "pharmacy-check-count", `${checked.size} / ${sc.checks.length} checked`);
+        count.setAttribute("role", "status");
+        const caption = el("div", "pharmacy-label-caption");
+        caption.append(el("strong", "", "Product label"), count);
+        selected.append(caption, productLabel(sc.patient, chosen.name, chosen.detail, {
+          checked,
+          descriptions: sc.checks,
+          onCheck: (i) => {
             checked.add(i);
             note = null;
             render();
-          });
-          list.append(row);
-        });
-        parts.push(list);
+            this.overlay.body.querySelector<HTMLButtonElement>(`[data-label-check="${i}"]`)?.focus({ preventScroll: true });
+          },
+        }));
+        const comparison = el("div", "pharmacy-label-comparison");
+        comparison.append(reference, selected);
+        parts.push(el("div", "case-speech", "Compare both labels. Tap the name, product and label note on the product label to check them."), comparison);
       }
       if (note) parts.push(note);
       confirm.disabled = !(picked && checked.size === sc.checks.length);

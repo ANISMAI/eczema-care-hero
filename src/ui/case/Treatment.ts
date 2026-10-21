@@ -2,6 +2,7 @@ import Overlay, { el } from "./Overlay";
 import { STAGE_ZONE, WATER_HTML, handSvg, toStage } from "./HandArt";
 import { face, icon, type IconName, type Mood } from "../icons";
 import type { CareSession, Tool, ToolId, TreatStep } from "../../mission/types";
+import "./toolwheel.css";
 
 /** What the treatment screen needs from the case runner. */
 export interface TreatmentHooks {
@@ -24,12 +25,16 @@ export interface TreatmentHooks {
 const LATHER_GOAL = 3.5; // stage widths of rubbing
 const RINSE_MS = 1400;
 const PATS = 5;
-const SQUEEZE_LOW = 0.35;
-const SQUEEZE_HIGH = 0.65;
-const SQUEEZE_MS = 2600;
-const SPREAD_GOAL = 0.75;
+/** Pumps of moisturiser for two hands' worth on the back of one hand. */
+const PUMPS = 2;
+/** Where the dots of cream land (stage %), first pump then second. */
+const DOTS: [number, number][][] = [
+  [[46, 34], [58, 50], [42, 64]],
+  [[54, 30], [38, 47], [56, 70]],
+];
+/** How much slow rubbing over a dot smooths it in (stage widths). */
+const DOT_RUB = 0.45;
 const MAX_SPEED = 2.4; // stage widths per second; faster strokes don't count
-const GRID = 16;
 
 /**
  * Dentist-Hero style treatment screen: a close-up of the patient's hand, a tray of tools,
@@ -45,6 +50,11 @@ export default class Treatment {
   private face!: HTMLSpanElement;
   private comfort!: HTMLDivElement;
   private hint!: HTMLDivElement;
+  private toolInfo!: HTMLDivElement;
+  private toolName!: HTMLHeadingElement;
+  private toolFunction!: HTMLParagraphElement;
+  private previewTool: ToolId | null = null;
+  private lastNeededTool: ToolId | null = null;
   private pill!: HTMLDivElement;
   private gauge!: HTMLDivElement;
   private canvas!: HTMLCanvasElement;
@@ -63,18 +73,13 @@ export default class Treatment {
   private lather = 0;
   private suds: HTMLElement[] = [];
   private pats: { x: number; y: number }[] = [];
-  private squeezed = false;
-  private cells = new Set<number>();
-  private zoneCells = 0;
+  /** Pumps done (the dots are on the hand once this reaches PUMPS). */
+  private pumps = 0;
+  private dots: { el: HTMLElement; x: number; y: number; rub: number; done: boolean }[] = [];
+  private pump!: HTMLButtonElement;
 
   constructor(parent: HTMLElement) {
     this.overlay = new Overlay(parent, "case-treat");
-    for (let i = 0; i < GRID; i++)
-      for (let j = 0; j < GRID; j++) {
-        const nx = (i + 0.5) / GRID - 0.5;
-        const ny = (j + 0.5) / GRID - 0.5;
-        if (nx * nx + ny * ny <= 0.25) this.zoneCells++;
-      }
   }
 
   get isOpen(): boolean {
@@ -84,11 +89,13 @@ export default class Treatment {
   open(h: TreatmentHooks): void {
     this.h = h;
     this.active = null;
+    this.previewTool = null;
+    this.lastNeededTool = null;
     this.lather = 0;
     this.suds = [];
     this.pats = [];
-    this.squeezed = false;
-    this.cells.clear();
+    this.pumps = 0;
+    this.dots = [];
     this.penalised.clear();
     this.overlay.setHeader({ title: "Care Room", avatar: h.patient.portrait, subtitle: h.patient.fullName });
     this.build();
@@ -152,7 +159,16 @@ export default class Treatment {
     this.blob = el("span", "cream-blob");
     this.lens = el("div", "lens");
     this.lens.appendChild(el("span", "lens-handle"));
-    this.stage.append(this.zone, this.canvas, this.water, this.blob, this.towel, this.lens);
+    // the moisturiser pump bottle, above the hand
+    this.pump = el("button", "pump");
+    this.pump.type = "button";
+    this.pump.setAttribute("aria-label", "Press the pump");
+    this.pump.innerHTML = `<span class="pump-head"></span><span class="pump-bottle">${icon("cream")}</span><span class="pump-count"></span>`;
+    this.pump.addEventListener("pointerdown", (e) => {
+      e.stopPropagation();
+      this.press();
+    });
+    this.stage.append(this.zone, this.canvas, this.water, this.blob, this.towel, this.lens, this.pump);
     for (const s of this.h.session.spots) {
       const m = el("div", "found-spot");
       m.dataset.spot = s.id;
@@ -167,21 +183,49 @@ export default class Treatment {
     this.gauge.append(el("span", "gauge-zone"), el("span", "gauge-fill"), el("span", "gauge-label", "Just right"));
     this.hint = el("div", "treat-hint");
     this.pill = el("div", "session-flash");
+    this.toolInfo = el("div", "treat-tool-info");
+    this.toolInfo.setAttribute("role", "status");
+    this.toolInfo.setAttribute("aria-atomic", "true");
+    this.toolName = el("h3", "treat-tool-name");
+    this.toolFunction = el("p", "treat-tool-function");
+    this.toolInfo.append(this.toolName, this.toolFunction);
 
     this.tray = el("div", "treat-tray");
+    this.tray.classList.toggle("treat-wheel", this.h.session.tools.length === 4);
+    this.tray.setAttribute("role", "group");
+    this.tray.setAttribute("aria-label", "Care tools");
     for (const tool of this.h.session.tools) {
       const b = el("button", "treat-tool");
+      b.type = "button";
       b.dataset.tool = tool.id;
       b.setAttribute("aria-label", tool.label);
       const ic = el("span", "treat-tool-icon");
+      ic.setAttribute("aria-hidden", "true");
       ic.innerHTML = icon(tool.id as IconName);
       b.append(ic, el("span", "treat-tool-label", tool.label));
-      b.addEventListener("click", () => this.pick(tool));
+      const preview = () => {
+        this.previewTool = tool.id;
+        this.describeTool(tool);
+      };
+      b.addEventListener("pointerenter", (e) => {
+        if (e.pointerType === "mouse") preview();
+      });
+      b.addEventListener("focus", preview);
+      b.addEventListener("click", () => {
+        preview();
+        this.pick(tool);
+      });
       this.tray.appendChild(b);
     }
 
-    this.overlay.body.replaceChildren(top, ...(this.stepper.childElementCount ? [this.stepper] : []), this.stage, this.gauge, this.hint, this.pill);
-    this.overlay.footer.replaceChildren(this.tray);
+    const workspace = el("div", "treat-workspace");
+    const handPanel = el("div", "treat-hand-panel");
+    handPanel.append(this.stage, this.gauge, this.pill);
+    const toolsPanel = el("div", "treat-tools-panel");
+    toolsPanel.append(...(this.stepper.childElementCount ? [this.stepper] : []), this.tray, this.hint);
+    workspace.append(handPanel, this.toolInfo, toolsPanel);
+    this.overlay.body.replaceChildren(top, workspace);
+    this.overlay.footer.replaceChildren();
   }
 
   /** The tool the current step needs right now. */
@@ -195,6 +239,12 @@ export default class Treatment {
   private refresh(): void {
     const step = this.h.current();
     const need = this.neededTool();
+    if (need !== this.lastNeededTool) {
+      this.previewTool = null;
+      this.lastNeededTool = need;
+    }
+    const described = this.h.session.tools.find((tool) => tool.id === (this.previewTool ?? this.active ?? need));
+    if (described) this.describeTool(described);
     const steps = this.h.session.steps;
     const done = steps.filter((s) => this.h.isDone(s.id)).length / steps.length;
     this.stepper.querySelectorAll<HTMLElement>("span").forEach((chip) => {
@@ -212,6 +262,7 @@ export default class Treatment {
       const id = b.dataset.tool as ToolId;
       b.classList.toggle("next", id === need);
       b.classList.toggle("active", id === this.active);
+      b.setAttribute("aria-pressed", String(id === this.active));
       const usedUp = this.h.session.steps.some((s) => s.tools.includes(id) && this.h.isDone(s.id)) ||
         (id === "soap" && this.h.progressOf("wash").includes("lather"));
       b.classList.toggle("used", usedUp);
@@ -223,22 +274,46 @@ export default class Treatment {
       m.classList.toggle("show", found.includes(m.dataset.spot!) && !this.h.isDone("inspect"))
     );
     this.stage.classList.toggle("healed", this.h.isDone("cream"));
-    this.zone.classList.toggle("show", this.active === "cream" && this.squeezed && !this.h.isDone("cream"));
+    this.zone.classList.remove("show");
+    this.pump.classList.toggle("show", this.active === "cream" && this.pumps < PUMPS && !this.h.isDone("cream"));
+    (this.pump.querySelector(".pump-count") as HTMLElement).textContent = `${this.pumps} / ${PUMPS}`;
     this.lens.classList.toggle("show", this.active === "lens");
     this.towel.classList.toggle("show", this.active === "towel");
-    this.gauge.classList.toggle("hidden", !(this.active === "cream" && !this.squeezed && step?.id === "cream"));
+    this.gauge.classList.add("hidden");
 
     const hints: Partial<Record<ToolId, string>> = {
       lens: "Drag over the hand",
       soap: "Rub gently",
       water: "Hold on the hand",
       towel: "Tap to pat",
-      cream: this.squeezed ? "Slow strokes in the circle" : "Hold, let go in the green",
+      cream:
+        this.pumps < PUMPS
+          ? `Press the pump ${PUMPS} times`
+          : `Smooth each dot in, slowly (${this.dots.filter((d) => d.done).length} / ${this.dots.length})`,
     };
     this.hint.textContent = !step ? "" : this.active && this.active === need ? hints[this.active] ?? "" : "Pick a tool";
   }
 
   // ---------- tools ----------
+
+  private describeTool(tool: Tool): void {
+    const functions: Record<ToolId, string> = {
+      lens: "Move over the hand to take a closer look.",
+      phone: "Ask the doctor to review the care plan.",
+      soap: "Rub gently on the hand to make suds.",
+      water: "Hold on the hand to rinse away the suds.",
+      towel: "Tap the hand to pat it dry gently.",
+      cream: "Pump twice, then smooth each dot into the hand slowly.",
+      scrub: "A rough scrub for the skin.",
+      scented: "A lotion with added fragrance.",
+      hot: "Hot water for washing.",
+    };
+    // Avoid repeating live-region announcements during progress updates.
+    if (this.toolInfo.dataset.describedTool === tool.id) return;
+    this.toolInfo.dataset.describedTool = tool.id;
+    this.toolName.textContent = tool.label;
+    this.toolFunction.textContent = tool.why ?? functions[tool.id];
+  }
 
   private pick(tool: Tool): void {
     const step = this.h.current();
@@ -250,7 +325,17 @@ export default class Treatment {
     }
     if (tool.id !== this.neededTool()) {
       this.shake(tool.id);
-      this.flash("Not yet", "bad");
+      const need = this.neededTool();
+      const why: Partial<Record<ToolId, string>> = {
+        soap: "Wash gently first",
+        water: "Rinse off the suds first",
+        towel: "Pat dry before moisturising",
+        cream: "Moisturise last, once the skin is dry",
+      };
+      // tools already used for this visit just say so (no penalty)
+      const used = this.h.session.steps.some((s) => s.tools.includes(tool.id) && this.h.isDone(s.id));
+      if (used) this.flash("Already done", "bad");
+      else this.mistake(step.id, `order-${tool.id}`, (need && why[need]) ?? "Not yet");
       return;
     }
     this.active = tool.id;
@@ -324,7 +409,7 @@ export default class Treatment {
 
       if (this.active === "lens") this.moveLens(p.x / p.w, p.y / p.h);
       if (this.active === "towel") this.moveTowel(p.x / p.w, p.y / p.h, true);
-      if (this.active === "water" || (this.active === "cream" && !this.squeezed)) {
+      if (this.active === "water") {
         holdStart = performance.now();
         if (this.active === "water") this.water.classList.add("on");
         holdTimer = window.setInterval(() => {
@@ -337,13 +422,6 @@ export default class Treatment {
               this.suds.forEach((s) => s.remove());
               this.suds = [];
               this.stepDone("wash", "Rinsed");
-            }
-          } else {
-            const a = t / SQUEEZE_MS;
-            this.setSqueeze(a);
-            if (a >= 1) {
-              stopHold();
-              this.releaseSqueeze(a);
             }
           }
         }, 30);
@@ -368,7 +446,7 @@ export default class Treatment {
             this.flash("Pat, don't rub", "bad");
           }
         }
-      } else if (this.active === "cream" && this.squeezed) {
+      } else if (this.active === "cream" && this.pumps >= PUMPS) {
         if (dist / p.w / (dt / 1000) > MAX_SPEED) {
           this.stage.classList.add("too-fast");
           if (e.timeStamp - warned > 1200) {
@@ -381,7 +459,7 @@ export default class Treatment {
           this.stage.classList.remove("too-fast");
           const n = Math.max(1, Math.ceil(dist / (p.w * 0.03)));
           for (let s = 1; s <= n; s++) this.paint(prev.x + ((p.x - prev.x) * s) / n, prev.y + ((p.y - prev.y) * s) / n, p.w, p.h);
-          if (this.cells.size / this.zoneCells >= SPREAD_GOAL) {
+          if (this.smooth(p, dist)) {
             down = null;
             this.stepDone("cream", "Smooth & gentle");
           }
@@ -391,11 +469,7 @@ export default class Treatment {
 
     const up = (e: PointerEvent) => {
       this.stage.classList.remove("too-fast");
-      if (holdTimer) {
-        const t = performance.now() - holdStart;
-        stopHold();
-        if (this.active === "cream" && !this.squeezed) this.releaseSqueeze(t / SQUEEZE_MS);
-      }
+      if (holdTimer) stopHold();
       if (this.active === "towel" && down && !rubbed && e.type === "pointerup") this.pat(down);
       this.towel.classList.remove("press");
       down = null;
@@ -460,24 +534,43 @@ export default class Treatment {
     if (this.pats.length >= PATS) this.later(() => this.stepDone("dry", "Dry & gentle"), 400);
   }
 
-  private setSqueeze(a: number): void {
-    (this.gauge.querySelector(".gauge-fill") as HTMLElement).style.width = `${Math.min(100, a * 100)}%`;
-    this.blob.style.setProperty("--a", String(Math.min(1, a)));
-    this.blob.classList.add("show");
+  /** One press of the pump: a few dots of cream drop onto the hand. */
+  private press(): void {
+    if (this.active !== "cream" || this.pumps >= PUMPS) return;
+    this.pump.classList.remove("pressed");
+    void this.pump.offsetWidth;
+    this.pump.classList.add("pressed");
+    for (const [x, y] of DOTS[this.pumps] ?? []) {
+      const d = el("span", "cream-dot");
+      d.style.left = `${x}%`;
+      d.style.top = `${y}%`;
+      d.style.setProperty("--fall", `${y - 4}%`);
+      this.stage.append(d);
+      this.dots.push({ el: d, x: x / 100, y: y / 100, rub: 0, done: false });
+    }
+    this.pumps++;
+    if (this.pumps >= PUMPS) this.flash("Now smooth each dot in", "good");
+    this.refresh();
   }
 
-  private releaseSqueeze(a: number): void {
-    if (a >= SQUEEZE_LOW && a <= SQUEEZE_HIGH) {
-      this.squeezed = true;
-      this.flash("Just right", "good");
-      this.refresh();
-      return;
+  /** Slow strokes over a dot smooth it into the skin. True when every dot is smoothed in. */
+  private smooth(p: { x: number; y: number; w: number; h: number }, dist: number): boolean {
+    const x = p.x / p.w;
+    const y = p.y / p.h;
+    let changed = false;
+    for (const d of this.dots) {
+      if (d.done || Math.hypot(d.x - x, d.y - y) > 0.11) continue;
+      d.rub += dist / p.w;
+      const left = Math.max(0, 1 - d.rub / DOT_RUB);
+      d.el.style.setProperty("--left", left.toFixed(2));
+      if (left <= 0) {
+        d.done = true;
+        d.el.classList.add("done");
+        changed = true;
+      }
     }
-    this.mistake("cream", `squeeze-${a < SQUEEZE_LOW ? "low" : "high"}`, a < SQUEEZE_LOW ? "Too little" : "Too much");
-    this.later(() => {
-      this.setSqueeze(0);
-      this.blob.classList.remove("show");
-    }, 700);
+    if (changed) this.refresh();
+    return this.dots.length > 0 && this.dots.every((d) => d.done);
   }
 
   private paint(x: number, y: number, w: number, h: number): void {
@@ -487,13 +580,6 @@ export default class Treatment {
     const rx = (Z.rx / 100) * w;
     const ry = (Z.ry / 100) * h;
     const brush = w * 0.08;
-    for (let i = 0; i < GRID; i++)
-      for (let j = 0; j < GRID; j++) {
-        const cx = zx - rx + ((i + 0.5) / GRID) * rx * 2;
-        const cy = zy - ry + ((j + 0.5) / GRID) * ry * 2;
-        if (((cx - zx) / rx) ** 2 + ((cy - zy) / ry) ** 2 > 1) continue;
-        if (Math.hypot(cx - x, cy - y) <= brush) this.cells.add(i * GRID + j);
-      }
     const ctx = this.canvas.getContext("2d")!;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     if (this.canvas.width !== Math.round(w * dpr)) {
@@ -510,7 +596,6 @@ export default class Treatment {
     ctx.arc(x, y, brush, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
-    this.blob.classList.toggle("show", this.cells.size < 6);
   }
 
   // ---------- helpers ----------

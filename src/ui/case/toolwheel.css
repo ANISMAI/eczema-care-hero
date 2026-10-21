@@ -1,0 +1,243 @@
+/* Care Room: hand on the left, a four-part tool wheel on the right. */
+.case-card.case-treat:has(.treat-workspace) {
+  width: min(820px, 100%);
+}
+
+.case-treat .case-body:has(.treat-workspace) {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+
+.case-treat .treat-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.75fr) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(12px, 2vw, 24px);
+}
+
+.case-treat .treat-tool-info {
+  min-width: 0;
+  padding: 16px 14px;
+  border-left: 4px solid #8453be;
+  border-radius: 4px 14px 14px 4px;
+  background: #e6d6f7;
+  color: #293b56;
+}
+
+.case-treat .treat-tool-name {
+  margin: 0 0 8px;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.case-treat .treat-tool-function {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.case-treat .treat-hand-panel {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+}
+
+.case-treat .treat-workspace .treat-stage {
+  width: min(100%, 330px);
+}
+
+.case-treat .treat-tools-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.case-treat .treat-tools-panel .treat-steps {
+  width: 100%;
+  gap: 4px;
+}
+
+.case-treat .treat-tools-panel .treat-hint {
+  min-height: 20px;
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.case-treat .treat-hand-panel .session-flash {
+  position: absolute;
+  /* Ignore the old landscape layout's second-column placement. */
+  grid-area: auto;
+  z-index: 4;
+  right: 4px;
+  bottom: 8px;
+  left: 4px;
+  min-height: 0;
+  pointer-events: none;
+}
+
+.case-treat .treat-hand-panel .session-pill {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  border-radius: 12px;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: break-word;
+  line-height: 1.35;
+}
+
+.case-treat .treat-hand-panel .session-flash:empty {
+  display: none;
+}
+
+.case-treat .treat-tools-panel .treat-wheel {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  width: min(100%, 270px);
+  aspect-ratio: 1;
+  overflow: hidden;
+  padding: 0;
+  border: 4px solid #9876be;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 5px 0 #9876be, 0 8px 18px rgba(58, 43, 83, 0.16);
+}
+
+.case-treat .treat-wheel::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  border: 3px solid #9876be;
+  border-radius: 50%;
+  background: #fff;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.case-treat .treat-wheel .treat-tool {
+  position: relative;
+  justify-content: center;
+  gap: 5px;
+  min-width: 0;
+  min-height: 0;
+  padding: 9px 4px;
+  border: 0;
+  border-radius: 0;
+  color: #293b56;
+  font-size: 11px;
+  line-height: 1.15;
+  box-shadow: none;
+  transform: none;
+  touch-action: manipulation;
+  transition: background 0.15s ease;
+}
+
+/* Round each segment itself so its selection ring follows the outer arc. */
+.case-treat .treat-wheel .treat-tool:nth-child(1) {
+  --tool-selected: #a76bdf;
+  border-top-left-radius: 100%;
+  background: #c18eea;
+}
+.case-treat .treat-wheel .treat-tool:nth-child(2) {
+  --tool-selected: #469deb;
+  border-top-right-radius: 100%;
+  background: #78bdf5;
+}
+.case-treat .treat-wheel .treat-tool:nth-child(3) {
+  --tool-selected: #eea04c;
+  border-bottom-left-radius: 100%;
+  background: #f7bd7a;
+}
+.case-treat .treat-wheel .treat-tool:nth-child(4) {
+  --tool-selected: #45ba8d;
+  border-bottom-right-radius: 100%;
+  background: #78d3ab;
+}
+
+.case-treat .treat-wheel .treat-tool-icon {
+  flex: none;
+  width: clamp(28px, 5vw, 44px);
+  height: clamp(28px, 5vw, 44px);
+}
+
+.case-treat .treat-wheel .treat-tool-label {
+  display: none;
+}
+
+.case-treat .treat-wheel .treat-tool.next {
+  box-shadow: inset 0 0 0 3px #8763b1;
+  animation: none;
+}
+
+.case-treat .treat-wheel .treat-tool.active {
+  background: var(--tool-selected);
+  box-shadow: inset 0 0 0 4px #4d237c;
+}
+
+.case-treat .treat-wheel .treat-tool.used {
+  opacity: 1;
+  background: #edf0f3;
+  color: #53657a;
+}
+
+.case-treat .treat-wheel .treat-tool:focus-visible {
+  z-index: 1;
+  outline: 3px solid #23364f;
+  outline-offset: -5px;
+}
+
+.case-treat .treat-wheel .treat-tool.shake {
+  animation: shake 0.35s ease;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .case-treat .case-body:has(.treat-workspace) { gap: 8px; padding: 10px 14px 14px; }
+  .case-treat:has(.treat-workspace) .treat-face { width: 34px; height: 34px; }
+  .case-treat:has(.treat-workspace) .treat-face .ico { width: 28px; height: 28px; }
+  .case-treat .treat-workspace .treat-stage { width: min(100%, clamp(156px, calc(100dvh - 160px), 330px)); }
+  .case-treat .treat-tools-panel { gap: 6px; }
+  .case-treat .treat-tools-panel .treat-wheel { width: min(100%, clamp(132px, calc(100dvh - 210px), 260px)); }
+  .case-treat .treat-tools-panel .treat-steps > span { padding: 2px 7px; font-size: 10px; }
+  .case-treat .treat-tools-panel .treat-hint { min-height: 16px; font-size: 12px; }
+  .case-treat .treat-tool-info { padding: 12px 10px; }
+  .case-treat .treat-tool-name { font-size: 16px; }
+  .case-treat .treat-tool-function { font-size: 12px; }
+}
+
+@media (max-width: 520px) {
+  .case-treat .treat-workspace {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 12px;
+  }
+  .case-treat .treat-hand-panel { grid-column: 1; grid-row: 1; }
+  .case-treat .treat-tool-info { grid-column: 1; grid-row: 2; padding: 12px 10px; }
+  .case-treat .treat-tools-panel { grid-column: 2; grid-row: 1 / 3; }
+  .case-treat .treat-tool-name { font-size: 15px; }
+  .case-treat .treat-tool-function { font-size: 12px; line-height: 1.4; }
+}
+
+@media (max-width: 400px), (orientation: landscape) and (max-height: 360px) {
+  .case-treat .treat-wheel .treat-tool { gap: 3px; font-size: 9px; }
+  .case-treat .treat-wheel .treat-tool-icon { width: 28px; height: 28px; }
+  .case-treat .treat-tools-panel .treat-steps > span { padding: 2px 5px; font-size: 10px; }
+}
+
+@media (orientation: landscape) and (max-height: 360px) {
+  .case-treat .case-body:has(.treat-workspace) { padding: 8px 12px 10px; }
+  .case-treat .treat-tools-panel .treat-steps .ico-wrap { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .case-treat .treat-wheel .treat-tool { animation: none !important; transition: none; }
+}

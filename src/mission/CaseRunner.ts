@@ -314,6 +314,30 @@ export default class CaseRunner {
     return this.mission.mistakesOf(step.id) === 0 ? REWARDS.correctCare : REWARDS.retriedCare;
   }
 
+  // ---------- dev tools (src/dev/DevPanel.ts) ----------
+
+  /** Dev: start a case for a visitor and jump straight to one of its activities. */
+  devOpen(instanceId: string, identityId: string, templateId: string, stage: "interview" | "consult" | "care"): void {
+    const npc = this.host.patientNpc(instanceId);
+    if (!npc || !this.mission.start(templateId, { instanceId, identityId })) return;
+    this.patient = npc;
+    // step through the case (no rewards) until the wanted activity is due
+    for (let guard = 0; guard < 8; guard++) {
+      const step = this.mission.currentStep;
+      if (!step || step.kind === stage) break;
+      this.mission.advance(step.id);
+    }
+    const place = PLACE[this.mission.status];
+    if (place) npc.standAt(place.at, place.dir);
+    this.listPatient(true);
+    this.refreshObjective();
+    const step = this.mission.currentStep;
+    if (!step) return;
+    if (stage === "interview") this.openInterview(step);
+    else if (stage === "consult") this.openConsult(step);
+    else this.openCare(step);
+  }
+
   // ---------- A: call the next patient in (Nurul has registered them) ----------
 
   private callPatient(next: QueueEntry): void {

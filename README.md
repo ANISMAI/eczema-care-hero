@@ -10,8 +10,9 @@ accounts or backend; everything is saved locally in the browser.
 
 Two new incidents join the five existing mini-games, which retain their interactions:
 
-- **Cockroach Panic / Panik Lipas (Staff Lounge):** interact at the coffee machine, then tap
-  a small cartoon visitor five times to guide it outside. It is never squashed. Amy reacts
+- **Cockroach Panic / Panik Lipas (Staff Lounge):** interact at the coffee machine, then drag
+  a broom behind the small cartoon visitor to guide it outside. Arrow keys move the broom;
+  hold Space to guide from one spot. A route bar follows the journey to the door. Amy reacts
   afterwards; repeat appearances use alternate dialogue.
 - **Printer Gone Crazy / Pencetak Buat Hal (Staff Office):** interact at the **Office printer**,
   tap STOP, then tap four loose sheets to collect them in the paper tray. The printer is a
@@ -34,7 +35,8 @@ disappears (such as Amy cleaning a queued dirty tray) are dropped. Pending condi
 stop Amy's normal cleanup. At 5 PM or manual closing, active panels, notices, effects, requests
 and markers are cleared before the summary; canceled callbacks cannot award a bonus.
 
-Tuning lives in `src/data/gameplay.ts` (`EVENT_CONFIG` and `COMEDY`):
+Tuning lives in `src/data/gameplay.ts` (`EVENT_CONFIG` and `COMEDY`); broom reach and walking
+speed live in `src/events/RoachGuide.ts` (`ROACH_GUIDE`):
 
 | Setting | Default |
 |---|---|
@@ -56,13 +58,14 @@ tutorial requests routine help and cannot force a comedy event.
 `&event=cockroach-panic` or `&event=printer-panic` to `events=always` to select a comedy incident
 deterministically (still after cooldown and only when safe). `?title=off` skips the opening.
 
-Run `npm test` for scheduler regression tests (tested with Node 24), and
+Run `npm test` for scheduler and broom-guiding regression tests (tested with Node 24), and
 `npm run build` for TypeScript and the production build. Manual acceptance procedure:
 
 1. Start with `?title=off&events=always&event=cockroach-panic`. Choose a doctor. Confirm no
    incidents appear at the 7:45 briefing or during clock-in. Start the shift and wait for the
    first cooldown; Go should navigate to the lounge and mark that room on both maps.
-2. Complete the five taps; verify +15 coins / +5 XP, no care-point change, and cleared markers.
+2. Drag the broom behind the visitor until it walks through the exit; verify +15 coins / +5 XP,
+   no care-point change, and cleared markers. Check dragging, arrow keys and releasing the broom.
    Let the same incident recur after its 180-minute cooldown; check alternate dialogue. Try
    Later, Close, Skip and ignoring a request until staff resolution.
 3. Repeat with `event=printer-panic`: STOP, collect four sheets, Done. Verify the Staff Desk's
@@ -257,6 +260,22 @@ separate too (the arcade games aren't connected yet). The end-of-shift summary s
 **Testing switches:** add `?events=always` to guarantee eligible event draws (cooldowns and
 safety still apply) or `?events=off` to disable them. To start over, clear the site's
 localStorage.
+
+## Developer panel (testing)
+
+With `npm run dev` a small **DEV** tab sits on the right edge of the screen (or press the `
+key). It jumps straight to any activity without playing through the day, from any point
+(even the title screen):
+
+- **Patient case**: pick a patient and a visit, then open the Interview, the Consultation or the
+  Care Room directly (the Care Room always uses a visit that includes hands-on care).
+- **Events**: open any event's panel now.
+- **Screens**: Title, Briefing, Clock-in animation, Day summary.
+- **Day**: set the clock (8:00, 12:00, 1:00 PM, 4:55 PM), speed x1 / x5 / x10 / x30, add a
+  patient, fill the queue, reset the save.
+
+The panel lives in `src/dev/` and is loaded only in development (`import.meta.env.DEV`), so it
+is not part of the production build.
 
 ## Setup
 

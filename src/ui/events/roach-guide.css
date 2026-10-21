@@ -1,0 +1,58 @@
+.case-card.incident-panel.cockroach-panel { width: min(860px, 100%); }
+.case-card.cockroach-panel .case-body { display: flex; flex-direction: column; gap: 10px; }
+.roach-copy { display: flex; align-items: center; gap: 14px; }
+.roach-story { flex: 0 1 38%; padding: 9px 12px; border: 2px solid #c6b4df; border-radius: 14px 14px 14px 3px; background: #eae0f6; color: #53406e; font-size: 13px; font-weight: 800; line-height: 1.35; }
+.roach-copy .incident-instruction { flex: 1; margin: 0; font-size: 13px; }
+.cockroach-panel .roach-stage {
+  height: clamp(210px, 40dvh, 330px);
+  border: 3px solid #c4a37e;
+  background-color: #f2e4cf;
+  background-image: linear-gradient(#cfb99c70 1px, transparent 1px), linear-gradient(90deg, #cfb99c70 1px, transparent 1px);
+  background-size: 64px 64px;
+  box-shadow: inset 0 12px 0 #dfc9a9;
+  touch-action: none;
+  user-select: none;
+}
+.cockroach-panel .incident-coffee { left: 4%; top: 10%; bottom: auto; width: 58px; padding: 4px; border-radius: 50%; background: #bd8f66; box-shadow: 0 4px 0 #9b704e; text-align: center; font-size: 32px; opacity: 1; }
+.cockroach-panel .roach-exit { z-index: 1; top: 28%; right: -3px; width: 9%; min-width: 42px; height: 44%; border: 4px solid #45876a; border-right: 0; border-radius: 8px 0 0 8px; background: #acdcb9; color: #255b42; font-size: 11px; letter-spacing: .05em; box-shadow: -10px 0 24px #6ac58a50; }
+.roach-route { position: absolute; top: 50%; left: 24%; right: 10%; display: flex; justify-content: space-around; align-items: center; height: 2px; border-top: 3px dashed #b39d7c; color: #9b835f; font-size: 38px; pointer-events: none; }
+.roach-route span { display: block; padding: 0 8px; background: #f2e4cf; line-height: 1; transform: translateY(-2px); }
+.cockroach-panel .roach-visitor { z-index: 2; width: 54px; height: 54px; padding: 0; border: 0; background: none; transform: translate(-50%, -50%) rotate(var(--heading)); transition: opacity .3s; pointer-events: none; filter: drop-shadow(0 3px 2px #765b3d35); }
+.roach-sprite { display: block; width: 100%; height: 100%; background-size: 400% 200%; background-position: 0 0; background-repeat: no-repeat; }
+.cockroach-panel .roach-visitor.roach-leaving { left: 102% !important; opacity: 0; transition: left .5s linear, opacity .5s; }
+.cockroach-panel .roach-broom { position: absolute; z-index: 3; width: 74px; height: 90px; padding: 0; border: 0; border-radius: 14px; background: transparent; transform: translate(-50%, -72%); touch-action: none; cursor: grab; filter: drop-shadow(0 4px 3px #74543140); }
+.roach-broom svg { width: 100%; height: 100%; pointer-events: none; }
+.roach-broom.held { cursor: grabbing; filter: drop-shadow(0 0 7px #a176ce); }
+.cockroach-panel .roach-broom:focus-visible { outline: 2px dashed #8754b3; outline-offset: 2px; }
+.cockroach-panel .case-footer .secondary-btn { min-height: 44px; padding: 8px 10px; font-size: 12px; }
+.roach-journey { display: flex; align-items: center; gap: 10px; padding: 10px 3px 0; color: #397257; font-size: 11px; font-weight: 900; }
+.roach-journey-start { font-size: 19px; line-height: 1; }
+.roach-journey-track { flex: 1; height: 12px; overflow: hidden; border: 2px solid #b2c9bb; border-radius: 999px; background: #e1eae4; }
+.roach-journey-fill { display: block; width: 0; height: 100%; border-radius: inherit; background: #4aa978; }
+.roach-keyboard-hint { display: block; margin-top: 6px; color: var(--ink-soft); font-size: 10px; text-align: center; }
+@media (max-width: 520px) {
+  .roach-copy { flex-direction: column; align-items: stretch; gap: 7px; }
+  .roach-story { flex-basis: auto; padding: 7px 10px; font-size: 12px; }
+  .roach-copy .incident-instruction { font-size: 12px; }
+  .cockroach-panel .roach-stage { height: clamp(220px, 37dvh, 320px); }
+  .cockroach-panel .roach-visitor { width: 44px; height: 44px; }
+  .cockroach-panel .roach-broom { width: 62px; height: 76px; }
+  .roach-keyboard-hint { display: none; }
+}
+@media (orientation: landscape) and (max-height: 500px) {
+  .case-card.cockroach-panel .case-body { padding: 8px 12px; gap: 7px; }
+  .roach-story { padding: 6px 10px; font-size: 12px; }
+  .roach-copy .incident-instruction { font-size: 12px; }
+  .cockroach-panel .roach-stage { height: clamp(124px, calc(100dvh - 222px), 260px); }
+  .cockroach-panel .roach-visitor { width: 42px; height: 42px; }
+  .cockroach-panel .roach-broom { width: 54px; height: 66px; }
+  .cockroach-panel .incident-coffee { width: 42px; font-size: 24px; }
+  .roach-keyboard-hint { display: none; }
+  .roach-play { position: relative; }
+  .roach-journey { position: absolute; right: 12px; bottom: 8px; left: 12px; padding: 2px 8px; border-radius: 12px; background: #fff9efcc; pointer-events: none; }
+}
+@media (orientation: landscape) and (max-height: 360px) {
+  .case-card.cockroach-panel .case-body { padding: 6px 12px; gap: 5px; }
+  .roach-story { padding: 4px 8px; }
+  .cockroach-panel .roach-stage { height: 120px; }
+}
