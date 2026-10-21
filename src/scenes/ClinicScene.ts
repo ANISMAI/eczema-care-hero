@@ -338,6 +338,7 @@ export default class ClinicScene extends Phaser.Scene {
     this.profile = new ProfileCard(uiRoot, {
       // stays locked: the character picker takes over and unlocks when it closes
       onChangeCharacter: () => this.characterSelect.open(this.character?.id, false),
+      onExit: () => this.exitToMenu(),
       onClose: () => (this.inputLocked = false),
     });
     // Phase 3: visitors arrive all day; the doctor queue and Nurul / Grace's routine visits
@@ -719,6 +720,18 @@ export default class ClinicScene extends Phaser.Scene {
     this.movement.setJoystickVector(0, 0);
     this.player.setVelocity(0, 0);
     this.profile.open(this.character.id);
+  }
+
+  private exitToMenu(): void {
+    this.lockInput();
+    this.navigation.cancel();
+    this.persist();
+    this.clock.save();
+    // Return to the normal title even when the opening was skipped for testing.
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("title") === "off") url.searchParams.delete("title");
+    window.history.replaceState(null, "", url);
+    window.location.reload();
   }
 
   private openStaffDirectory(): void {

@@ -146,6 +146,14 @@ const STRINGS = {
   // ---------- profile & staff ----------
   "profile.title": { en: "My Profile", ms: "Profil Saya" },
   "profile.change": { en: "Change doctor", ms: "Tukar doktor" },
+  "profile.exit": { en: "Exit", ms: "Keluar" },
+  "profile.exitTitle": { en: "Do you really want to exit?", ms: "Anda pasti mahu keluar?" },
+  "profile.exitDescription": {
+    en: "You'll return to the main menu. An unfinished shift will restart when you play again.",
+    ms: "Anda akan kembali ke menu utama. Shift yang belum selesai akan bermula semula apabila anda bermain lagi.",
+  },
+  "profile.cancelExit": { en: "Cancel", ms: "Batal" },
+  "profile.confirmExit": { en: "Yes, exit", ms: "Ya, keluar" },
   "profile.notice": {
     en: "Eczema Care Hero is an educational game, not a medical or diagnostic tool. Eczema differs for everyone; always follow a healthcare professional's advice.",
     ms: "Eczema Care Hero ialah permainan pendidikan, bukan alat perubatan atau diagnosis. Ekzema berbeza bagi setiap orang; sentiasa ikut nasihat profesional kesihatan.",

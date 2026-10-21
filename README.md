@@ -186,7 +186,8 @@ toolbar (or visit from a phone on the same network via `npm run dev -- --host`) 
   near an interactable object/NPC, tap the mini-map (top-right) to open the full map.
 - **Character**: on first launch the player picks the female or male doctor (saved). The round
   face button at the top-left of the HUD opens **My Profile**: the player's own staff ID card,
-  with a "Change doctor" button.
+  with "Change doctor" and "Exit" buttons. Exit asks for confirmation before returning to
+  the main menu; Cancel keeps the profile open. An unfinished shift restarts when playing again.
 - **Desktop**: arrow keys or WASD to move; **E** / **Space** to interact; **M** to open the map;
   **Esc** closes any dialog. HUD buttons also work with the mouse.
 
