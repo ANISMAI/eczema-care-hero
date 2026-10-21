@@ -1,3 +1,4 @@
+import { t } from "../game/i18n";
 /** Simple dismissible modal used for NPC/object interaction placeholder dialog. */
 export default class Dialog {
   private root: HTMLDivElement;
@@ -25,7 +26,7 @@ export default class Dialog {
 
     const closeBtn = document.createElement("button");
     closeBtn.className = "primary-btn wide";
-    closeBtn.textContent = "OK";
+    closeBtn.textContent = t("dialog.ok");
     closeBtn.addEventListener("click", () => this.close());
 
     card.append(header, this.textEl, closeBtn);

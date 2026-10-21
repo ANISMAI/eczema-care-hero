@@ -1,5 +1,6 @@
 import { el } from "../case/Overlay";
 import type { ClinicEventDef } from "../../events/types";
+import { t } from "../../game/i18n";
 
 export interface EventNoticeCallbacks {
   /** Walk to the event's room. */
@@ -36,7 +37,7 @@ export default class EventNotice {
     this.root.classList.toggle("expanded", expanded);
     this.root.replaceChildren();
 
-    const go = el("button", "event-go", "Go ›");
+    const go = el("button", "event-go", t("hud.go"));
     go.addEventListener("click", () => {
       this.compact(def);
       this.cb.onGo();
@@ -56,10 +57,10 @@ export default class EventNotice {
     img.src = def.from.portrait;
     img.alt = "";
     const text = el("div", "event-text");
-    text.append(el("strong", "", `${def.icon} ${def.from.name}`), el("span", "", def.notice), el("em", "", "Optional · bonus coins"));
-    const later = el("button", "event-later", "Later");
+    text.append(el("strong", "", `${def.icon} ${def.from.name}`), el("span", "", def.notice), el("em", "", t("event.optional")));
+    const later = el("button", "event-later", t("event.later"));
     later.addEventListener("click", () => this.compact(def));
-    const dismiss = el("button", "event-later", "Dismiss");
+    const dismiss = el("button", "event-later", t("event.dismiss"));
     dismiss.addEventListener("click", () => this.cb.onDismiss());
     const actions = el("div", "event-btns");
     actions.append(go, later, dismiss);

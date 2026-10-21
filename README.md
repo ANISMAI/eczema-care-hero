@@ -5,6 +5,33 @@ clinic, characters, movement and maps. Phase 2 added patient care and optional c
 Phase 3 makes it a living clinic: visitors keep arriving all day. No online leaderboard,
 accounts or backend; everything is saved locally in the browser.
 
+## Opening, title and settings
+
+The game opens on a screen full of clouds (which also covers asset loading). After about two
+seconds they part from the centre outwards and reveal the **town** from above: an SVG drawn in
+the clinic's style (`src/art/town.ts`), with the clinic in the middle among cottages, a
+pharmacy, a bakery, a fountain plaza, a field, a pond and woods. Then the title appears with
+**PLAY** and **SETTINGS**. While the title is up the game is paused (clock and arrivals stop).
+PLAY dives into the clinic's front door, a soft flash as we step inside, then the clinic interior
+from above (in landscape, the entrance side, larger), and finally the camera zooms down to the
+doctor; a new player then picks a doctor.
+Title menu: **PLAY**, then **How to play** (six swipeable cards), **Badges** (an empty shelf for
+now; the collection comes later), **Language** and **Settings**.
+Settings: sound on/off (announcement chimes), prayer time reminders (announcements only), and
+"Start again" (erases saved progress, with a confirm tap).
+
+**Language** (`src/game/i18n.ts`): English / Bahasa Melayu for menus and UI (title, How to play,
+doctor picker, HUD, map, profile and staff cards, closing dialog, day summary, room names).
+Patient dialogue, case content and events are still English. Changing language reloads the page
+(the clouds part straight away) so every label, including the room plaques, follows. Add a string:
+one entry in `STRINGS` with `en` and `ms`, then `t("key")`.
+
+**Playable doctors** (`CHARACTERS` in `src/data/assets.ts`): Dr. Nadia, Dr. Faris, Dr. Jasmine,
+Dr. Wei Jie, Dr. Kavitha, Dr. Arvind. Each has a staff ID card in `src/data/staff.ts`. `prays`
+decides whether the doctor has a Pray action at the Surau mat (Dr. Nadia and Dr. Faris); everyone
+can visit the Surau. Code: `src/ui/TitleScreen.ts`, `src/art/town.ts`, `src/ui/title.css`, `src/game/settings.ts`,
+`showOverview()` / `leaveTitle()` in `ClinicScene`. Testing: `?title=off` skips the opening.
+
 ## Phase 3 — living clinic and continuous patient flow
 
 **A day:** the clinic opens at 8:00 AM. Visitors arrive every 12–25 in-game minutes (about every

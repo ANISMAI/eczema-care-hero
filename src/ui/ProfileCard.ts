@@ -1,6 +1,7 @@
 import { STAFF } from "../data/staff";
 import type { CharacterId } from "../data/assets";
 import { cardCloseButton, el, renderIdCard } from "./IdCard";
+import { t } from "../game/i18n";
 
 export interface ProfileCallbacks {
   onChangeCharacter: () => void;
@@ -21,7 +22,7 @@ export default class ProfileCard {
     wrap.setAttribute("aria-label", "My profile");
 
     const title = el("div", "staff-title");
-    title.append(el("span", "", "🪪"), el("span", "", "My Profile"));
+    title.append(el("span", "", "🪪"), el("span", "", t("profile.title")));
 
     const stage = el("div", "staff-stage");
     this.cardHost = el("div", "staff-card-host");
@@ -30,7 +31,7 @@ export default class ProfileCard {
     stage.appendChild(frame);
 
     const actions = el("div", "modal-actions staff-actions");
-    const change = el("button", "primary-btn", "Change doctor");
+    const change = el("button", "primary-btn", t("profile.change"));
     change.addEventListener("click", () => {
       this.root.classList.add("hidden");
       this.callbacks.onChangeCharacter();
@@ -40,7 +41,7 @@ export default class ProfileCard {
     const notice = el(
       "p",
       "app-notice",
-      "Eczema Care Hero is an educational game, not a medical or diagnostic tool. Eczema differs for everyone; always follow a healthcare professional's advice."
+      t("profile.notice")
     );
     wrap.append(title, stage, actions, notice);
     this.root.appendChild(wrap);

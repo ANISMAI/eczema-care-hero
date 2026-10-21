@@ -1,6 +1,7 @@
 import { STAFF, type StaffCard } from "../data/staff";
 import type { CharacterId } from "../data/assets";
 import { cardCloseButton, el, renderIdCard } from "./IdCard";
+import { t } from "../game/i18n";
 
 export interface StaffDirectoryCallbacks {
   /** Take the player to this staff member. */
@@ -31,7 +32,7 @@ export default class StaffDirectory {
     wrap.setAttribute("aria-label", "Staff directory");
 
     const title = el("div", "staff-title");
-    title.append(el("span", "", "👥"), el("span", "", "Staff Directory"));
+    title.append(el("span", "", "👥"), el("span", "", t("staff.title")));
     this.counter = el("span", "staff-counter");
     title.appendChild(this.counter);
 
@@ -99,7 +100,7 @@ export default class StaffDirectory {
     // the other doctor (the one not being played) isn't in the clinic today
     const offDuty = card.characterId !== undefined;
     this.findBtn.disabled = offDuty;
-    this.findBtn.textContent = offDuty ? "Off duty" : `Find ${card.name.split(" ")[0]}`;
+    this.findBtn.textContent = offDuty ? t("staff.offDuty") : t("staff.find", { name: card.name.split(" ")[0] });
   }
 
   open(playerCharacter: CharacterId | undefined): void {

@@ -5,6 +5,8 @@ import { getRoomById } from "../data/rooms";
 /** What the toilet and surau need from the scene. */
 export interface AmenitiesHost {
   uiRoot: HTMLElement;
+  /** The chosen doctor can pray at the Surau mat (otherwise the mat is just a quiet place). */
+  canPray(): boolean;
   lock(): void;
   unlock(): void;
   toast(text: string): void;
@@ -80,7 +82,7 @@ export default class Amenities {
   actionLabel(item: InteractableDef): string | null {
     if (item.id === "toilet-stall") return "🚻 Use toilet";
     if (item.id === "toilet-sink") return this.needsWash ? "🧼 Wash hands" : "Sink";
-    if (item.id === "surau-mat") return "🤲 Pray";
+    if (item.id === "surau-mat") return this.host.canPray() ? "🤲 Pray" : null;
     return null;
   }
 
@@ -89,7 +91,7 @@ export default class Amenities {
     if (this.busy) return true;
     if (item.id === "toilet-stall") return void this.useToilet(), true;
     if (item.id === "toilet-sink" && this.needsWash) return void this.washHands(), true;
-    if (item.id === "surau-mat") return void this.pray(item), true;
+    if (item.id === "surau-mat" && this.host.canPray()) return void this.pray(item), true;
     return false;
   }
 

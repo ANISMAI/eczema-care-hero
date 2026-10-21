@@ -1,0 +1,883 @@
+/* ---------- Opening: clouds part to reveal the clinic, then the title ---------- */
+
+.title-screen {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  overflow: hidden;
+  pointer-events: auto;
+  transition: opacity 0.55s ease;
+}
+
+.title-screen.skipped {
+  display: none;
+}
+
+.title-screen.leaving {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* soft sky behind the clouds (fills any gap between them, fades as they part) */
+.title-sky {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 40%, #ffffff 0%, #e8f3ff 45%, #bfdcf7 100%);
+  transition: opacity 1.6s ease 0.4s;
+}
+
+.title-screen.parting .title-sky {
+  opacity: 0;
+}
+
+.title-cloud {
+  position: absolute;
+  transition: transform 2.2s cubic-bezier(0.5, 0, 0.3, 1), opacity 1.2s ease-in 1s;
+  will-change: transform, opacity;
+  pointer-events: none;
+}
+
+.title-cloud-float {
+  animation: cloud-drift 6s ease-in-out infinite alternate;
+}
+
+.title-cloud svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 8px 10px rgba(80, 120, 170, 0.18));
+}
+
+@keyframes cloud-drift {
+  from {
+    transform: translate(-8px, 0);
+  }
+  to {
+    transform: translate(8px, -4px);
+  }
+}
+
+/* ---------- title + buttons (after the clouds have gone) ---------- */
+
+.title-block {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(14vh + var(--safe-top)) 20px calc(9vh + var(--safe-bottom));
+  /* a soft light behind the logo and a gentle dark fade behind the buttons, for contrast */
+  background:
+    radial-gradient(ellipse 70% 28% at 50% 22%, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0) 70%),
+    linear-gradient(to top, rgba(20, 30, 50, 0.45), rgba(20, 30, 50, 0) 35%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.6s ease;
+}
+
+.title-screen.show-title .title-block {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.title-logo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: var(--font);
+  text-align: center;
+  transform: translateY(-14px) scale(0.92);
+  transition: transform 0.7s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+
+.title-screen.show-title .title-logo {
+  transform: none;
+}
+
+.title-logo-top {
+  color: #6f4fc4;
+  font-size: clamp(20px, 6.2vw, 34px);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow: 0 2px 0 #fff, 2px 0 0 #fff, -2px 0 0 #fff, 0 -2px 0 #fff;
+}
+
+.title-logo-main {
+  margin-top: -6px;
+  background: linear-gradient(180deg, #ff8fbf 0%, #f0679e 45%, #8f6ee0 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-size: clamp(64px, 22vw, 120px);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  filter: drop-shadow(0 3px 0 #fff) drop-shadow(0 -3px 0 #fff) drop-shadow(3px 0 0 #fff) drop-shadow(-3px 0 0 #fff)
+    drop-shadow(0 8px 10px rgba(80, 50, 140, 0.35));
+}
+
+.title-logo-sub {
+  margin-top: 8px;
+  padding: 5px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: var(--shadow-sm);
+  color: var(--ink);
+  font-size: clamp(12px, 3.6vw, 15px);
+  font-weight: 800;
+}
+
+.title-buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: min(300px, 100%);
+}
+
+.title-play,
+.title-settings {
+  width: 100%;
+  border-radius: 999px;
+  font-family: var(--font);
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+
+.title-play {
+  min-height: 62px;
+  border: 3px solid #fff;
+  background: linear-gradient(180deg, #5aa6ff, #2f7fe0);
+  box-shadow: 0 6px 0 #1b58ad, 0 12px 22px rgba(18, 28, 44, 0.35);
+  color: #fff;
+  font-size: 22px;
+  animation: play-pulse 1.8s ease-in-out infinite;
+}
+
+.title-play:active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 #1b58ad;
+  animation: none;
+}
+
+@keyframes play-pulse {
+  50% {
+    transform: scale(1.04);
+  }
+}
+
+.title-continue {
+  margin-top: -2px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+.title-settings {
+  min-height: 46px;
+  border: 2px solid #fff;
+  background: rgba(31, 50, 76, 0.85);
+  box-shadow: var(--shadow-sm);
+  color: #fff;
+  font-size: 15px;
+}
+
+.title-settings:active {
+  transform: scale(0.97);
+}
+
+/* ---------- settings panel ---------- */
+
+.title-settings-panel {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(18, 28, 44, 0.55);
+}
+
+.title-settings-panel.hidden {
+  display: none;
+}
+
+.ts-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(340px, 100%);
+  padding: 18px;
+  border: 3px solid var(--panel-edge);
+  border-radius: 18px;
+  background: #f4f7fb;
+  box-shadow: 0 16px 40px rgba(18, 28, 44, 0.45);
+  font-family: var(--font);
+  animation: pop-in 0.2s ease-out;
+}
+
+.ts-card h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 18px;
+}
+
+.ts-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.ts-row > span:first-child {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ts-row small {
+  color: var(--ink-soft);
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.ts-toggle {
+  position: absolute;
+  opacity: 0;
+}
+
+.ts-switch {
+  position: relative;
+  flex: none;
+  width: 46px;
+  height: 26px;
+  border-radius: 999px;
+  background: #cfd6d9;
+  transition: background 0.2s ease;
+}
+
+.ts-switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s ease;
+}
+
+.ts-toggle:checked + .ts-switch {
+  background: #2fb38a;
+}
+
+.ts-toggle:checked + .ts-switch::after {
+  transform: translateX(20px);
+}
+
+.ts-toggle:focus-visible + .ts-switch {
+  outline: 3px solid #2f7fe0;
+  outline-offset: 2px;
+}
+
+.ts-reset-row {
+  cursor: default;
+}
+
+.ts-reset {
+  flex: none;
+  padding: 8px 12px;
+  border: 2px solid #f2b8c6;
+  border-radius: 10px;
+  background: #fdf0f3;
+  color: #b3264d;
+  font-family: var(--font);
+  font-size: 12.5px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.ts-reset.confirm {
+  border-color: #e0475f;
+  background: #e0475f;
+  color: #fff;
+}
+
+/* the HUD stays hidden while the title screen is up */
+.hud-root.hud-off {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.hud-root {
+  transition: opacity 0.4s ease;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .title-block {
+    padding: calc(6vh + var(--safe-top)) 20px calc(6vh + var(--safe-bottom));
+  }
+
+  .title-logo-main {
+    font-size: clamp(54px, 15vh, 96px);
+  }
+
+  .title-play {
+    min-height: 52px;
+    font-size: 19px;
+  }
+
+  .title-settings {
+    min-height: 40px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .title-cloud-float,
+  .title-play {
+    animation: none;
+  }
+}
+
+/* ---------- the town under the clouds, and the dive into the clinic ---------- */
+
+/* a square town, big enough to cover the screen, centred on the clinic */
+.title-town {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max(100vw, 100vh);
+  height: max(100vw, 100vh);
+  transform: translate(-50%, -50%);
+  overflow: hidden;
+}
+
+.title-town-zoom {
+  position: absolute;
+  inset: 0;
+  transition: transform 1.55s cubic-bezier(0.6, 0, 0.9, 0.4);
+}
+
+.town-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* soft cloud shadows drifting over the town */
+.town-shadow {
+  position: absolute;
+  left: 0;
+  width: 46%;
+  height: 22%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(29, 39, 56, 0.16), rgba(29, 39, 56, 0) 70%);
+  pointer-events: none;
+  animation: shadow-drift 38s linear infinite;
+}
+
+.town-shadow.a {
+  top: 18%;
+}
+
+.town-shadow.b {
+  top: 62%;
+  animation-duration: 52s;
+  animation-delay: -20s;
+}
+
+@keyframes shadow-drift {
+  from {
+    transform: translateX(-60%);
+  }
+  to {
+    transform: translateX(260%);
+  }
+}
+
+/* the title fades as soon as the dive starts */
+.title-screen.entering {
+  pointer-events: none;
+}
+
+.title-screen.entering .title-block {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+/* "stepping inside": a soft warm flash, then it fades to show the clinic interior */
+.title-flash {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background: #fffaf2;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s ease-in;
+}
+
+.title-flash.on {
+  opacity: 1;
+}
+
+.title-flash.out {
+  opacity: 0;
+  transition: opacity 0.7s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .town-shadow {
+    animation: none;
+  }
+}
+
+/* doctor picker: the prayer reminder switch under the cards */
+.cs-prayer {
+  margin-top: 12px;
+  text-align: left;
+}
+
+/* doctor picker with six doctors: 3 x 2 cards (one row of 6 on a landscape phone) so the
+   whole picker, Start button included, fits without scrolling */
+.select-card {
+  width: min(420px, 100%);
+}
+
+.cs-grid {
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.cs-card {
+  gap: 4px;
+  padding: 6px 4px 8px;
+  border-radius: 14px;
+}
+
+.cs-stage {
+  height: 112px;
+  border-radius: 10px;
+}
+
+.cs-label {
+  font-size: 11.5px;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.cs-prayer {
+  margin-top: 0;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .select-card {
+    width: min(760px, 100%);
+  }
+
+  .cs-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+
+  .cs-stage {
+    height: 100px;
+  }
+
+  .cs-prayer {
+    margin-bottom: 8px;
+    padding: 6px 10px;
+  }
+}
+
+/* ---------- title menu: PLAY, then a 2 x 2 grid ---------- */
+
+.title-buttons {
+  width: min(340px, 100%);
+}
+
+.title-menu {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: 100%;
+}
+
+.title-menu-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  min-height: 46px;
+  padding: 6px 10px;
+  border: 2px solid #fff;
+  border-radius: 16px;
+  background: rgba(31, 50, 76, 0.86);
+  box-shadow: var(--shadow-sm);
+  color: #fff;
+  font-family: var(--font);
+  font-size: 13.5px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.title-menu-btn span {
+  font-size: 17px;
+}
+
+.title-menu-btn:active {
+  transform: scale(0.97);
+}
+
+/* ---------- menu panels ---------- */
+
+.tm-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tm-foot {
+  display: flex;
+  gap: 10px;
+}
+
+.tm-foot .primary-btn,
+.tm-foot .secondary-btn {
+  flex: 1;
+}
+
+.tm-foot .secondary-btn:disabled {
+  opacity: 0.45;
+}
+
+/* how to play: a sliding track of cards */
+.tm-howto .ts-card {
+  overflow: hidden;
+}
+
+.tm-track {
+  display: flex;
+  transition: transform 0.3s ease;
+  touch-action: pan-y;
+  user-select: none;
+}
+
+.tm-slide {
+  display: flex;
+  flex: 0 0 100%;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-height: 190px;
+  padding: 18px 12px;
+  border-radius: 14px;
+  background: linear-gradient(#f4eefb, #ffffff);
+  color: var(--ink);
+  text-align: center;
+}
+
+.tm-slide-icon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: var(--shadow-sm);
+  font-size: 34px;
+}
+
+.tm-slide strong {
+  font-size: 16px;
+}
+
+.tm-slide p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 13.5px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.tm-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+
+.tm-dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #d5dde8;
+  transition: width 0.2s ease, background 0.2s ease;
+}
+
+.tm-dots span.on {
+  width: 20px;
+  border-radius: 999px;
+  background: #8f6ee0;
+}
+
+/* badges: an empty shelf for now */
+.tm-shelf {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  background: #f4eefb;
+}
+
+.tm-badge-slot {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border: 3px dashed #cfc2e6;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #b9aed0;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.tm-note {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #fff8ec;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.tm-note span {
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+
+/* language */
+.tm-lang {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 10px 14px;
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  background: #ffffff;
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tm-lang strong {
+  flex: 1;
+}
+
+.tm-flag {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #8f6ee0;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.tm-check {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  color: transparent;
+  font-weight: 900;
+}
+
+.tm-lang.on {
+  border-color: #2fb38a;
+  background: #e5f7f0;
+}
+
+.tm-lang.on .tm-check {
+  background: #2fb38a;
+  color: #ffffff;
+}
+
+.tm-small {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .title-menu {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .title-buttons {
+    width: min(560px, 100%);
+  }
+
+  .title-menu-btn {
+    min-height: 40px;
+    font-size: 12px;
+  }
+
+  .tm-slide {
+    min-height: 140px;
+    padding: 10px;
+  }
+
+  .tm-slide-icon {
+    width: 46px;
+    height: 46px;
+    font-size: 24px;
+  }
+}
+
+/* how to play: only the current card shows (no neighbours peeking in) */
+.tm-howto .tm-body {
+  overflow: hidden;
+  border-radius: 14px;
+}
+
+/* menu panels never taller than the screen (scroll inside if needed) */
+.title-settings-panel .ts-card {
+  max-height: calc(100vh - 20px);
+  max-height: calc(100dvh - 20px);
+  overflow-y: auto;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .title-settings-panel {
+    padding: 10px;
+  }
+
+  .ts-card {
+    gap: 8px;
+    width: min(520px, 100%);
+    padding: 12px 16px;
+  }
+
+  .ts-row {
+    padding: 6px 10px;
+  }
+
+  .tm-shelf {
+    grid-template-columns: repeat(8, 1fr);
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .tm-badge-slot {
+    border-width: 2px;
+    font-size: 14px;
+  }
+
+  .tm-note {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .tm-lang {
+    min-height: 42px;
+    padding: 6px 12px;
+  }
+}
+
+/* tablets (portrait and landscape): a bigger title, buttons and menu panels */
+@media (min-width: 600px) and (min-height: 700px) {
+  .title-logo-top {
+    font-size: clamp(34px, 5.2vw, 52px);
+  }
+
+  .title-logo-main {
+    font-size: clamp(120px, 19vw, 190px);
+  }
+
+  .title-logo-sub {
+    padding: 8px 20px;
+    font-size: clamp(16px, 2.4vw, 22px);
+  }
+
+  .title-buttons {
+    gap: 14px;
+    width: min(560px, 76vw);
+  }
+
+  .title-play {
+    min-height: 84px;
+    border-width: 4px;
+    font-size: 30px;
+  }
+
+  .title-continue {
+    font-size: 17px;
+  }
+
+  .title-menu {
+    gap: 12px;
+  }
+
+  .title-menu-btn {
+    gap: 10px;
+    min-height: 64px;
+    border-radius: 20px;
+    font-size: 19px;
+  }
+
+  .title-menu-btn span {
+    font-size: 24px;
+  }
+
+  .ts-card {
+    gap: 14px;
+    width: min(520px, 100%);
+    padding: 24px;
+  }
+
+  .ts-card h2 {
+    font-size: 22px;
+  }
+
+  .tm-slide strong {
+    font-size: 19px;
+  }
+
+  .tm-slide p {
+    font-size: 16px;
+  }
+
+  .hs-stage {
+    height: 170px;
+  }
+}

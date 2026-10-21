@@ -59,15 +59,26 @@ const WALKER = {
 
 // ---------- Playable characters ----------
 
-export type CharacterId = "doctor-hijab" | "doctor-man";
+export type CharacterId =
+  | "doctor-hijab"
+  | "doctor-man"
+  | "doctor-chinese-woman"
+  | "doctor-chinese-man"
+  | "doctor-indian-woman"
+  | "doctor-indian-man";
 
 export interface PlayableCharacter {
   id: CharacterId;
   /** Shown on the character-select screen. */
   label: string;
   sheet: CharacterSheet;
+  /**
+   * Can pray at the Surau mat (design choice: the Malay doctors). Others can still visit the
+   * Surau; they just have no Pray action there.
+   */
+  prays: boolean;
   /** Sitting in prayer (doa) on the surau mat: frame 0 hands raised, frame 1 hands in lap. */
-  pray: SheetDef;
+  pray?: SheetDef;
 }
 
 /**
@@ -79,15 +90,42 @@ export interface PlayableCharacter {
 export const CHARACTERS: PlayableCharacter[] = [
   {
     id: "doctor-hijab",
-    label: "Female Doctor",
+    label: "Dr. Nadia",
     sheet: { key: "char-doctor-hijab", url: "assets/characters/doctor-hijab-walk.webp", frameWidth: 110, ...WALKER },
+    prays: true,
     pray: { key: "pray-doctor-hijab", url: "assets/characters/doctor-hijab-pray.webp", frameWidth: 110, ...FRAME, displayHeight: 50 },
   },
   {
     id: "doctor-man",
-    label: "Male Doctor",
+    label: "Dr. Faris",
     sheet: { key: "char-doctor-man", url: "assets/characters/doctor-man-walk.webp", frameWidth: 112, ...WALKER },
+    prays: true,
     pray: { key: "pray-doctor-man", url: "assets/characters/doctor-man-pray.webp", frameWidth: 100, ...FRAME, displayHeight: 50 },
+  },
+  // Visit the Surau but have no Pray action there (design choice); walk sheets only.
+  {
+    id: "doctor-chinese-woman",
+    label: "Dr. Jasmine",
+    sheet: { key: "char-doctor-chinese-woman", url: "assets/characters/doctor-chinese-woman-walk.webp", frameWidth: 122, ...WALKER },
+    prays: false,
+  },
+  {
+    id: "doctor-chinese-man",
+    label: "Dr. Wei Jie",
+    sheet: { key: "char-doctor-chinese-man", url: "assets/characters/doctor-chinese-man-walk.webp", frameWidth: 110, ...WALKER },
+    prays: false,
+  },
+  {
+    id: "doctor-indian-woman",
+    label: "Dr. Kavitha",
+    sheet: { key: "char-doctor-indian-woman", url: "assets/characters/doctor-indian-woman-walk.webp", frameWidth: 114, ...WALKER },
+    prays: false,
+  },
+  {
+    id: "doctor-indian-man",
+    label: "Dr. Arvind",
+    sheet: { key: "char-doctor-indian-man", url: "assets/characters/doctor-indian-man-walk.webp", frameWidth: 98, ...WALKER },
+    prays: false,
   },
 ];
 
@@ -198,7 +236,7 @@ export const NPC_POSE_SHEETS = {
 
 /** Every spritesheet BootScene should load. */
 export const ALL_SHEETS: SheetDef[] = [
-  ...CHARACTERS.flatMap((c) => [c.sheet, c.pray]),
+  ...CHARACTERS.flatMap((c) => (c.pray ? [c.sheet, c.pray] : [c.sheet])),
   ...Object.values(NPC_WALKER_SHEETS),
   ...Object.values(NPC_POSE_SHEETS),
 ];

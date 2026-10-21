@@ -1,5 +1,6 @@
 import { el } from "./case/Overlay";
 import type { QueueEntry } from "../clinic/ClinicFlow";
+import { t } from "../game/i18n";
 
 /**
  * The doctor queue (Phase 3 section 6), a horizontal panel under the mini-map: one face per
@@ -17,7 +18,7 @@ export default class QueuePanel {
     this.root = el("button", "queue-strip hidden");
     const label = el("span", "queue-label");
     this.count = el("span", "queue-count");
-    label.append(document.createTextNode("Waiting"), this.count);
+    label.append(document.createTextNode(t("hud.waiting")), this.count);
     this.faces = el("div", "queue-faces");
     this.root.append(label, this.faces);
     this.root.addEventListener("click", onTap);

@@ -4,22 +4,23 @@ import { RENDER_SCALE, viewportSize } from "./game/display";
 import "./style.css";
 import "./ui/case/case.css";
 import "./ui/case/care.css";
+import "./ui/title.css";
+import "./ui/howto.css";
+import TitleScreen from "./ui/TitleScreen";
+import { resetAllProgress } from "./game/settings";
 
 // `?reset=1`: wipe this game's saved progress (all its localStorage keys) and start over.
 // The flag is removed from the address bar so a later reload doesn't wipe again.
 const params = new URLSearchParams(window.location.search);
 if (params.has("reset")) {
-  try {
-    Object.keys(localStorage)
-      .filter((k) => k.startsWith("eczema-care-hero"))
-      .forEach((k) => localStorage.removeItem(k));
-  } catch {
-    // storage unavailable: nothing to wipe
-  }
+  resetAllProgress();
   params.delete("reset");
   const rest = params.toString();
   window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : "") + window.location.hash);
 }
+
+// Opening clouds + title, on screen from the very first frame (covers asset loading too)
+new TitleScreen(document.getElementById("game-container")!);
 
 const game = new Phaser.Game(gameConfig);
 

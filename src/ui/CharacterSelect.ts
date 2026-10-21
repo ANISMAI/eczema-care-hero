@@ -1,5 +1,7 @@
 import { CHARACTERS, type CharacterId } from "../data/assets";
 import { spritePortrait } from "./spritePortrait";
+import { prayerReminders, setPrayerReminders } from "../game/settings";
+import { t } from "../game/i18n";
 
 /** Character picker. On first launch it must be answered; later it can be cancelled. */
 export default class CharacterSelect {
@@ -11,6 +13,7 @@ export default class CharacterSelect {
   private required = false;
   private onPick: (id: CharacterId) => void;
   private onCancel: () => void;
+  private prayer: HTMLInputElement;
 
   constructor(parent: HTMLElement, onPick: (id: CharacterId) => void, onCancel: () => void) {
     this.onPick = onPick;
@@ -22,11 +25,11 @@ export default class CharacterSelect {
     const card = document.createElement("div");
     card.className = "modal-card select-card";
     card.setAttribute("role", "dialog");
-    card.setAttribute("aria-label", "Choose your doctor");
+    card.setAttribute("aria-label", t("picker.title"));
 
     const header = document.createElement("div");
     header.className = "modal-header";
-    header.innerHTML = `<span class="modal-avatar">🩺</span><h2>Choose your doctor</h2>`;
+    header.innerHTML = `<span class="modal-avatar">🩺</span><h2>${t("picker.title")}</h2>`;
 
     const grid = document.createElement("div");
     grid.className = "cs-grid";
@@ -38,7 +41,7 @@ export default class CharacterSelect {
       stage.className = "cs-stage";
       const portrait = document.createElement("span");
       portrait.className = "cs-portrait";
-      spritePortrait(portrait, c.sheet, c.sheet.rows.down * 3, 132);
+      spritePortrait(portrait, c.sheet, c.sheet.rows.down * 3, 104);
       stage.appendChild(portrait);
       const label = document.createElement("span");
       label.className = "cs-label";
@@ -54,14 +57,23 @@ export default class CharacterSelect {
     actions.className = "modal-actions";
     this.cancelBtn = document.createElement("button");
     this.cancelBtn.className = "secondary-btn";
-    this.cancelBtn.textContent = "Cancel";
+    this.cancelBtn.textContent = t("picker.cancel");
     this.cancelBtn.addEventListener("click", () => this.cancel());
     this.confirmBtn = document.createElement("button");
     this.confirmBtn.className = "primary-btn";
     this.confirmBtn.addEventListener("click", () => this.confirm());
     actions.append(this.cancelBtn, this.confirmBtn);
 
-    card.append(header, grid, actions);
+    // the player's own choice, whichever doctor they pick (changeable later in Settings)
+    const prayerRow = document.createElement("label");
+    prayerRow.className = "ts-row cs-prayer";
+    prayerRow.innerHTML =
+      `<span><strong>🕌 ${t("settings.prayer")}</strong><small>${t("picker.prayerHint")}</small></span>` +
+      '<input type="checkbox" class="ts-toggle" /><span class="ts-switch" aria-hidden="true"></span>';
+    this.prayer = prayerRow.querySelector("input")!;
+    this.prayer.addEventListener("change", () => setPrayerReminders(this.prayer.checked));
+
+    card.append(header, grid, prayerRow, actions);
     this.root.appendChild(card);
     this.root.addEventListener("click", (e) => {
       if (e.target === this.root) this.cancel();
@@ -89,7 +101,8 @@ export default class CharacterSelect {
     this.required = required;
     this.select(current ?? CHARACTERS[0].id);
     this.cancelBtn.classList.toggle("hidden", required);
-    this.confirmBtn.textContent = required ? "Start" : "Choose";
+    this.confirmBtn.textContent = required ? t("picker.start") : t("picker.choose");
+    this.prayer.checked = prayerReminders();
     this.root.classList.remove("hidden");
   }
 

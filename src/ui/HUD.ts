@@ -1,6 +1,7 @@
 import type { InteractableDef } from "../data/rooms";
 import type { PlayableCharacter } from "../data/assets";
 import { STAFF } from "../data/staff";
+import { t } from "../game/i18n";
 
 const JOYSTICK_RADIUS = 40;
 
@@ -74,7 +75,7 @@ export default class HUD {
     this.miniMapMount.setAttribute("aria-label", "Open clinic map");
     const mapCaption = document.createElement("span");
     mapCaption.className = "hud-minimap-caption";
-    mapCaption.textContent = "MAP";
+    mapCaption.textContent = t("hud.map");
     this.miniMapMount.appendChild(mapCaption);
 
     // Top-centre: room name toast
@@ -96,7 +97,7 @@ export default class HUD {
     const textWrap = document.createElement("span");
     textWrap.className = "hud-interact-text";
     const verb = document.createElement("strong");
-    verb.textContent = "Interact";
+    verb.textContent = t("hud.interact");
     this.interactLabel = document.createElement("span");
     textWrap.append(verb, this.interactLabel);
     this.interactBtn.append(this.interactIcon, textWrap);
@@ -117,7 +118,7 @@ export default class HUD {
     staffBtn.innerHTML =
       `<span class="mini-swing"><span class="mini-lanyard"></span><span class="mini-clip"></span>` +
       `<span class="mini-card"><span class="mini-head"></span>` +
-      `<span class="mini-faces">${faces}</span><span class="mini-label">Staff</span></span></span>`;
+      `<span class="mini-faces">${faces}</span><span class="mini-label">${t("hud.staff")}</span></span></span>`;
     staffBtn.addEventListener("click", callbacks.onStaffTap);
     right.append(staffBtn, this.miniMapMount);
 
@@ -128,7 +129,7 @@ export default class HUD {
     this.objectiveText.className = "hud-objective-text";
     const go = document.createElement("span");
     go.className = "hud-objective-go";
-    go.textContent = "Go ›";
+    go.textContent = t("hud.go");
     // case tracker: how far through the patient's visit
     const track = document.createElement("span");
     track.className = "hud-objective-track";
@@ -218,7 +219,7 @@ export default class HUD {
     const [title, rest] = text.split(" · ");
     this.objectiveText.replaceChildren();
     const tag = document.createElement("strong");
-    tag.textContent = rest ? title : "Next";
+    tag.textContent = rest ? title : t("hud.next");
     this.objectiveText.append(tag, document.createTextNode(rest ?? title));
     this.objective.setAttribute("aria-label", `Objective: ${text}. Tap to go there.`);
   }

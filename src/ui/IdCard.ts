@@ -1,5 +1,6 @@
 import type { StaffCard } from "../data/staff";
 import { getRoomById } from "../data/rooms";
+import { t } from "../game/i18n";
 
 export function el<K extends keyof HTMLElementTagNameMap>(
   tag: K,
@@ -39,7 +40,7 @@ export function renderIdCard(card: StaffCard, opts: IdCardOptions = {}): HTMLDiv
   const head = el("div", "id-head");
   const logo = el("span", "id-logo", "✚");
   const org = el("div", "id-org");
-  org.append(el("span", "", "Eczema Care Clinic"), el("strong", "", "Staff ID"));
+  org.append(el("span", "", t("id.clinic")), el("strong", "", t("id.staffId")));
   head.append(logo, org);
 
   const photo = el("div", "id-photo");
@@ -48,8 +49,8 @@ export function renderIdCard(card: StaffCard, opts: IdCardOptions = {}): HTMLDiv
   portrait.alt = card.name;
   portrait.draggable = false;
   photo.appendChild(portrait);
-  if (opts.badge === "you") photo.appendChild(el("span", "id-badge you", "You"));
-  if (opts.badge === "off") photo.appendChild(el("span", "id-badge off", "Off duty today"));
+  if (opts.badge === "you") photo.appendChild(el("span", "id-badge you", t("id.you")));
+  if (opts.badge === "off") photo.appendChild(el("span", "id-badge off", t("id.offToday")));
 
   const name = el("h3", "id-name", card.name);
   const role = el("span", "id-role", card.role);
@@ -58,15 +59,15 @@ export function renderIdCard(card: StaffCard, opts: IdCardOptions = {}): HTMLDiv
   const room = getRoomById(card.room);
   meta.append(el("span", "", `ID ${card.staffNo}`), el("span", "", `📍 ${room.label}`));
 
-  const helpsTitle = el("div", "id-section", opts.badge === "you" ? "My role" : "Can help you with");
+  const helpsTitle = el("div", "id-section", opts.badge === "you" ? t("id.myRole") : t("id.canHelp"));
   const helps = el("ul", "id-helps");
   for (const h of card.helps) helps.appendChild(el("li", "", h));
 
-  const aboutTitle = el("div", "id-section", "About me");
+  const aboutTitle = el("div", "id-section", t("id.about"));
   const about = el("p", "id-about", `“${card.about}”`);
 
   const foot = el("div", "id-foot");
-  foot.append(el("span", "id-barcode"), el("span", "id-valid", "Valid until 12/2027"));
+  foot.append(el("span", "id-barcode"), el("span", "id-valid", t("id.valid")));
 
   root.append(head, photo, name, role, meta, helpsTitle, helps, aboutTitle, about, foot);
   return root;

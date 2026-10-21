@@ -17,6 +17,7 @@ import { getRoomById, type InteractableDef, type Point, type RoomId } from "../d
 import type { CharacterDirection } from "../data/assets";
 import { CASE_FLOW, type CaseDefinition, type CaseStatus, type StepDef } from "./types";
 import type { VisitRecord } from "../systems/Progress";
+import { t } from "../game/i18n";
 
 /** "Thanks, doctor! I'm so glad…" -> "Thanks, doctor!" (short enough for a speech bubble). */
 function firstSentence(text: string): string {
@@ -203,7 +204,7 @@ export default class CaseRunner {
     const step = this.mission.currentStep;
     if (!step) {
       const next = this.host.nextInQueue();
-      this.host.setObjective(next ? `Next patient · Call ${next.name} in at the Consultation desk` : null, 0);
+      this.host.setObjective(next ? `${t("hud.nextPatient")} · ${t("hud.callNext", { name: next.name })}` : null, 0);
       return;
     }
     const progress = CASE_FLOW.indexOf(step.requires) / (CASE_FLOW.length - 1);

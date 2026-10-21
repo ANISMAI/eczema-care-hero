@@ -1,0 +1,632 @@
+/* ---------- How to play: little animated scenes (ui/howToScenes.ts) ----------
+   Each scene loops every 4 s, made from the game's own sprites and art. */
+
+.tm-slide {
+  padding-top: 10px;
+}
+
+.tm-slide-scene {
+  width: 100%;
+}
+
+.hs-stage {
+  position: relative;
+  width: 100%;
+  height: 130px;
+  overflow: hidden;
+  border: 2px solid #e2dcef;
+  border-radius: 14px;
+}
+
+.hs-floor {
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.04) 1px, transparent 1px) 0 0 / 28px 28px,
+    linear-gradient(rgba(0, 0, 0, 0.04) 1px, transparent 1px) 0 0 / 28px 28px,
+    #f3e9db;
+}
+
+.hs-soft {
+  background: radial-gradient(circle at 50% 40%, #ffffff, #e9f3f8 80%);
+}
+
+.hs-sprite {
+  position: absolute;
+  bottom: 14px;
+  background-repeat: no-repeat;
+  animation: cs-walk 0.5s infinite step-end;
+}
+
+.hs-bubble {
+  position: absolute;
+  padding: 4px 8px;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: var(--shadow-sm);
+  font-size: 18px;
+}
+
+@keyframes hs-pop {
+  0%,
+  8% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  14%,
+  60% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+@keyframes hs-appear {
+  0%,
+  72% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  80%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes hs-pulse {
+  50% {
+    transform: scale(1.12);
+  }
+}
+
+/* 1. walking: the joystick tilts, the doctor walks across */
+.hs-walk-across {
+  left: 0;
+  animation: cs-walk 0.5s infinite step-end, hs-across 4s linear infinite;
+}
+
+/* "left" in %, so the walk spans the whole stage on any screen width */
+@keyframes hs-across {
+  from {
+    left: -18%;
+  }
+  to {
+    left: 104%;
+  }
+}
+
+.hs-joy {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  width: 44px;
+  height: 44px;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  background: rgba(31, 50, 76, 0.35);
+}
+
+.hs-joy-thumb {
+  position: absolute;
+  top: 9px;
+  left: 9px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(160deg, #5aa6ff, #1b58ad);
+  animation: hs-tilt 4s ease-in-out infinite;
+}
+
+@keyframes hs-tilt {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  10%,
+  90% {
+    transform: translateX(11px);
+  }
+}
+
+.hs-mapchip {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 3px 7px;
+  border-radius: 8px;
+  background: var(--panel);
+  font-size: 15px;
+  animation: hs-pulse 2s ease-in-out infinite;
+}
+
+/* 2. calling in: the desk announces, the patient walks over */
+.hs-desk {
+  position: absolute;
+  right: 14px;
+  bottom: 18px;
+  width: 70px;
+  height: 34px;
+  border: 3px solid #a8763c;
+  border-radius: 6px;
+  background: #e4b97f;
+}
+
+.hs-call {
+  right: 30px;
+  top: 14px;
+  animation: hs-pop 4s ease-out infinite;
+}
+
+.hs-walk-in {
+  left: 0;
+  animation: cs-walk 0.5s infinite step-end, hs-walk-in 4s ease-in-out infinite;
+}
+
+@keyframes hs-walk-in {
+  0%,
+  20% {
+    left: -18%;
+  }
+  75%,
+  100% {
+    left: calc(100% - 128px);
+  }
+}
+
+/* 3. care: slow strokes with the cream leave a soft sheen */
+.hs-hand {
+  position: absolute;
+  left: 50%;
+  top: 4px;
+  width: 120px;
+  height: 120px;
+  transform: translateX(-50%);
+}
+
+.hs-hand .hand-svg {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.hs-sheen {
+  position: absolute;
+  left: 32%;
+  top: 34%;
+  width: 36%;
+  height: 32%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0) 70%);
+  animation: hs-sheen 4s ease-in-out infinite;
+}
+
+@keyframes hs-sheen {
+  0%,
+  15% {
+    opacity: 0;
+  }
+  70%,
+  100% {
+    opacity: 1;
+  }
+}
+
+.hs-finger {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  background: rgba(143, 110, 224, 0.55);
+  box-shadow: var(--shadow-sm);
+  animation: hs-stroke 4s ease-in-out infinite;
+}
+
+@keyframes hs-stroke {
+  0% {
+    left: 34%;
+    top: 36%;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  25% {
+    left: 56%;
+    top: 38%;
+  }
+  40% {
+    left: 36%;
+    top: 48%;
+  }
+  55% {
+    left: 56%;
+    top: 52%;
+  }
+  70% {
+    left: 40%;
+    top: 58%;
+    opacity: 1;
+  }
+  80%,
+  100% {
+    left: 40%;
+    top: 58%;
+    opacity: 0;
+  }
+}
+
+.hs-tool {
+  position: absolute;
+  left: 14px;
+  bottom: 12px;
+  padding: 6px;
+  border: 3px solid #f0679e;
+  border-radius: 12px;
+  background: #ffffff;
+  font-size: 22px;
+}
+
+.hs-check {
+  position: absolute;
+  right: 16px;
+  top: 14px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #2fb38a;
+  color: #ffffff;
+  font-weight: 900;
+  animation: hs-appear 4s ease-out infinite;
+}
+
+/* 4. queue: patience rings drain, the first patient is called in */
+.hs-queue {
+  position: absolute;
+  left: 50%;
+  top: 54%;
+  display: flex;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 2px solid var(--panel-edge);
+  border-radius: 16px;
+  background: var(--panel);
+  transform: translate(-50%, -50%);
+}
+
+@property --hs-p {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 360deg;
+}
+
+@property --hs-c {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: #4fd1a1;
+}
+
+.hs-face {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: conic-gradient(var(--hs-c) var(--hs-p), rgba(255, 255, 255, 0.22) 0);
+  animation: hs-drain 4s linear infinite;
+}
+
+.hs-face img {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #ece4f7;
+  object-fit: cover;
+  object-position: top;
+}
+
+.hs-face.q1 {
+  animation: hs-drain 4s linear infinite, hs-called 4s ease-in infinite;
+}
+
+.hs-face.q2 {
+  animation-delay: -0.6s;
+}
+
+.hs-face.q3 {
+  animation-delay: -1.2s;
+}
+
+@keyframes hs-drain {
+  0% {
+    --hs-p: 360deg;
+    --hs-c: #4fd1a1;
+  }
+  55% {
+    --hs-c: #ffcf3a;
+  }
+  80%,
+  100% {
+    --hs-p: 70deg;
+    --hs-c: #ff8a65;
+  }
+}
+
+@keyframes hs-called {
+  0%,
+  70% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  85%,
+  100% {
+    opacity: 0;
+    transform: translateY(-26px);
+  }
+}
+
+.hs-come {
+  left: 50%;
+  top: 6px;
+  margin-left: -86px;
+  animation: hs-pop 4s ease-out infinite;
+  animation-delay: -1.2s;
+}
+
+/* 5. helping out: the orange ! bounces, a box drops into the empty slot, coins pop */
+.hs-shelf {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  display: grid;
+  grid-template-columns: repeat(4, 40px);
+  gap: 6px;
+  padding: 6px;
+  border-radius: 10px;
+  background: #c99a62;
+  transform: translateX(-50%);
+}
+
+.hs-shelf span {
+  display: grid;
+  place-items: center;
+  height: 36px;
+  border-radius: 6px;
+  background: #f6ecdc;
+  font-size: 20px;
+}
+
+.hs-shelf .hs-slot {
+  outline: 3px dashed #f5a524;
+  outline-offset: -3px;
+  background: #fff7e6;
+}
+
+.hs-alert {
+  position: absolute;
+  left: 50%;
+  top: 10px;
+  margin-left: 4px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  background: #f5a524;
+  color: #ffffff;
+  font-weight: 900;
+  animation: hs-bounce 4s ease-in-out infinite;
+}
+
+@keyframes hs-bounce {
+  0%,
+  20%,
+  40% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  10%,
+  30% {
+    transform: translateY(-8px);
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.hs-box {
+  position: absolute;
+  left: 50%;
+  bottom: 27px;
+  margin-left: 9px;
+  font-size: 20px;
+  animation: hs-drop 4s ease-in infinite;
+}
+
+@keyframes hs-drop {
+  0%,
+  40% {
+    opacity: 0;
+    transform: translateY(-80px);
+  }
+  45% {
+    opacity: 1;
+  }
+  62%,
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.hs-coins {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #fff8ec;
+  box-shadow: var(--shadow-sm);
+  color: #b55a00;
+  font-size: 13px;
+  font-weight: 900;
+  animation: hs-appear 4s ease-out infinite;
+}
+
+/* 6. end of the day: the clock runs to 5, the sky turns to sunset, stars appear */
+@property --hs-sky-a {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: #bfe3ff;
+}
+
+@property --hs-sky-b {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: #eaf6ff;
+}
+
+.hs-sky {
+  background: linear-gradient(var(--hs-sky-a), var(--hs-sky-b));
+  animation: hs-dusk 4s ease-in-out infinite;
+}
+
+@keyframes hs-dusk {
+  0%,
+  10% {
+    --hs-sky-a: #bfe3ff;
+    --hs-sky-b: #eaf6ff;
+  }
+  70%,
+  100% {
+    --hs-sky-a: #ff9e7a;
+    --hs-sky-b: #ffd59e;
+  }
+}
+
+.hs-sun {
+  position: absolute;
+  left: 18%;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #ffcf3a;
+  box-shadow: 0 0 18px rgba(255, 207, 58, 0.8);
+  animation: hs-set 4s ease-in-out infinite;
+}
+
+@keyframes hs-set {
+  0%,
+  10% {
+    top: 14px;
+  }
+  70%,
+  100% {
+    top: 96px;
+    background: #ff8a50;
+  }
+}
+
+.hs-clock {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 70px;
+  height: 70px;
+  border: 4px solid var(--ink);
+  border-radius: 50%;
+  background: #ffffff;
+  transform: translate(-50%, -50%);
+}
+
+.hs-hand-h,
+.hs-hand-m {
+  position: absolute;
+  left: 50%;
+  bottom: 50%;
+  width: 4px;
+  margin-left: -2px;
+  border-radius: 2px;
+  background: var(--ink);
+  transform-origin: 50% 100%;
+}
+
+.hs-hand-h {
+  height: 18px;
+  animation: hs-hour 4s ease-in-out infinite;
+}
+
+.hs-hand-m {
+  height: 26px;
+  background: #f0679e;
+  animation: hs-minute 4s ease-in-out infinite;
+}
+
+@keyframes hs-hour {
+  0%,
+  10% {
+    transform: rotate(240deg);
+  }
+  70%,
+  100% {
+    transform: rotate(510deg);
+  }
+}
+
+@keyframes hs-minute {
+  0%,
+  10% {
+    transform: rotate(0deg);
+  }
+  70%,
+  100% {
+    transform: rotate(3240deg);
+  }
+}
+
+.hs-stars {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  font-size: 16px;
+  animation: hs-appear 4s ease-out infinite;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .hs-stage {
+    height: 92px;
+  }
+
+  .hs-sprite {
+    bottom: 2px;
+  }
+
+  .hs-hand {
+    width: 86px;
+    height: 86px;
+  }
+
+  .hs-clock {
+    width: 56px;
+    height: 56px;
+  }
+
+  .hs-queue {
+    top: 50%;
+    padding: 6px 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hs-stage * {
+    animation-duration: 0s !important;
+    animation-iteration-count: 1 !important;
+  }
+}

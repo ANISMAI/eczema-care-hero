@@ -1,4 +1,5 @@
 import { el } from "./Overlay";
+import { soundOn } from "../../game/settings";
 
 /** Clinic PA announcement: a banner across the top with a two-tone chime. */
 export default class Announcement {
@@ -30,6 +31,7 @@ export default class Announcement {
 
   /** "Ding-dong" made with the Web Audio API (no sound file needed). */
   private chime(soft = false): void {
+    if (!soundOn()) return; // Settings: sound off
     try {
       this.audio ??= new AudioContext();
       const ctx = this.audio;

@@ -15,6 +15,7 @@
 // Toilet and Surau are half-height rooms sharing one slot.
 
 import { FURNITURE, type FurnitureKind } from "./furniture";
+import { roomName } from "../game/i18n";
 
 export type RoomId =
   | "reception"
@@ -702,6 +703,9 @@ export const ROOMS: RoomDef[] = [
     ],
   },
 ];
+
+// room names in the player's language (plaques, maps, toasts)
+for (const room of ROOMS) room.label = roomName(room.id, room.label);
 
 /** Hallway decoration (plants, runner rug ends, entrance mat). */
 export const HALLWAY_FURNITURE: FurnitureDef[] = [

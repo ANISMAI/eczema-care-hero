@@ -18,6 +18,8 @@ import CaseDialog from "../ui/case/CaseDialog";
 import ShiftSummary from "../ui/ShiftSummary";
 import Progress from "../systems/Progress";
 import EventDirector from "../events/EventDirector";
+import { eventBus } from "../game/EventBus";
+import { prayerReminders } from "../game/settings";
 import CareTrays from "../systems/CareTrays";
 import ClinicFlow from "../clinic/ClinicFlow";
 import QueuePanel from "../ui/QueuePanel";
@@ -58,6 +60,7 @@ import {
   drawWall,
   type Marker,
 } from "../art/environment";
+import { t } from "../game/i18n";
 
 /** Floating "!" / "…" bubbles over interactables. Off by design: players explore freely. */
 const SHOW_INTERACT_BUBBLES = false;
@@ -91,6 +94,8 @@ export default class ClinicScene extends Phaser.Scene {
   private shiftDialog!: CaseDialog;
   /** The clock reached 5:00 PM while a panel was open; end the shift once it closes. */
   private shiftEndPending = false;
+  /** The title screen is up: overview camera, game paused. */
+  private onTitle = true;
   private character: PlayableCharacter | undefined;
 
   private markers = new Map<string, Marker>();
@@ -126,6 +131,7 @@ export default class ClinicScene extends Phaser.Scene {
     cam.startFollow(this.player, true, 0.12, 0.12);
     cam.setRoundPixels(false);
     this.fitCamera();
+    this.showOverview(); // title screen first: the whole clinic from above
     this.scale.on(Phaser.Scale.Events.RESIZE, this.fitCamera, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off(Phaser.Scale.Events.RESIZE, this.fitCamera, this));
 
@@ -138,6 +144,15 @@ export default class ClinicScene extends Phaser.Scene {
 
     this.time.addEvent({ delay: 2000, loop: true, callback: () => this.persist() });
     window.addEventListener("beforeunload", () => this.persist());
+
+    // Title screen (ui/TitleScreen.ts): the game waits paused, HUD hidden, until Play
+    this.inputLocked = true;
+    this.hud.root.classList.add("hud-off");
+    const off = eventBus.on("title-play", () => {
+      off();
+      this.leaveTitle();
+    });
+    eventBus.emit("clinic-ready");
   }
 
   /**
@@ -146,6 +161,7 @@ export default class ClinicScene extends Phaser.Scene {
    * sides so the clinic stays centred instead of sticking to one edge.
    */
   private fitCamera(): void {
+    if (this.onTitle) return this.showOverview();
     const cam = this.cameras.main;
     cam.setSize(this.scale.width, this.scale.height);
     const viewW = this.scale.width / RENDER_SCALE;
@@ -155,7 +171,57 @@ export default class ClinicScene extends Phaser.Scene {
     cam.setBounds(-padX, -padY, WORLD_BOUNDS.width + padX * 2, WORLD_BOUNDS.height + padY * 2);
   }
 
-  // ---------- World ----------
+  /**
+   * Behind the title, and right after "stepping inside": the clinic seen from above. Portrait:
+   * the whole building. Landscape: the tall building would be tiny, so it is shown bigger, from
+   * the front entrance (where we just came in).
+   */
+  private showOverview(): void {
+    const cam = this.cameras.main;
+    cam.stopFollow();
+    cam.removeBounds();
+    cam.setSize(this.scale.width, this.scale.height);
+    const fitAll = Math.min(this.scale.width / WORLD_BOUNDS.width, this.scale.height / WORLD_BOUNDS.height) * 0.94;
+    if (this.scale.width <= this.scale.height) {
+      cam.setZoom(fitAll);
+      cam.centerOn(WORLD_BOUNDS.width / 2, WORLD_BOUNDS.height / 2);
+      return;
+    }
+    const zoom = Math.max(fitAll, (this.scale.width / WORLD_BOUNDS.width) * 0.62);
+    cam.setZoom(zoom);
+    const half = this.scale.height / zoom / 2;
+    cam.centerOn(WORLD_BOUNDS.width / 2, Math.max(WORLD_BOUNDS.height - half, WORLD_BOUNDS.height / 2));
+  }
+
+  /** Play pressed: zoom down from the overview to the doctor, then hand over control. */
+  private leaveTitle(): void {
+    const cam = this.cameras.main;
+    const ms = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 1300;
+    const start = () => {
+      this.onTitle = false;
+      cam.startFollow(this.player, true, 0.12, 0.12);
+      this.fitCamera();
+      this.hud.root.classList.remove("hud-off");
+      this.inputLocked = false;
+      this.hud.showRoomToast(this.roomLabel(findRoomAt(this.player.x, this.player.y)?.id ?? null));
+      // first launch: choose a doctor; refreshed during the day's summary: show it again
+      if (!this.character) this.openCharacterSelect(true);
+      else if (this.progress.snapshot.shiftEnded) this.showShiftSummary();
+    };
+    if (!ms) {
+      cam.setZoom(RENDER_SCALE);
+      return start();
+    }
+    // a moment to take in the whole clinic after stepping inside, then down to the doctor
+    this.time.delayedCall(900, () => {
+      cam.zoomTo(RENDER_SCALE, ms, "Sine.easeInOut");
+      cam.pan(this.player.x, this.player.y, ms, "Sine.easeInOut", false, (_c, progress) => {
+        if (progress >= 1) start();
+      });
+    });
+  }
+
+    // ---------- World ----------
 
   private drawWorld(): void {
     drawGarden(this);
@@ -317,7 +383,7 @@ export default class ClinicScene extends Phaser.Scene {
           if (this.inputLocked) return;
           if (target) this.walkToItem(target, room, () => this.persist());
           else this.navigation.walkToRoom(room, () => this.persist());
-          this.hud.showRoomToast(`🚶  Heading to ${this.roomLabel(room).replace(/^\S+\s+/, "")}…`);
+          this.hud.showRoomToast(`🚶  ${t("toast.heading", { place: this.roomLabel(room).replace(/^\S+\s+/, "") })}`);
         },
         reward: (coins, xp) => this.progress.addEventReward(coins, xp),
         resolved: (id) => {
@@ -338,7 +404,8 @@ export default class ClinicScene extends Phaser.Scene {
     this.progress.onChange(() => this.hud.setStats(this.progress.level, this.progress.snapshot.coins));
     this.announcer = new Announcement(uiRoot);
     this.clock = new GameClock({
-      onPrayerTime: (p) => this.announcer.show(p.message, 4500, true),
+      // only if the player asked for prayer-time reminders (Settings / doctor picker)
+      onPrayerTime: (p) => prayerReminders() && this.announcer.show(p.message, 4500, true),
       // 5:00 PM: the shift ends as soon as no panel is open
       onShiftOver: () => (this.shiftEndPending = true),
     });
@@ -347,6 +414,7 @@ export default class ClinicScene extends Phaser.Scene {
     if (this.flow.isNewSave && !this.progress.snapshot.shiftEnded) this.clock.reset();
     this.amenities = new Amenities({
       uiRoot,
+      canPray: () => (this.character ?? CHARACTERS[0]).prays,
       lock: () => this.lockInput(),
       unlock: () => (this.inputLocked = false),
       toast: (text) => this.hud.showRoomToast(text),
@@ -372,7 +440,7 @@ export default class ClinicScene extends Phaser.Scene {
       },
       showPrayPose: (at) => {
         const sheet = (this.character ?? CHARACTERS[0]).pray;
-        if (!this.textures.exists(sheet.key)) return null;
+        if (!sheet || !this.textures.exists(sheet.key)) return null;
         const sprite = this.add
           .sprite(at.x, at.y, sheet.key, 0)
           .setOrigin(0.5, (sheet.frameHeight - sheet.padding) / sheet.frameHeight)
@@ -385,9 +453,6 @@ export default class ClinicScene extends Phaser.Scene {
       },
     });
     window.addEventListener("beforeunload", () => this.clock.save());
-    if (!this.character) this.openCharacterSelect(true);
-    // refreshed while the shift summary was showing: show it again
-    else if (this.progress.snapshot.shiftEnded) this.showShiftSummary();
 
     this.input.keyboard?.on("keydown-E", () => this.handleInteract());
     this.input.keyboard?.on("keydown-SPACE", () => this.handleInteract());
@@ -418,7 +483,7 @@ export default class ClinicScene extends Phaser.Scene {
       this.caseRunner.actionLabel(item) ??
       this.clinicEvents.actionLabel(item) ??
       this.trays.actionLabel(item) ??
-      (item.id === SHIFT_DESK ? "🌇 Close the clinic" : null)
+      (item.id === SHIFT_DESK ? t("close.action") : null)
     );
   }
 
@@ -428,16 +493,16 @@ export default class ClinicScene extends Phaser.Scene {
   private confirmEndShift(): void {
     this.lockInput();
     const waiting = this.flow.queue().length;
-    this.shiftDialog.begin({ title: "Close the clinic?", avatar: "🌇", subtitle: `Day ${this.progress.shift} · ${this.clock.label()}` }, () => {
+    this.shiftDialog.begin({ title: t("close.title"), avatar: "🌇", subtitle: `${t("hud.day", { day: this.progress.shift })} · ${this.clock.label()}` }, () => {
       this.inputLocked = false;
     });
     const parts: string[] = [];
-    if (this.caseRunner.caseOpen) parts.push("You're still with a patient.");
-    if (waiting) parts.push(`${waiting} ${waiting === 1 ? "patient is" : "patients are"} waiting.`);
+    if (this.caseRunner.caseOpen) parts.push(t("close.withPatient"));
+    if (waiting) parts.push(waiting === 1 ? t("close.waiting1") : t("close.waitingN", { n: waiting }));
     const text = parts.length
-      ? `${parts.join(" ")} They'll be rebooked for another day (no points are lost). Close the clinic now?`
-      : "Wrap up for today and see your results?";
-    void this.shiftDialog.say(text, "🌇  Close for today").then((ok) => {
+      ? `${parts.join(" ")} ${t("close.rebooked")}`
+      : t("close.wrapUp");
+    void this.shiftDialog.say(text, t("close.confirm")).then((ok) => {
       if (!ok) return;
       this.shiftDialog.end();
       this.endShift();
@@ -478,7 +543,7 @@ export default class ClinicScene extends Phaser.Scene {
     this.clock.reset();
     this.inputLocked = false;
     this.caseRunner.refreshObjective();
-    this.announcer.show(`☀️  Day ${this.progress.shift}: the clinic is open! Patients will arrive soon`, 4500);
+    this.announcer.show(`☀️  ${t("toast.dayStart", { day: this.progress.shift })}`, 4500);
     this.persist();
   }
 
@@ -517,7 +582,7 @@ export default class ClinicScene extends Phaser.Scene {
     const label = this.roomLabel(room);
     if (target) this.walkToItem(target, room, () => this.persist());
     else this.navigation.walkToRoom(room, () => this.persist());
-    this.hud.showRoomToast(`🚶  Heading to ${label.replace(/^\S+\s+/, "")}…`);
+    this.hud.showRoomToast(`🚶  ${t("toast.heading", { place: label.replace(/^\S+\s+/, "") })}`);
   }
 
   /**
@@ -581,14 +646,14 @@ export default class ClinicScene extends Phaser.Scene {
     const standing = POSE_NPCS.find((n) => n.id === card.npcId);
     const firstName = card.name.split(" ")[0];
     const arrived = () => {
-      this.hud.showRoomToast(`👋  Found ${firstName}!`);
+      this.hud.showRoomToast(`👋  ${t("toast.found", { name: firstName })}`);
       this.persist();
     };
     // Walking nurses keep moving: aim for where they are now; they stop when the player is close.
     if (spot) this.navigation.walkNear({ x: spot.x, y: spot.y }, card.room, arrived);
     else if (standing) this.navigation.walkNear(standing.feet, card.room, arrived);
     else this.navigation.walkToRoom(card.room, arrived);
-    this.hud.showRoomToast(`🚶  Going to ${firstName}…`);
+    this.hud.showRoomToast(`🚶  ${t("toast.goingTo", { name: firstName })}`);
   }
 
   private openFullMap(): void {
@@ -602,7 +667,7 @@ export default class ClinicScene extends Phaser.Scene {
       here,
       { x: this.player.x, y: this.player.y },
       this.caseRunner.questRoom(),
-      this.clock.currentPrayer() ? "surau" : null,
+      prayerReminders() && this.clock.currentPrayer() ? "surau" : null,
       this.clinicEvents.markerRoom()
     );
   }
@@ -613,11 +678,11 @@ export default class ClinicScene extends Phaser.Scene {
       this.hud.showRoomToast(label);
       this.persist();
     });
-    if (started) this.hud.showRoomToast(`🚶  Walking to ${label.replace(/^\S+\s+/, "")}…`);
+    if (started) this.hud.showRoomToast(`🚶  ${t("toast.walking", { place: label.replace(/^\S+\s+/, "") })}`);
   }
 
   private roomLabel(id: RoomId | null): string {
-    if (!id) return "🚪  Hallway";
+    if (!id) return `🚪  ${t("hud.hallway")}`;
     const room = ROOMS.find((r) => r.id === id)!;
     return `${room.icon}  ${room.label}`;
   }
@@ -659,7 +724,7 @@ export default class ClinicScene extends Phaser.Scene {
     this.trays.update(delta, this.inputLocked);
     if (this.shiftEndPending && !this.inputLocked) this.endShift();
     if (!this.inputLocked) this.clock.tick(delta);
-    this.hud.setClock(`Day ${this.progress.shift} · ${this.clock.label()}`);
+    this.hud.setClock(`${t("hud.day", { day: this.progress.shift })} · ${this.clock.label()}`);
     this.amenities.update(room?.id ?? null);
     for (const item of [...WALKER_NPCS.map((d) => d.talk), ...this.dynamic]) {
       this.markers.get(item.id)?.setPosition(item.x, item.y - (item.markerLift ?? MARKER_LIFT));

@@ -1,5 +1,6 @@
 import { ROOMS, HALLWAY, WORLD_BOUNDS, type Point, type Rect, type RoomId } from "../data/rooms";
 import { shade, toCss } from "../art/palette";
+import { t } from "../game/i18n";
 
 export interface FullMapCallbacks {
   onGoHere: (roomId: RoomId) => void;
@@ -48,7 +49,7 @@ export default class FullMap {
 
     const header = document.createElement("div");
     header.className = "modal-header";
-    header.innerHTML = `<span class="modal-avatar">🗺️</span><h2>Clinic Map</h2>`;
+    header.innerHTML = `<span class="modal-avatar">🗺️</span><h2>${t("map.title")}</h2>`;
 
     this.map = document.createElement("div");
     this.map.className = "fm-map";
@@ -59,7 +60,7 @@ export default class FullMap {
 
     this.entrance = document.createElement("div");
     this.entrance.className = "fm-entrance";
-    this.entrance.textContent = "Entrance";
+    this.entrance.textContent = t("map.entrance");
     this.map.appendChild(this.entrance);
 
     for (const room of ROOMS) {
@@ -76,7 +77,7 @@ export default class FullMap {
 
     this.youPin = document.createElement("div");
     this.youPin.className = "fm-you";
-    this.youPin.innerHTML = `<span class="fm-you-dot"></span><span class="fm-you-label">You are here</span>`;
+    this.youPin.innerHTML = `<span class="fm-you-dot"></span><span class="fm-you-label">${t("map.youAreHere")}</span>`;
     this.map.appendChild(this.youPin);
 
     const detail = document.createElement("div");
@@ -94,12 +95,12 @@ export default class FullMap {
 
     const closeBtn = document.createElement("button");
     closeBtn.className = "secondary-btn";
-    closeBtn.textContent = "Close";
+    closeBtn.textContent = t("map.close");
     closeBtn.addEventListener("click", () => this.close());
 
     this.goHereBtn = document.createElement("button");
     this.goHereBtn.className = "primary-btn";
-    this.goHereBtn.textContent = "Go Here";
+    this.goHereBtn.textContent = t("map.goHere");
     this.goHereBtn.addEventListener("click", () => {
       const target = this.selectedRoomId;
       if (!target || target === this.currentRoomId) return;
@@ -171,8 +172,8 @@ export default class FullMap {
     const isCurrent = roomId === this.currentRoomId;
     this.detailIcon.textContent = room.icon;
     this.detailName.textContent = room.label;
-    const help = this.roomEls.get(roomId)!.classList.contains("event") ? " ❗ Someone here needs a hand (optional)." : "";
-    this.detailText.textContent = (isCurrent ? "You are already here." : room.description) + help;
+    const help = this.roomEls.get(roomId)!.classList.contains("event") ? t("map.help") : "";
+    this.detailText.textContent = (isCurrent ? t("map.alreadyHere") : room.description) + help;
     this.goHereBtn.disabled = isCurrent || !room.accessible;
   }
 
@@ -200,8 +201,8 @@ export default class FullMap {
 
     const here = ROOMS.find((r) => r.id === currentRoomId);
     this.detailIcon.textContent = "👆";
-    this.detailName.textContent = "Choose a destination";
-    this.detailText.textContent = here ? `You are in ${here.label}. Tap a room to travel.` : "Tap a room on the map.";
+    this.detailName.textContent = t("map.choose");
+    this.detailText.textContent = here ? t("map.youAreIn", { room: here.label }) : t("map.tapRoom");
     this.goHereBtn.disabled = true;
     this.root.classList.remove("hidden");
     this.layout();

@@ -170,3 +170,87 @@ kedua dibina daripada cerminan yang pertama). Wong dan Farid dipotong dengan pil
 Lepas tu masukkan nombor `frameWidth` yang dicetak ke dalam `src/data/assets.ts`, dan tukar watak
 tu dalam `src/data/patients.ts` (buang `tint`, set `portrait`). Watak yang belum siap guna sprite
 Amina yang diwarnakan, dengan tag nama, sebagai pengganti sementara.
+
+---
+
+# Doktor (watak pemain) — 4 watak baru
+
+Pemain boleh pilih doktor Melayu, Cina atau India, lelaki atau perempuan.
+
+- **Doktor Melayu** boleh solat di Surau (pose doa).
+- **Doktor Cina dan India** boleh masuk Surau sahaja; tiada tindakan "Pray" pada sejadah.
+- Suis **Prayer time reminders** dalam Settings hanya mengawal **pengumuman** waktu solat.
+
+| | Perempuan | Lelaki |
+|---|---|---|
+| Melayu | ✅ ada (`doctor-hijab`) | ✅ ada (`doctor-man`) |
+| Cina | ✅ `doctor-chinese-woman` (Dr. Jasmine) | ✅ `doctor-chinese-man` (Dr. Wei Jie) |
+| India | ✅ `doctor-indian-woman` (Dr. Kavitha) | ✅ `doctor-indian-man` (Dr. Arvind) |
+
+Setiap doktor baru perlukan **1 imej sahaja**, iaitu walk sheet (tiada pray sheet):
+
+| Watak | Walk sheet (4 × 3) |
+|---|---|
+| Cina, perempuan | `doctor-chinese-woman-walk-sheet.png` |
+| Cina, lelaki | `doctor-chinese-man-walk-sheet.png` |
+| India, perempuan | `doctor-indian-woman-walk-sheet.png` |
+| India, lelaki | `doctor-indian-man-walk-sheet.png` |
+
+**Lampirkan sebagai rujukan:** `art-source/characters/doctor-man-walk-sheet.webp` (lelaki) atau
+`doctor-hijab-walk-sheet.webp` (perempuan), supaya gaya dan pakaian sama.
+
+## Prompt C — Walk sheet doktor (4 baris × 3 lajur)
+
+Ganti `[DOCTOR]`.
+
+```
+Chibi character sprite sheet for a cozy mobile clinic game, matching the attached doctor
+reference EXACTLY in style, proportions and outfit design: cute chibi proportions with a big
+round head about one third of the total height, a short body and short legs, large round brown
+eyes, small smile, thick dark-brown outline, soft flat pastel colours with gentle cel shading.
+
+Character: [DOCTOR]
+Outfit (same as the reference doctors): a white doctor's coat over a lavender-purple shirt,
+a lavender stethoscope around the neck, a small ID badge, navy trousers, dark shoes.
+
+Layout: a clean grid of 4 rows x 3 columns, 12 figures total, evenly spaced with clear empty
+space between every figure, all figures the same size and scale.
+Row 1: facing the viewer (front view).
+Row 2: facing left (side view, walking to the left).
+Row 3: facing right (side view, walking to the right).
+Row 4: back view (walking away from the viewer).
+
+WALK CYCLE (very important):
+Column 1: standing still, both feet together.
+Column 2: LEFT foot forward, right foot back, right arm swinging forward.
+Column 3: RIGHT foot forward, left foot back, left arm swinging forward.
+Column 2 and column 3 must be DIFFERENT, mirror-opposite steps so the legs clearly alternate,
+in every row including the side views and the back view.
+
+Transparent background (or pure white). No floor, no shadows, no glow, no text, no labels,
+no grid lines, no frames. Figures must not touch or overlap.
+```
+
+## Penerangan doktor
+
+### Doktor Cina, perempuan
+- **DOCTOR:** `a friendly Chinese-Malaysian woman doctor in her early 30s, shoulder-length straight black hair in a neat low ponytail with a soft side fringe`
+
+### Doktor Cina, lelaki
+- **DOCTOR:** `a friendly Chinese-Malaysian man doctor in his early 30s, short neat black hair with a light side part, thin round glasses`
+
+### Doktor India, perempuan
+- **DOCTOR:** `a warm Indian-Malaysian woman doctor in her early 30s, long dark wavy hair in a neat low bun, small gold stud earrings`
+
+### Doktor India, lelaki
+- **DOCTOR:** `a cheerful Indian-Malaysian man doctor in his early 30s, short wavy black hair, neat trimmed beard`
+
+## Lepas imej siap
+
+Letak PNG dalam `public/assets/characters/` macam biasa, dan Claude akan tukar ke `.webp`, semak
+langkah kaki, potong, dan masukkan ke dalam skrin pilih doktor (6 pilihan, `prays: false` untuk
+doktor Cina dan India dalam `src/data/assets.ts`). Atau potong sendiri:
+
+```bash
+node tools/slice-sprite-sheet.mjs art-source/characters/doctor-chinese-woman-walk-sheet.webp public/assets/characters/doctor-chinese-woman-walk.webp preview.png --rows 4 --cols 3
+```
