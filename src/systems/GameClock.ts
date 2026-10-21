@@ -1,11 +1,13 @@
-// In-game shift clock: 8:00 AM to 5:00 PM, 1 real minute = 30 game minutes (a shift lasts
-// about 18 minutes of play). Pauses while panels are open. Saved so a refresh resumes the time.
+import { TIME } from "../data/gameplay";
+
+// In-game shift clock: 8:00 AM to 5:00 PM, about 9 minutes of active play.
+// Pauses while panels are open. Saved so a refresh resumes the time.
 // Prayer-time announcements are gentle reminders only: optional, never scored.
 
 const STORAGE_KEY = "eczema-care-hero-clock-v1";
 const SHIFT_START = 8 * 60;
 const SHIFT_END = 17 * 60;
-const GAME_MINUTES_PER_MS = 30 / 60000;
+const GAME_MINUTES_PER_MS = TIME.gameMinutesPerRealMinute / 60000;
 
 export interface PrayerTime {
   id: string;

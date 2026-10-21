@@ -43,7 +43,7 @@ export const CASE_ITCHY_PATCH: CaseTemplate = {
   consult: {
     doctor: "Dr. Lim",
     portrait: "assets/portraits/dr-lim.webp",
-    intro: "Let's have a look at the patch on {name}'s hand. Tap each highlighted area.",
+    intro: "Let's compare the patch on {name}'s hand with healthy skin. Tap what looks different.",
     spots: [
       { id: "red", label: "Mild redness", x: 42, y: 58, info: "A small pink area. No swelling, oozing or broken skin." },
       { id: "dry", label: "Dry", x: 50, y: 30, info: "A little dryness around it. Dry skin itches more easily." },

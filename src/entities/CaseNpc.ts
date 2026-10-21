@@ -6,9 +6,10 @@ import { textStyle } from "../art/environment";
 import type { CharacterDirection, CharacterSheet, SheetDef } from "../data/assets";
 import { walkAnimScale } from "../data/assets";
 import type { InteractableDef, Point } from "../data/rooms";
+import { TRAVEL } from "../data/gameplay";
 
-/** Visitors walk a little slower than the doctor (115) but not sluggishly. */
-const WALK_SPEED = 80;
+/** Visitors walk just below the doctor's normal speed (115). */
+const WALK_SPEED = TRAVEL.visitorSpeed;
 
 /**
  * A visiting patient. They can sit on a chair (pose sheet), walk somewhere on their own
@@ -35,6 +36,8 @@ export default class CaseNpc {
   private blinkAt = 2000;
   private time = 0;
   private dead = false;
+  private destination: Point | null = null;
+  private retryIn = 0;
 
   constructor(
     scene: Phaser.Scene,
@@ -71,6 +74,7 @@ export default class CaseNpc {
   destroy(): void {
     this.dead = true;
     this.onArrive = null;
+    this.destination = null;
     this.path = [];
     this.visible = false;
     this.walker?.destroy();
@@ -98,7 +102,7 @@ export default class CaseNpc {
   }
 
   get isWalking(): boolean {
-    return this.path.length > 0;
+    return this.destination !== null;
   }
 
   get position(): Point {
@@ -108,6 +112,7 @@ export default class CaseNpc {
   /** Sits on a chair; `feet` is where the bottom of the seated figure touches the floor. */
   sitAt(feet: Point): void {
     this.onArrive = null;
+    this.destination = null;
     this.visible = true;
     this.seated = true;
     this.path = [];
@@ -118,6 +123,7 @@ export default class CaseNpc {
   /** Stands still at a spot, facing `dir`. */
   standAt(p: Point, dir: CharacterDirection = "down"): void {
     this.onArrive = null;
+    this.destination = null;
     this.visible = true;
     this.seated = false;
     this.path = [];
@@ -128,25 +134,22 @@ export default class CaseNpc {
     this.sync();
   }
 
-  /** Walks to `dest`; if no path exists she simply appears there. */
-  walkTo(dest: Point, onArrive?: () => void, from?: Point): void {
-    if (from) this.pos = { ...from };
+  /** Walk to the destination; if a route is unavailable, wait and retry from here. */
+  walkTo(dest: Point, onArrive?: () => void): void {
     this.visible = true;
     this.seated = false;
     this.onArrive = onArrive ?? null;
+    this.destination = { ...dest };
+    this.retryIn = 1000;
     const path = this.pathfinder.find(this.pos, dest);
-    if (!path || !this.walker) {
-      const cb = this.onArrive;
-      this.standAt(dest);
-      cb?.();
-      return;
-    }
-    this.path = path;
+    this.path = path ?? [];
+    if (path && !path.length) this.arrive();
     this.sync();
   }
 
   hide(): void {
     this.onArrive = null;
+    this.destination = null;
     this.visible = false;
     this.seated = false;
     this.path = [];
@@ -164,6 +167,17 @@ export default class CaseNpc {
       return;
     }
 
+    if (!this.path.length && this.destination) {
+      this.retryIn -= deltaMs;
+      if (this.retryIn <= 0) {
+        this.retryIn = 1000;
+        const path = this.pathfinder.find(this.pos, this.destination);
+        if (path) {
+          this.path = path;
+          if (!path.length) this.arrive();
+        }
+      }
+    }
     if (!this.path.length || !this.walker) return;
     const next = this.path[0];
     const dx = next.x - this.pos.x;
@@ -193,6 +207,7 @@ export default class CaseNpc {
   private arrive(): void {
     const cb = this.onArrive;
     this.onArrive = null;
+    this.destination = null;
     cb?.();
   }
 

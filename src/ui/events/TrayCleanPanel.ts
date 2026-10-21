@@ -1,4 +1,5 @@
 import Overlay, { el, feedback } from "../case/Overlay";
+import { WATER_HTML } from "../case/HandArt";
 import type { EventOutcome, EventPanel, EventRewards } from "../../events/types";
 
 const AMY = "assets/portraits/amy.webp";
@@ -76,6 +77,7 @@ export default class TrayCleanPanel implements EventPanel {
       return d;
     });
     const water = el("div", "water");
+    water.innerHTML = WATER_HTML;
     stage.append(water);
     const meter = el("div", "tray-meter");
     const fill = el("span");

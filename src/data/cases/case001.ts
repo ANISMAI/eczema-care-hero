@@ -50,7 +50,7 @@ export const CASE_001: CaseTemplate = {
   consult: {
     doctor: "Dr. Lim",
     portrait: "assets/portraits/dr-lim.webp",
-    intro: "Thanks for the notes! Let's look at {name}'s hand together. Tap each highlighted area.",
+    intro: "Thanks for the notes! Let's compare {name}'s hand with healthy skin. Tap what looks different.",
     spots: [
       { id: "dry", label: "Dry", x: 50, y: 30, info: "Fine, flaky skin. Dry skin loses water easily, so it feels tight." },
       { id: "red", label: "Mild redness", x: 42, y: 58, info: "Slight pink patch from irritation and scratching. No swelling or oozing." },
@@ -58,7 +58,7 @@ export const CASE_001: CaseTemplate = {
     ],
     summary: "Dry, irritated skin, and no warning signs today. Here's my plan for {name}:",
     plan: [
-      "Fragrance-free moisturiser on the dry areas, applied slowly and gently. Let's start in the Care Room now.",
+      "In the Care Room now: a gentle soap-free wash, lukewarm rinse, pat dry, then a fragrance-free moisturiser, slowly and gently.",
       "Pharmacy: Grace will hand over a fragrance-free cream for home use.",
       "Use a gentle, unscented soap and pat hands dry.",
     ],
@@ -66,9 +66,18 @@ export const CASE_001: CaseTemplate = {
   },
 
   care: {
-    steps: [{ id: "cream", tools: ["cream"] }],
+    // gentle wash → rinse with lukewarm water → pat dry → fragrance-free moisturiser
+    steps: [
+      { id: "wash", tools: ["soap", "water"] },
+      { id: "dry", tools: ["towel"] },
+      { id: "cream", tools: ["cream"] },
+    ],
     tools: [
+      { id: "soap", icon: "🫧", label: "Gentle wash" },
+      { id: "water", icon: "💧", label: "Lukewarm water" },
+      { id: "towel", icon: "🧻", label: "Soft towel" },
       { id: "cream", icon: "🧴", label: "Fragrance-free" },
+      { id: "hot", icon: "♨️", label: "Hot water", wrong: true, why: "Hot water dries the skin. Lukewarm is kinder" },
       { id: "scented", icon: "🌸", label: "Scented lotion", wrong: true, why: "Fragrance can irritate" },
       { id: "scrub", icon: "🧽", label: "Scrub", wrong: true, why: "Scrubbing irritates dry skin" },
     ],

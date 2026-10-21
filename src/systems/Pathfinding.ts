@@ -61,7 +61,9 @@ export default class Pathfinder {
           if (!this.isOpen(c, r)) continue;
           const q = this.center(c, r);
           const d = (q.x - p.x) ** 2 + (q.y - p.y) ** 2;
-          if (d < bestD) {
+          // A nearby grid centre can be on the other side of a wall. Connect clear
+          // endpoints to the grid through open floor instead of cutting that corner.
+          if (d < bestD && (!this.clear(p.x, p.y, PLAYER_RADIUS) || this.lineClear(p, q))) {
             bestD = d;
             best = [c, r];
           }
@@ -78,7 +80,7 @@ export default class Pathfinder {
     const steps = Math.max(1, Math.ceil(dist / 4));
     for (let i = 1; i <= steps; i++) {
       const t = i / steps;
-      if (!this.clear(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, PLAYER_RADIUS + 1)) return false;
+      if (!this.clear(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, PLAYER_RADIUS)) return false;
     }
     return true;
   }

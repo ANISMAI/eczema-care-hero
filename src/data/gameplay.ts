@@ -3,6 +3,16 @@
 
 import type { CaseStatus } from "../mission/types";
 
+/** Nine hours on the clock take nine minutes of active play; panels still pause time. */
+export const TIME = { gameMinutesPerRealMinute: 60 } as const;
+
+export const TRAVEL = {
+  autoSpeed: 145,
+  visitorSpeed: 105,
+  stuckMs: 900,
+  maxReplans: 2,
+} as const;
+
 /** Rewards. Care points are the main score; event and arcade rewards are kept separate. */
 export const REWARDS = {
   /** Finishing a patient case. */
@@ -102,15 +112,13 @@ export function amyBusyChance(): number {
  */
 export const CLINIC = {
   /** First possible arrival and last arrival cut-off (minutes since midnight). */
-  firstArrivalAt: 8 * 60 + 2,
+  firstArrivalAt: 8 * 60 + 1,
   lastArrivalAt: 16 * 60 + 15,
   /**
-   * Time between arrivals, picked at random in this range. The brief suggests 30–60, but the
-   * clock runs 30 game minutes per real minute, so that meant one visitor every 1–2 real
-   * minutes and a clinic that felt empty. 12–25 ≈ one every 25–50 real seconds; the caps
-   * below still stop it from piling up.
+   * At the current clock speed, 8–14 game minutes are 8–14 seconds of active play.
+   * Keep the existing capacity limits so frequent arrivals do not overwhelm the queue.
    */
-  arrivalEvery: { min: 12, max: 25 },
+  arrivalEvery: { min: 8, max: 14 },
   /** Retry delay when the clinic is at capacity. */
   retryWhenFull: 3,
   /** Doctor patients registered or waiting (they each need a waiting seat). */

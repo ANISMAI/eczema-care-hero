@@ -37,7 +37,8 @@ export function doctorSteps(withCare: boolean): StepDef[] {
       targets: [PATIENT, "specialist", "consult-desk"],
       objective: "Talk to {name} in Consultation",
       early: { who: "{name}", avatar: "{portrait}", text: "Hi! I'm waiting for my name to be called 🙂" },
-      task: "Listened to {name}",
+      rewarded: true,
+      task: "Kind, helpful questions",
     },
     {
       id: "consult",
@@ -59,10 +60,10 @@ export function doctorSteps(withCare: boolean): StepDef[] {
       result: "CARE_COMPLETED",
       room: "care",
       targets: [PATIENT, "care-bed"],
-      objective: "Apply moisturiser to {name}'s hands in the Care Room",
+      objective: "Wash, dry and moisturise {name}'s hands in the Care Room",
       early: { who: "Nurse Amy", avatar: AMY, text: "The bed is ready! Dr. Lim will decide on the care plan first." },
       rewarded: true,
-      task: "Moisturiser, slow and gentle",
+      task: "Gentle wash, pat dry, moisturise",
     });
   }
   // automatic: the patient collects any approved item from Grace, then says thank you

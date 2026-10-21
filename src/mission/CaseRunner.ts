@@ -9,6 +9,7 @@ import Announcement from "../ui/case/Announcement";
 import { REWARDS } from "../data/gameplay";
 import { makeWorldTag } from "../art/tags";
 import { speechBubble } from "../art/bubble";
+import { spritePortrait } from "../ui/spritePortrait";
 import { buildCase } from "../data/cases";
 import { PATIENT } from "../data/cases/steps";
 import { getPatient } from "../data/patients";
@@ -322,8 +323,18 @@ export default class CaseRunner {
     this.dialog.begin({ title: `${d.patient.name} · case file`, avatar: d.patient.portrait, subtitle: "Registered by Nurul at Reception" }, () =>
       this.host.unlock()
     );
+    // the case file: the patient's full figure on the left, the details on the right
     const card = document.createElement("div");
-    card.className = "intake-card";
+    card.className = "intake-file";
+    const figure = document.createElement("div");
+    figure.className = "intake-figure";
+    const sprite = document.createElement("span");
+    sprite.className = "intake-sprite";
+    spritePortrait(sprite, patient.walk, patient.walk.rows.down * 3, 150);
+    figure.append(sprite);
+    const details = document.createElement("div");
+    details.className = "intake-card";
+    card.append(figure, details);
     const rows: [string, string][] = [
       ["Patient", `${d.patient.fullName}, ${d.patient.age}`],
       ["Visit", d.title],
@@ -337,7 +348,7 @@ export default class CaseRunner {
       const val = document.createElement("strong");
       val.textContent = v;
       row.append(key, val);
-      card.append(row);
+      details.append(row);
     }
     void this.dialog.say(`${d.patient.name} is first in the queue. Call them in when you're ready.`, `📢  Call ${d.patient.name} in`, card).then((ok) => {
       if (!ok) return; // closed without calling: nothing changes
@@ -365,8 +376,11 @@ export default class CaseRunner {
       def: this.def,
       asked: () => m.progressOf(step.id),
       ask: (id) => m.addProgress(step.id, id),
+      wrongPick: () => m.mistake(step.id),
       done: () => {
-        if (!this.advance(step)) return;
+        const points = this.carePoints(step);
+        if (!this.advance(step, points)) return;
+        this.host.toast(`💜  +${points} care points`);
         // straight on to the assessment once the chat panel has closed
         this.host.scene.time.delayedCall(250, () => {
           const next = this.mission.currentStep;

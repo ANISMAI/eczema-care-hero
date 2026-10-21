@@ -99,7 +99,6 @@ export async function stallSequence(
   // let the tween move the avatar (physics would fight it), restored at the end
   player.body.moves = false;
   if (!enter) {
-    player.teleportTo(inside.x, inside.y);
     player.setVisible(false);
   }
   // only the door leaf (and its occupied light) swings; the inside stays put

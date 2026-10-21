@@ -113,6 +113,8 @@ export default class ClinicScene extends Phaser.Scene {
   private currentRoomId: RoomId = "reception";
   private nearestInteractable: InteractableDef | null = null;
   private inputLocked = false;
+  /** Amenities keep controls locked while the doctor walks to the sink, mat or cubicle. */
+  private scriptedWalking = false;
 
   constructor() {
     super("ClinicScene");
@@ -143,7 +145,7 @@ export default class ClinicScene extends Phaser.Scene {
 
     this.movement = new MovementSystem(this, this.player);
     this.interaction = new InteractionSystem(this.interactables);
-    this.navigation = new NavigationSystem(this, this.player, this.npcSolids());
+    this.navigation = new NavigationSystem(this, this.player, this.npcSolids(), () => this.hud.showRoomToast(t("toast.noPath")));
 
     this.buildUI();
     this.hud.showRoomToast(this.roomLabel(findRoomAt(this.player.x, this.player.y)?.id ?? null));
@@ -440,20 +442,21 @@ export default class ClinicScene extends Phaser.Scene {
       unlock: () => (this.inputLocked = false),
       toast: (text) => this.hud.showRoomToast(text),
       setPlayerVisible: (v) => this.player.setVisible(v),
-      teleport: (p) => {
-        this.navigation.cancel();
-        this.player.teleportTo(p.x, p.y);
-      },
-      playStall: (enter) => {
+      walkTo: (p) => this.walkPlayerTo(p),
+      playStall: async (enter) => {
         const stall = this.interactables.find((i) => i.id === "toilet-stall")!;
         const bottom = { x: stall.x, y: stall.y + (stall.area?.h ?? 0) / 2 };
-        return stallSequence(this, this.player, bottom, { x: stall.x, y: bottom.y + 26 }, enter);
+        const outside = { x: stall.x, y: bottom.y + 26 };
+        if (enter && !(await this.walkPlayerTo(outside))) return false;
+        await stallSequence(this, this.player, bottom, outside, enter);
+        return true;
       },
-      playTap: (ms) => {
+      playTap: async (ms) => {
         const sink = this.interactables.find((i) => i.id === "toilet-sink")!;
-        this.player.teleportTo(sink.x - 6, sink.y + (sink.area?.h ?? 0) / 2 + 22);
+        if (!(await this.walkPlayerTo({ x: sink.x - 6, y: sink.y + (sink.area?.h ?? 0) / 2 + 22 }))) return false;
         this.player.face("up"); // facing the sink
-        return runTap(this, { x: sink.x, y: sink.y + (sink.area?.h ?? 0) / 2 }, ms);
+        await runTap(this, { x: sink.x, y: sink.y + (sink.area?.h ?? 0) / 2 }, ms);
+        return true;
       },
       alert: (title, text, icon) => {
         this.lockInput();
@@ -696,6 +699,21 @@ export default class ClinicScene extends Phaser.Scene {
     this.navigation.walkNear({ x: item.x, y: item.y }, room, onArrive);
   }
 
+  private walkPlayerTo(point: { x: number; y: number }): Promise<boolean> {
+    this.navigation.cancel();
+    this.scriptedWalking = true;
+    return new Promise(resolve => {
+      const finish = (arrived: boolean) => {
+        this.scriptedWalking = false;
+        resolve(arrived);
+      };
+      if (!this.navigation.walkTo(point, () => finish(true), () => finish(false))) {
+        this.hud.showRoomToast(t("toast.noPath"));
+        finish(false);
+      }
+    });
+  }
+
   /** `required` on first launch, when no character has been chosen yet. */
   private openCharacterSelect(required: boolean): void {
     if (this.inputLocked && !required) return;
@@ -786,6 +804,7 @@ export default class ClinicScene extends Phaser.Scene {
       this.persist();
     });
     if (started) this.hud.showRoomToast(`🚶  ${t("toast.walking", { place: label.replace(/^\S+\s+/, "") })}`);
+    else this.hud.showRoomToast(t("toast.noPath"));
   }
 
   private roomLabel(id: RoomId | null): string {
@@ -797,9 +816,9 @@ export default class ClinicScene extends Phaser.Scene {
   // ---------- Loop ----------
 
   update(_time: number, delta: number): void {
-    if (this.inputLocked) {
+    if (this.inputLocked && !this.scriptedWalking) {
       this.player.setVelocity(0, 0);
-    } else if (this.navigation.walking && !this.movement.hasInput()) {
+    } else if (this.navigation.walking && (this.scriptedWalking || !this.movement.hasInput())) {
       this.navigation.update(delta);
     } else {
       // manual input always wins: it cancels any auto-walk in progress

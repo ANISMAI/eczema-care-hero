@@ -881,3 +881,59 @@
     height: 170px;
   }
 }
+
+/* ---------- traffic on the town road (ui/TownTraffic.ts) ---------- */
+
+.title-town .town-svg {
+  object-fit: cover;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.town-traffic {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+/* wheels turn, bodies bob a little, the ambulance light flashes */
+.town-traffic .tv-spin {
+  animation: tv-spin 0.45s linear infinite;
+}
+
+.town-traffic .tv-bob {
+  animation: tv-bob 0.32s ease-in-out infinite alternate;
+}
+
+.town-traffic .tv-moto .tv-bob {
+  animation-duration: 0.22s;
+}
+
+.town-traffic .tv-flash {
+  animation: tv-flash 0.5s steps(1) infinite;
+}
+
+.town-traffic .tv-flash.b {
+  animation-delay: -0.25s;
+}
+
+@keyframes tv-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes tv-bob {
+  to {
+    transform: translateY(-1.4px);
+  }
+}
+
+@keyframes tv-flash {
+  50% {
+    opacity: 0.15;
+  }
+}

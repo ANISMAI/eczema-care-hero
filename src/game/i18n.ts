@@ -122,6 +122,7 @@ const STRINGS = {
   "hud.hallway": { en: "Hallway", ms: "Lorong" },
   "toast.heading": { en: "Heading to {place}…", ms: "Menuju ke {place}…" },
   "toast.walking": { en: "Walking to {place}…", ms: "Berjalan ke {place}…" },
+  "toast.noPath": { en: "That route is blocked. Try a nearby spot.", ms: "Laluan itu terhalang. Cuba tempat berdekatan." },
   "toast.goingTo": { en: "Going to {name}…", ms: "Pergi ke {name}…" },
   "toast.found": { en: "Found {name}!", ms: "Jumpa {name}!" },
   "toast.dayStart": { en: "Day {day}: the clinic is open! Patients will arrive soon", ms: "Hari {day}: klinik dibuka! Pesakit akan tiba tidak lama lagi" },

@@ -55,7 +55,7 @@ export interface StepDef {
 
 // ---------- Care Room (Treatment screen) ----------
 
-export type ToolId = "lens" | "phone" | "soap" | "water" | "towel" | "cream" | "scrub" | "scented";
+export type ToolId = "lens" | "phone" | "soap" | "water" | "towel" | "cream" | "scrub" | "scented" | "hot";
 
 /** One activity inside the Treatment screen. Its id is its kind. */
 export interface TreatStep {

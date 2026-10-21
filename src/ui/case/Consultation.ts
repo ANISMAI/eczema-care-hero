@@ -1,5 +1,5 @@
 import Overlay, { el } from "./Overlay";
-import { handSvg, toStage } from "./HandArt";
+import { handSvg, nearestSign, toStage } from "./HandArt";
 import type { CaseDefinition } from "../../mission/types";
 
 export interface ConsultationHooks {
@@ -13,9 +13,10 @@ export interface ConsultationHooks {
 }
 
 /**
- * Step C, Consultation (brief section 04): the doctor leads. The player taps the highlighted
- * areas on the patient's hand to see a short educational note, then the doctor gives the care
- * plan. The player never diagnoses or prescribes; the plan always comes from the doctor.
+ * Step C, Consultation (brief section 04): the doctor leads. Healthy skin is shown beside the
+ * patient's hand, and the player spots and taps the differences (nothing is marked), each with a
+ * short educational note; then the doctor gives the care plan. The player never diagnoses or
+ * prescribes; the plan always comes from the doctor.
  */
 export default class Consultation {
   private overlay: Overlay;
@@ -45,17 +46,40 @@ export default class Consultation {
   private showInspect(): void {
     const c = this.h.def.consult;
     const speech = el("div", "case-speech", c.intro);
+    // only the signs this visit talks about are drawn on the patient's hand
+    const only = [...new Set(c.spots.map((sp) => nearestSign(sp.x, sp.y)))];
+    const compare = el("div", "compare");
+    const healthy = el("div", "compare-side healthy");
+    const healthyStage = el("div", "hand-stage");
+    healthyStage.innerHTML = handSvg({ signs: false });
+    healthy.append(healthyStage, el("span", "compare-label", "✨ Healthy skin"));
+    const theirs = el("div", "compare-side");
     const stage = el("div", "hand-stage consult-stage");
-    stage.innerHTML = handSvg();
+    stage.innerHTML = handSvg({ only });
+    theirs.append(stage, el("span", "compare-label", `${this.h.def.patient.name}'s hand`));
+    compare.append(healthy, theirs);
     const info = el("div", "spot-info");
     const count = el("div", "session-counter");
     const update = () => {
       const n = this.h.inspected().length;
-      count.textContent = `${n} / ${c.spots.length} areas checked`;
+      count.textContent = `${n} / ${c.spots.length} differences found`;
     };
 
+    // a tap that isn't near a difference: a small "nothing here" ring
+    stage.addEventListener("click", (e) => {
+      if ((e.target as HTMLElement).closest(".inspect-spot")) return;
+      const r = stage.getBoundingClientRect();
+      const miss = el("span", "miss-ring");
+      miss.style.left = `${((e.clientX - r.left) / r.width) * 100}%`;
+      miss.style.top = `${((e.clientY - r.top) / r.height) * 100}%`;
+      stage.append(miss);
+      window.setTimeout(() => miss.remove(), 700);
+      info.classList.remove("show");
+      info.replaceChildren(el("span", "", "That part looks the same as healthy skin. Look again!"));
+    });
+
     for (const s of c.spots) {
-      const b = el("button", "inspect-spot");
+      const b = el("button", "inspect-spot hidden-spot");
       b.style.left = `${toStage(s.x)}%`;
       b.style.top = `${toStage(s.y)}%`;
       b.setAttribute("aria-label", `Inspect: ${s.label}`);
@@ -72,14 +96,14 @@ export default class Consultation {
       });
       stage.append(b);
     }
-    info.append(el("span", "", "Tap a glowing circle on the hand."));
+    info.append(el("span", "", "Compare the two hands, then tap what looks different."));
 
     const next = el("button", "primary-btn wide", `See ${c.doctor}'s care plan`);
     next.disabled = this.h.inspected().length < c.spots.length;
     next.addEventListener("click", () => this.showPlan());
     update();
 
-    this.overlay.body.replaceChildren(speech, stage, count, info);
+    this.overlay.body.replaceChildren(speech, compare, count, info);
     this.overlay.footer.replaceChildren(next);
   }
 

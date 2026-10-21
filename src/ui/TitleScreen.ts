@@ -1,6 +1,7 @@
 import { eventBus } from "../game/EventBus";
 import { prayerReminders, resetAllProgress, setPrayerReminders, setSoundOn, soundOn } from "../game/settings";
 import { buildTown, type Town } from "../art/town";
+import TownTraffic from "./TownTraffic";
 import { LANGUAGES, lang, t, type StringKey } from "../game/i18n";
 import { setLanguage } from "../game/settings";
 import { howToScene } from "./howToScenes";
@@ -73,7 +74,12 @@ export default class TitleScreen {
     this.townBox.className = "title-town";
     this.townZoom = document.createElement("div");
     this.townZoom.className = "title-town-zoom";
-    this.townZoom.innerHTML = this.town.svg + '<span class="town-shadow a"></span><span class="town-shadow b"></span>';
+    this.townZoom.innerHTML = `<img class="town-svg" src="${this.town.url}" alt="" draggable="false" />`;
+    // cars and riders on the road, then the drifting cloud shadows over everything
+    const traffic = new TownTraffic(this.town);
+    this.townZoom.append(traffic.svg);
+    this.townZoom.insertAdjacentHTML("beforeend", '<span class="town-shadow a"></span><span class="town-shadow b"></span>');
+    traffic.start();
     this.townBox.append(this.townZoom);
     this.root.append(this.townBox);
     this.flash = document.createElement("div");
@@ -111,6 +117,8 @@ export default class TitleScreen {
     this.panels = [this.settings, howTo, badges, language];
     this.root.append(...this.panels, this.flash);
     parent.append(this.root);
+    this.layoutTown();
+    window.addEventListener("resize", () => this.layoutTown());
 
     this.title.querySelector(".title-play")!.addEventListener("click", () => this.play());
     const open: Record<string, () => void> = {
@@ -140,6 +148,41 @@ export default class TitleScreen {
       const wait = quick ? 0 : Math.max(0, MIN_CLOUDS_MS - (performance.now() - this.shownAt));
       window.setTimeout(() => this.part(), wait);
     });
+  }
+
+  /**
+   * Portrait screens: the buttons would cover the road, so the town is drawn a little larger
+   * and lifted until the road ends just at the ENTER button (the clinic door stays below the
+   * title). Landscape keeps the centred square (the road shows on both sides of the buttons),
+   * lowered on short screens just enough that the clinic's roof isn't cut off at the top.
+   */
+  private layoutTown(): void {
+    const box = this.townBox.style;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    if (this.root.classList.contains("entering")) return;
+    if (vh <= vw) {
+      const side = vw;
+      const centred = (vh - side) / 2;
+      const roofOnScreen = 10 - (this.town.clinicTop / this.town.size) * side;
+      const top = Math.min(0, Math.max(centred, roofOnScreen));
+      box.width = box.height = `${side}px`;
+      box.top = `${top}px`;
+      box.transform = "translateX(-50%)";
+      return;
+    }
+    // the ENTER button's top (offsets ignore the title's entrance animation)
+    let btnTop = 0;
+    for (let el: HTMLElement | null = this.title.querySelector<HTMLElement>(".title-play"); el && el !== this.root; el = el.offsetParent as HTMLElement | null) {
+      btnTop += el.offsetTop;
+    }
+    const roadEnd = this.town.road.bottom / this.town.size; // 0..1 down the image
+    const target = btnTop + 6; // the road's lower edge, just under the button's top
+    const side = Math.max(vw, vh, (vh - target) / (1 - roadEnd));
+    const top = Math.min(0, Math.max(vh - side, target - roadEnd * side));
+    box.width = box.height = `${side}px`;
+    box.top = `${top}px`;
+    box.transform = "translateX(-50%)";
   }
 
   // ---------- clouds ----------
@@ -225,7 +268,7 @@ export default class TitleScreen {
     const midX = window.innerWidth / 2 - box.left;
     const midY = window.innerHeight / 2 - box.top;
     this.townZoom.style.transformOrigin = `${doorX}px ${doorY}px`;
-    this.townZoom.style.transform = `translate(${midX - doorX}px, ${midY - doorY}px) scale(14)`;
+    this.townZoom.style.transform = `translate(${midX - doorX}px, ${midY - doorY}px) scale(9)`;
     window.setTimeout(() => this.flash.classList.add("on"), 1150);
     window.setTimeout(() => {
       // inside: the clinic interior from above shows behind the fading flash

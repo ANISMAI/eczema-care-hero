@@ -12,16 +12,16 @@ export interface AmenitiesHost {
   toast(text: string): void;
   /** Hide / show the player avatar (e.g. inside a cubicle). */
   setPlayerVisible(visible: boolean): void;
-  teleport(p: Point): void;
+  walkTo(p: Point): Promise<boolean>;
   /**
    * Shows the doctor sitting in prayer on the mat (feet point). Returns a controller, or null
    * if the pose sprite isn't available.
    */
   showPrayPose(at: Point): { setFrame(f: number): void; stop(): void } | null;
   /** Cubicle door animation: walk in (enter) or out. */
-  playStall(enter: boolean): Promise<void>;
+  playStall(enter: boolean): Promise<boolean>;
   /** Water running from the toilet sink tap. */
-  playTap(ms: number): Promise<void>;
+  playTap(ms: number): Promise<boolean>;
   /** Modal message (e.g. "wash your hands first"). */
   alert(title: string, text: string, icon: string): void;
 }
@@ -98,22 +98,31 @@ export default class Amenities {
   /** Call every frame with the player's room: keeps them in the toilet until hands are washed. */
   update(room: RoomId | null): void {
     if (this.needsWash && this.lastRoom === "toilet" && room !== "toilet" && !this.busy) {
-      const r = getRoomById("toilet");
-      this.host.teleport(r.spawn);
-      this.host.alert(
-        "Euuu! 🤢",
-        "You need to wash your hands first! Germs from the toilet can spread to your patients and their sensitive skin. Use the sink before you leave.",
-        "🧼"
-      );
-      room = "toilet";
+      void this.returnToToilet();
     }
     this.lastRoom = room;
+  }
+
+  private async returnToToilet(): Promise<void> {
+    this.busy = true;
+    this.host.lock();
+    await this.host.walkTo(getRoomById("toilet").spawn);
+    this.busy = false;
+    this.host.alert(
+      "Euuu! 🤢",
+      "You need to wash your hands first! Germs from the toilet can spread to your patients and their sensitive skin. Use the sink before you leave.",
+      "🧼"
+    );
   }
 
   private async useToilet(): Promise<void> {
     this.busy = true;
     this.host.lock();
-    await this.host.playStall(true);
+    if (!(await this.host.playStall(true))) {
+      this.busy = false;
+      this.host.unlock();
+      return;
+    }
     await this.fader.show("⏳", "One moment…", 2200, undefined, false, true);
     await this.host.playStall(false);
     this.needsWash = true;
@@ -125,18 +134,21 @@ export default class Amenities {
   private async washHands(): Promise<void> {
     this.busy = true;
     this.host.lock();
-    void this.fader.show("", "🫧  Washing hands…", 2000, undefined, true);
-    await this.host.playTap(2000);
-    this.needsWash = false;
+    // Walk to the sink before showing the washing effect.
+    if (await this.host.playTap(2000)) this.needsWash = false;
     this.busy = false;
     this.host.unlock();
-    this.host.toast("💧  Clean! Tip: pat dry, then moisturise");
+    if (!this.needsWash) this.host.toast("💧  Clean! Tip: pat dry, then moisturise");
   }
 
   private async pray(mat: InteractableDef): Promise<void> {
     this.busy = true;
     this.host.lock();
-    this.host.teleport({ x: mat.x, y: mat.y + 40 });
+    if (!(await this.host.walkTo({ x: mat.x, y: mat.y + 40 }))) {
+      this.busy = false;
+      this.host.unlock();
+      return;
+    }
     const pose = this.host.showPrayPose({ x: mat.x, y: mat.y + 18 });
     if (pose) {
       // fully automatic: prayer (5 s), then the doa card while the doctor raises her hands (3 s)

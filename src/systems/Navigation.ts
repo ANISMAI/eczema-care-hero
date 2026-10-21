@@ -2,21 +2,20 @@ import Phaser from "phaser";
 import Player from "../entities/Player";
 import Pathfinder from "./Pathfinding";
 import { PAL } from "../art/palette";
+import { TRAVEL } from "../data/gameplay";
 import { getRoomById, isWalkable, type Point, type Rect, type RoomId } from "../data/rooms";
 
 /** Auto-walk is a brisk walk, a little faster than walking by hand so long trips don't drag. */
-const AUTO_SPEED = 145;
+const AUTO_SPEED = TRAVEL.autoSpeed;
 const ARRIVE_DIST = 5;
-/** If the player makes no progress for this long (ms), skip ahead to the next waypoint. */
-const STUCK_MS = 900;
 
 export type ArrivalHandler = () => void;
 
 /**
  * Moves the player to a room or a person. "Go Here" and "Find" start an auto-walk: the player
  * follows a path found with A* (through doors and around furniture), with a walking animation
- * and a pulsing marker at the destination. Any manual input cancels it. If no path can be
- * found, the player is moved there instantly as a fallback.
+ * and a pulsing marker at the destination. Manual input cancels it. Blocked routes
+ * are replanned or stopped; room travel always uses walking and collision checks.
  */
 export default class NavigationSystem {
   private scene: Phaser.Scene;
@@ -27,11 +26,16 @@ export default class NavigationSystem {
   private marker: Phaser.GameObjects.Container | null = null;
   private stuckMs = 0;
   private lastDist = Infinity;
+  private destination: Point | null = null;
+  private replans = 0;
+  private onBlocked: (() => void) | null = null;
+  private reportBlocked: () => void;
 
-  constructor(scene: Phaser.Scene, player: Player, extraSolids: Rect[] = []) {
+  constructor(scene: Phaser.Scene, player: Player, extraSolids: Rect[] = [], reportBlocked = () => {}) {
     this.scene = scene;
     this.player = player;
     this.pathfinder = new Pathfinder(extraSolids);
+    this.reportBlocked = reportBlocked;
   }
 
   get walking(): boolean {
@@ -62,21 +66,20 @@ export default class NavigationSystem {
       .filter((p) => this.pathfinder.clear(p.x, p.y))
       // prefer the side facing the player, so they don't walk around the person
       .sort((a, b) => Math.hypot(a.x - here.x, a.y - here.y) - Math.hypot(b.x - here.x, b.y - here.y));
-    if (spots.length) return this.walkTo(spots[0], onArrive);
+    for (const spot of spots) if (this.walkTo(spot, onArrive)) return true;
     return this.walkToRoom(fallbackRoom, onArrive);
   }
 
-  walkTo(dest: Point, onArrive?: ArrivalHandler): boolean {
+  walkTo(dest: Point, onArrive?: ArrivalHandler, onBlocked?: () => void): boolean {
     this.cancel();
     const from = { x: this.player.x, y: this.player.y };
     const path = this.pathfinder.find(from, dest);
+    if (!path) return false;
     this.onArrive = onArrive ?? null;
-    if (!path || !path.length) {
-      // no way through (shouldn't happen with the current layout): jump there instead
-      this.player.teleportTo(dest.x, dest.y);
-      this.finish();
-      return true;
-    }
+    this.onBlocked = onBlocked ?? null;
+    this.destination = { ...dest };
+    this.replans = 0;
+    if (!path.length) { this.finish(); return true; }
     this.path = path;
     this.stuckMs = 0;
     this.lastDist = Infinity;
@@ -86,9 +89,14 @@ export default class NavigationSystem {
 
   /** Stops an auto-walk without arriving (e.g. the player took over). */
   cancel(): void {
+    const blocked = this.onBlocked;
     this.path = [];
     this.onArrive = null;
+    this.onBlocked = null;
+    this.destination = null;
+    this.player.setVelocity(0, 0);
     this.hideMarker();
+    blocked?.();
   }
 
   /** Drives the auto-walk; call every frame while `walking`. */
@@ -100,23 +108,31 @@ export default class NavigationSystem {
     const dist = Math.hypot(dx, dy);
     const step = (AUTO_SPEED * deltaMs) / 1000;
 
-    if (dist <= Math.max(ARRIVE_DIST, step)) {
-      this.player.teleportTo(next.x, next.y);
+    if (dist <= ARRIVE_DIST) {
       this.advance();
       return;
     }
 
-    // progress check: if a collision keeps us from getting closer, hop to the waypoint
+    // Replan from the actual position when collision prevents progress. Never skip a wall.
     if (dist < this.lastDist - 0.5) this.stuckMs = 0;
     else this.stuckMs += deltaMs;
     this.lastDist = dist;
-    if (this.stuckMs > STUCK_MS) {
-      this.player.teleportTo(next.x, next.y);
-      this.advance();
+    if (this.stuckMs > TRAVEL.stuckMs) {
+      const route = this.destination && this.replans < TRAVEL.maxReplans
+        ? this.pathfinder.find({ x: this.player.x, y: this.player.y }, this.destination) : null;
+      this.replans++;
+      this.stuckMs = 0;
+      this.lastDist = Infinity;
+      if (route?.length) this.path = route;
+      else {
+        this.cancel();
+        this.reportBlocked();
+      }
       return;
     }
 
-    this.player.setVelocity((dx / dist) * AUTO_SPEED, (dy / dist) * AUTO_SPEED);
+    const speed = dist < step ? dist / Math.max(deltaMs / 1000, 0.001) : AUTO_SPEED;
+    this.player.setVelocity((dx / dist) * speed, (dy / dist) * speed);
   }
 
   private advance(): void {
@@ -139,6 +155,8 @@ export default class NavigationSystem {
   private finish(): void {
     const cb = this.onArrive;
     this.onArrive = null;
+    this.onBlocked = null;
+    this.destination = null;
     this.hideMarker();
     cb?.();
   }

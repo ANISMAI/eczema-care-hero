@@ -44,7 +44,7 @@ export const CASE_FOLLOW_UP: CaseTemplate = {
   consult: {
     doctor: "Dr. Lim",
     portrait: "assets/portraits/dr-lim.webp",
-    intro: "Let's compare with last time. Tap each highlighted area on {name}'s hand.",
+    intro: "Let's compare {name}'s hand with healthy skin and see how it's going. Tap what looks different.",
     spots: [
       { id: "softer", label: "Softer", x: 50, y: 30, info: "Less flaky than before. The moisturising routine is helping." },
       { id: "dry", label: "Still a bit dry", x: 58, y: 82, info: "Some dryness remains. Skin improves gradually, so keep going." },

@@ -77,9 +77,11 @@ Run `npm test` for scheduler regression tests (tested with Node 24), and
 ## Opening, title and settings
 
 The game opens on a screen full of clouds (which also covers asset loading). After about two
-seconds they part from the centre outwards and reveal the **town** from above: an SVG drawn in
-the clinic's style (`src/art/town.ts`), with the clinic in the middle among cottages, a
-pharmacy, a bakery, a fountain plaza, a field, a pond and woods. Then the title appears with
+seconds they part from the centre outwards and reveal the **town** from above: a painted image (`public/assets/town-map.webp`, source in
+`art-source/`; door and road positions in `src/art/town.ts`) with the clinic in the middle and a
+road where little cars, delivery riders and the odd ambulance drive by (`src/art/vehicles.ts`,
+`src/ui/TownTraffic.ts`; left-hand traffic). In portrait the town is lifted so the road stays
+above the ENTER button. Then the title appears with
 **PLAY** and **SETTINGS**. While the title is up the game is paused (clock and arrivals stop).
 PLAY dives into the clinic's front door, a soft flash as we step inside, then the clinic interior
 from above (in landscape, the entrance side, larger), and finally the camera zooms down to the
@@ -115,8 +117,10 @@ can visit the Surau. Code: `src/ui/TitleScreen.ts`, `src/art/town.ts`, `src/ui/t
 
 ## Phase 3 — living clinic and continuous patient flow
 
-**A day:** the clinic opens at 8:00 AM. Visitors arrive every 12–25 in-game minutes (about every
-25–50 real seconds) until the last-arrival cut-off. Each one is either:
+**A day:** the clinic opens at 8:00 AM. One real minute advances the clock by 60 game minutes,
+so 8 AM–5 PM takes about **9 minutes of active play** (reading and interaction panels still
+pause the clock). Visitors arrive every **8–14 in-game minutes / active seconds**, starting
+at 8:01 AM, until the last-arrival cut-off. Each one is either:
 
 - **a doctor patient (≈60%):** registers with Nurul at Reception (speech bubbles), sits in the
   Waiting Area and joins the **doctor queue** (panel on the left; on the right in landscape)
@@ -156,14 +160,30 @@ next to the care / event / arcade ledgers.
 | Setting | Default |
 |---|---|
 | Clinic hours | 8:00 AM – 5:00 PM (clock) |
-| First arrival / last arrival | 8:02 AM / 4:15 PM |
-| Time between arrivals | 12–25 in-game minutes (retry after 3 when full). The brief suggests 30–60, but at 30 game minutes per real minute that felt empty |
+| Clock speed / active shift duration | 60 game minutes per real minute / about 9 minutes |
+| First arrival / last arrival | 8:01 AM / 4:15 PM |
+| Time between arrivals | 8–14 in-game minutes (8–14 active seconds); retry after 3 when full |
+| Visitor walking speed | 105 world units/second (doctor manual walking: 115) |
 | Doctor patients waiting at once | 3 (one per free waiting seat) |
 | Routine visitors at once | 2 |
 | Visit mix | 60% doctor / 40% routine |
 | Doctor patience | 3–5 minutes of play time |
 | Registration / service time | 2.6 s / 3.2 s |
 | Doctor visit weights | `DOCTOR_VISITS` in `src/data/visits.ts` |
+
+**Travel:** Map Go Here, staff Find and objective/event Go use animated walking through the
+doors. The doctor never jumps to a destination when pathfinding fails or a collision blocks
+progress: navigation retries from the actual position, then stops with a route-blocked notice.
+Visitors also wait and retry a missing path instead of appearing in another room. The doctor
+walks to the cubicle, sink and prayer mat before those actions; the unwashed-hands reminder
+walks them back into the toilet. Initial spawns and unfinished-day resets remain lifecycle
+placement. Tune the clock and walking speeds in `TIME` / `TRAVEL` in `src/data/gameplay.ts`.
+
+To check pacing and movement, start a shift and watch the first visitor enter and register;
+additional arrivals should be 8–14 active seconds apart while capacity allows. Visit all rooms
+using the map, staff directory and objectives, then try the toilet/sink/surau interactions.
+Walking must stay continuous, with no room jumps or controls left locked. Panels pause the
+clock and waiting patience as before.
 
 **Testing switches:** `?clinic=busy` (first visitor at once, arrivals every 5–10 in-game
 minutes; caps unchanged). It combines with `?events=always` / `?events=off`, e.g.

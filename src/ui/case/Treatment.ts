@@ -1,5 +1,6 @@
 import Overlay, { el } from "./Overlay";
-import { STAGE_ZONE, handSvg, toStage } from "./HandArt";
+import { STAGE_ZONE, WATER_HTML, handSvg, toStage } from "./HandArt";
+import { face, icon, type IconName, type Mood } from "../icons";
 import type { CareSession, Tool, ToolId, TreatStep } from "../../mission/types";
 
 /** What the treatment screen needs from the case runner. */
@@ -49,6 +50,7 @@ export default class Treatment {
   private canvas!: HTMLCanvasElement;
   private lens!: HTMLDivElement;
   private towel!: HTMLDivElement;
+  private stepper!: HTMLDivElement;
   private water!: HTMLDivElement;
   private blob!: HTMLSpanElement;
   private zone!: HTMLDivElement;
@@ -112,10 +114,30 @@ export default class Treatment {
     top.append(this.face, bar);
     if (this.h.trays) {
       const { left, total } = this.h.trays;
-      const pill = el("span", left ? "treat-trays" : "treat-trays empty", `🧺 ${left}/${total} clean`);
+      const pill = el("span", left ? "treat-trays" : "treat-trays empty");
+      pill.innerHTML = `<span class="ico-wrap">${icon("basket")}</span>${left}/${total} clean`;
       pill.title = left ? `${left} more clean ${left === 1 ? "tray" : "trays"} after this one` : "No clean trays left after this one";
       pill.setAttribute("aria-label", pill.title);
       top.append(pill);
+    }
+
+    // which step of the routine we're on (only when there is more than one)
+    const names: Record<string, [IconName, string]> = {
+      inspect: ["lens", "Look"],
+      referral: ["phone", "Ask"],
+      wash: ["soap", "Wash"],
+      dry: ["towel", "Dry"],
+      cream: ["cream", "Moisturise"],
+    };
+    this.stepper = el("div", "treat-steps");
+    if (this.h.session.steps.length > 1) {
+      for (const s of this.h.session.steps) {
+        const chip = el("span");
+        const [ic, label] = names[s.id] ?? ["cream", s.id];
+        chip.innerHTML = `<span class="ico-wrap">${icon(ic)}</span>${label}`;
+        chip.dataset.step = s.id;
+        this.stepper.append(chip);
+      }
     }
 
     this.stage = el("div", "hand-stage treat-stage");
@@ -125,6 +147,7 @@ export default class Treatment {
     Object.assign(this.zone.style, { left: `${Z.cx - Z.rx}%`, top: `${Z.cy - Z.ry}%`, width: `${Z.rx * 2}%`, height: `${Z.ry * 2}%` });
     this.canvas = el("canvas", "apply-canvas");
     this.water = el("div", "water");
+    this.water.innerHTML = WATER_HTML;
     this.towel = el("div", "towel");
     this.blob = el("span", "cream-blob");
     this.lens = el("div", "lens");
@@ -150,12 +173,14 @@ export default class Treatment {
       const b = el("button", "treat-tool");
       b.dataset.tool = tool.id;
       b.setAttribute("aria-label", tool.label);
-      b.append(el("span", "treat-tool-icon", tool.icon), el("span", "treat-tool-label", tool.label));
+      const ic = el("span", "treat-tool-icon");
+      ic.innerHTML = icon(tool.id as IconName);
+      b.append(ic, el("span", "treat-tool-label", tool.label));
       b.addEventListener("click", () => this.pick(tool));
       this.tray.appendChild(b);
     }
 
-    this.overlay.body.replaceChildren(top, this.stage, this.gauge, this.hint, this.pill);
+    this.overlay.body.replaceChildren(top, ...(this.stepper.childElementCount ? [this.stepper] : []), this.stage, this.gauge, this.hint, this.pill);
     this.overlay.footer.replaceChildren(this.tray);
   }
 
@@ -172,8 +197,16 @@ export default class Treatment {
     const need = this.neededTool();
     const steps = this.h.session.steps;
     const done = steps.filter((s) => this.h.isDone(s.id)).length / steps.length;
+    this.stepper.querySelectorAll<HTMLElement>("span").forEach((chip) => {
+      chip.classList.toggle("done", this.h.isDone(chip.dataset.step!));
+      chip.classList.toggle("now", chip.dataset.step === step?.id);
+    });
     this.comfort.style.width = `${done * 100}%`;
-    this.face.textContent = performance.now() < this.winceUntil ? "😖" : done >= 1 ? "😊" : done >= 0.5 ? "🙂" : "😣";
+    const mood: Mood = performance.now() < this.winceUntil ? "wince" : done >= 1 ? "happy" : done >= 0.5 ? "okay" : "sore";
+    if (this.face.dataset.mood !== mood) {
+      this.face.dataset.mood = mood;
+      this.face.innerHTML = face(mood);
+    }
 
     this.tray.querySelectorAll<HTMLButtonElement>(".treat-tool").forEach((b) => {
       const id = b.dataset.tool as ToolId;
@@ -202,7 +235,7 @@ export default class Treatment {
       towel: "Tap to pat",
       cream: this.squeezed ? "Slow strokes in the circle" : "Hold, let go in the green",
     };
-    this.hint.textContent = !step ? "" : this.active && this.active === need ? hints[this.active] ?? "" : "Pick a tool 👇";
+    this.hint.textContent = !step ? "" : this.active && this.active === need ? hints[this.active] ?? "" : "Pick a tool";
   }
 
   // ---------- tools ----------
