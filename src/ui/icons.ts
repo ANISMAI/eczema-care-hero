@@ -17,9 +17,48 @@ export type IconName =
   | "scrub"
   | "lens"
   | "phone"
-  | "basket";
+  | "basket"
+  | "gloves"
+  | "plaster"
+  | "gauze"
+  | "cream-tub"
+  | "mask"
+  | "sunscreen"
+  | "cotton-pads"
+  | "sanitiser";
 
 const ICONS: Record<IconName, string> = {
+  gloves:
+    `<path d="M16 42v-6L7 25c-2-3 2-7 5-4l4 4V13a3 3 0 0 1 6 0v10V8a3 3 0 0 1 6 0v15V11a3 3 0 0 1 6 0v14V18a3 3 0 0 1 6 0v13q0 5-6 8v3Z" fill="#8bc8ec" ${line}/>` +
+    `<path d="M17 36h17" fill="none" ${line}/><path d="M19 29v3m5-5v5" stroke="#eaf8ff" stroke-width="2.5" stroke-linecap="round"/>`,
+  plaster:
+    `<g transform="rotate(-35 24 24)"><rect x="5" y="15" width="38" height="18" rx="7" fill="#edba88" ${line}/>` +
+    `<rect x="17" y="17" width="14" height="14" rx="3" fill="#fff3e5" ${line}/>` +
+    `<g fill="#a7734d"><circle cx="11" cy="21" r="1.3"/><circle cx="11" cy="27" r="1.3"/><circle cx="37" cy="21" r="1.3"/><circle cx="37" cy="27" r="1.3"/></g></g>`,
+  gauze:
+    `<path d="M11 12h18v27H7v-8h4Z" fill="#fffdf5" ${line}/>` +
+    `<path d="M13 18h10m-10 5h10m-10 5h10m-12 6h12" stroke="#c8d1dc" stroke-width="1.5"/>` +
+    `<ellipse cx="29" cy="25.5" rx="11" ry="14.5" fill="#f4f0e7" ${line}/><ellipse cx="29" cy="25.5" rx="4" ry="7" fill="#c8c5c3" ${line}/>` +
+    `<path d="M24 16q5-4 9 1" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>`,
+  "cream-tub":
+    `<path d="M9 19h30v16q0 7-15 7T9 35Z" fill="#c5ecdf" ${line}/>` +
+    `<rect x="7" y="11" width="34" height="11" rx="4" fill="#73b4b5" ${line}/><path d="M12 15h24" stroke="#d9f5ef" stroke-width="2" stroke-linecap="round"/>` +
+    `<rect x="14" y="26" width="20" height="10" rx="2" fill="#fff"/><path d="M21 31h6m-3-3v6" stroke="#559c9c" stroke-width="2" stroke-linecap="round"/>`,
+  mask:
+    `<path d="M10 18C0 13 1 32 11 32m27-14c10-5 9 14-1 14" fill="none" ${line}/>` +
+    `<path d="M10 14q14 4 28 0v19q-14 9-28 0Z" fill="#9dd7eb" ${line}/>` +
+    `<path d="M15 21q9 3 18 0m-18 6q9 3 18 0m-16 6q7 2 14 0" fill="none" stroke="#5f9fb9" stroke-width="2" stroke-linecap="round"/>`,
+  sunscreen:
+    `<path d="M12 7h24l-3 29H15Z" fill="#ffe3a0" ${line}/><path d="M13 13h22" fill="none" ${line}/>` +
+    `<rect x="15" y="36" width="18" height="7" rx="2" fill="#f7b75d" ${line}/>` +
+    `<circle cx="24" cy="24" r="5" fill="#f2a638"/><path d="M24 15v2m0 14v2m-9-9h2m14 0h2m-15-6 1.5 1.5m9 9L30 30m-12 0 1.5-1.5m9-9L30 18" stroke="#d98c25" stroke-width="2" stroke-linecap="round"/>`,
+  "cotton-pads":
+    `<ellipse cx="24" cy="33" rx="17" ry="9" fill="#e6e5ed" ${line}/><ellipse cx="24" cy="26" rx="17" ry="9" fill="#f3edf5" ${line}/>` +
+    `<ellipse cx="24" cy="19" rx="17" ry="10" fill="#fffafc" ${line}/><path d="M14 19q10-9 20 0m-18 5q8-5 16 0" fill="none" stroke="#e5dbe7" stroke-width="1.8" stroke-linecap="round"/>`,
+  sanitiser:
+    `<path d="M21 5h15v5H25v5" fill="#b9c8da" ${line}/><rect x="18" y="12" width="12" height="7" rx="2" fill="#d4dfeb" ${line}/>` +
+    `<rect x="11" y="19" width="26" height="24" rx="6" fill="#a8dce7" ${line}/><rect x="15" y="25" width="18" height="12" rx="3" fill="#effafd"/>` +
+    `<path d="M24 27q-7 8 0 8q7 0 0-8Z" fill="#67a9c3"/><path d="M15 23v12" stroke="#fff" stroke-width="2" stroke-linecap="round"/>`,
   // a bar of gentle soap with bubbles
   soap:
     `<ellipse cx="24" cy="38" rx="15" ry="3" fill="#000" opacity="0.08"/>` +

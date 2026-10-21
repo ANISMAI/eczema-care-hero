@@ -1,0 +1,67 @@
+.case-card.incident-panel.printer-panel { width: min(860px, 100%); }
+.case-card.printer-panel .case-body { display: flex; flex-direction: column; gap: 10px; }
+.printer-copy { display: flex; align-items: center; gap: 14px; }
+.printer-story { flex: 0 1 40%; padding: 8px 12px; border: 2px solid #b3c6e2; border-radius: 14px 14px 14px 3px; background: #dce9fa; color: #354c70; font-size: 13px; font-weight: 800; line-height: 1.35; }
+.printer-copy .incident-instruction { flex: 1; margin: 0; font-size: 13px; }
+.printer-panel .printer-stage { height: clamp(215px, 40dvh, 330px); border: 3px solid #93aecb; background: linear-gradient(#cad9eb 0 8%, transparent 8%), repeating-linear-gradient(90deg, transparent 0 79px, #b8c9de55 79px 80px), #e4edf8; box-shadow: inset 0 12px 0 #b7cbe2; touch-action: none; user-select: none; }
+.printer-panel .incident-printer { z-index: 1; left: 22%; top: 16%; width: 38%; max-width: 280px; height: 44%; min-height: 70px; border: 3px solid #546981; border-radius: 14px 14px 10px 10px; background: linear-gradient(#d7e2ee 0 35%, #a7bdd5 35%); box-shadow: 0 7px 0 #819bb6, 0 11px 10px #53678326; }
+.printer-panel .printer-input { left: 22%; top: -21%; width: 48%; height: 34%; border: 2px solid #8099b7; border-radius: 3px 3px 0 0; background: repeating-linear-gradient(#fff 0 8px, #c4d1df 8px 10px); box-shadow: 0 3px 0 #8ba2bd; }
+.printer-panel .printer-slot { left: 10%; bottom: 12%; width: 54%; height: 12%; min-height: 8px; border: 2px solid #627890; border-radius: 5px; background: #304258; }
+.printer-panel .printer-light { left: 12%; right: auto; top: 18%; width: 10px; height: 10px; border: 2px solid #438a6e; background: #68da9a; }
+.printer-panel .printer-stop { left: auto; right: 7%; top: 14%; width: 50px; min-width: 44px; height: 44px; min-height: 44px; padding: 3px; border: 2px solid #fff1f4; border-radius: 8px; background: #bd3d5f; font-size: 10px; line-height: 1; box-shadow: 0 3px 0 #84324a; }
+.printer-panel .printer-stop:disabled { background: #777c91; box-shadow: 0 3px 0 #536078; }
+.printer-panel .stopped .printer-light { background: #7c8c9c; border-color: #617389; }
+.printer-panel .printer-sheet { z-index: 3; width: 52px; height: 64px; min-width: 44px; min-height: 44px; border: 2px solid #7e9bc0; border-radius: 4px; background: #fffefa; box-shadow: 0 3px 0 #a3b6cf, 0 5px 8px #53678320; transform: translate(-50%, -50%) rotate(var(--tilt)); touch-action: none; cursor: grab; transition: left .24s ease, top .24s ease, transform .24s ease, opacity .24s ease; }
+.printer-panel .printer-sheet:disabled { opacity: 1; cursor: default; }
+.printer-paper-lines { display: block; width: 65%; height: 65%; margin: auto; border-top: 5px solid #91a9c8; background: repeating-linear-gradient(transparent 0 7px, #b7c7db 7px 9px); pointer-events: none; }
+.printer-panel .printer-sheet.dragging { z-index: 5; transform: translate(-50%, -50%) rotate(0); box-shadow: 0 5px 12px #49698c60; cursor: grabbing; transition: none; }
+.printer-panel .printer-sheet.collecting { z-index: 5; transform: translate(-50%, -50%) rotate(0) scale(.7); opacity: 0; }
+.printer-panel .printer-sheet.collected { visibility: hidden; }
+.printer-panel .printer-sheet:focus-visible, .printer-panel .printer-stop:focus-visible { outline: 3px dashed #7851b0; outline-offset: 3px; }
+.printer-panel .printer-tray { z-index: 4; left: auto; right: 3%; top: 19%; bottom: auto; width: 25%; height: 36%; min-width: 80px; min-height: 68px; border: 0; border-radius: 0; background: transparent; color: #293544; display: block; box-shadow: none; }
+.printer-tray-frame { position: absolute; inset: 0; pointer-events: none; filter: drop-shadow(0 3px 2px #34425135); }
+.printer-tray-frame svg { display: block; width: 100%; height: 100%; }
+.printer-panel .printer-tray.ready { background: transparent; box-shadow: none; }
+.printer-tray.ready .printer-tray-frame { filter: drop-shadow(0 0 5px #568bca); }
+.printer-tray-front { position: absolute; right: 12%; bottom: 2%; left: 8%; z-index: 3; display: flex; justify-content: center; align-items: center; gap: 5px; padding: 2px 3px; border: 1px solid #4d5864; border-radius: 3px; background: #edf0f3; box-shadow: 0 1px 0 #38424c; }
+.printer-tray-title { font-size: 8px; font-weight: 900; line-height: 1; text-align: center; }
+.printer-count { flex: none; font-size: 11px; font-weight: 900; line-height: 1.2; }
+.printer-drop-target { position: absolute; inset: 27% 16% 25%; z-index: 2; display: grid; place-items: center; font-size: 24px; color: #40556d; text-shadow: 0 1px #fff; transform: skewX(-14deg); }
+.printer-tray.ready .printer-drop-target { color: #236db4; }
+.printer-paper-stack { position: absolute; top: 30%; right: 15%; bottom: 23%; left: 16%; z-index: 1; transform: skewX(-14deg); }
+.printer-filed-sheet { position: absolute; inset: 0; border: 1px solid #9ca9b7; border-radius: 1px; background: repeating-linear-gradient(#fffefa 0 8px, #d0d9e4 8px 10px); transform: translate(calc(var(--stack-index) * 1px), calc(var(--stack-index) * -3px)); box-shadow: 0 2px 0 #bdc6d0; }
+.printer-panel .printer-confetti { z-index: 2; }
+.printer-panel .printer-confetti i { left: 42%; top: 43%; width: 24px; height: 32px; border: 1px solid #819dbf; border-radius: 2px; background: repeating-linear-gradient(#fffefa 0 7px, #c1cfe0 7px 9px); animation: printer-eject 2.2s calc(var(--i) * -.55s) ease-out infinite; }
+.printer-keyboard-hint { display: block; margin-top: 7px; color: var(--ink-soft); font-size: 10px; text-align: center; }
+.printer-panel .case-footer .secondary-btn { min-height: 44px; padding: 8px 10px; font-size: 12px; }
+@keyframes printer-eject { from { left: 42%; top: 43%; opacity: 0; transform: translate(-50%, -50%) rotate(0); } 12% { opacity: 1; } 80% { opacity: .9; } to { left: var(--landing-x); top: var(--landing-y); opacity: 0; transform: translate(-50%, -50%) rotate(28deg); } }
+@media (max-width: 520px) {
+  .printer-copy { flex-direction: column; align-items: stretch; gap: 7px; }
+  .printer-story { flex-basis: auto; padding: 7px 10px; font-size: 12px; }
+  .printer-copy .incident-instruction { font-size: 12px; }
+  .printer-panel .printer-stage { height: clamp(220px, 37dvh, 320px); }
+  .printer-panel .incident-printer { left: 8%; width: 52%; height: 40%; }
+  .printer-panel .printer-slot { left: 8%; width: 42%; }
+  .printer-panel .printer-tray { right: 3%; top: 18%; width: 30%; height: 31%; }
+  .printer-tray-title { display: none; }
+  .printer-panel .printer-sheet { width: 46px; height: 58px; }
+  .printer-keyboard-hint { display: none; }
+}
+@media (orientation: landscape) and (max-height: 500px) {
+  .case-card.printer-panel .case-body { padding: 8px 12px; gap: 7px; }
+  .printer-story { padding: 6px 10px; font-size: 12px; }
+  .printer-copy .incident-instruction { font-size: 12px; }
+  .printer-panel .printer-stage { height: clamp(124px, calc(100dvh - 222px), 260px); }
+  .printer-panel .incident-printer { top: 14%; height: 49%; }
+  .printer-panel .printer-slot { left: 8%; width: 42%; }
+  .printer-panel .printer-sheet { width: 44px; height: 50px; }
+  .printer-panel .printer-tray { top: 14%; height: 48%; }
+  .printer-keyboard-hint { display: none; }
+}
+@media (orientation: landscape) and (max-height: 360px) {
+  .case-card.printer-panel .case-body { padding: 6px 12px; gap: 5px; }
+  .printer-story { padding: 4px 8px; }
+  .printer-panel .printer-stage { height: 120px; }
+  .printer-panel .printer-tray { top: 4%; height: 44%; min-height: 56px; }
+  .printer-panel .printer-drop-target { font-size: 18px; line-height: 1; }
+}

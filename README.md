@@ -15,7 +15,8 @@ Two new incidents join the five existing mini-games, which retain their interact
   hold Space to guide from one spot. A route bar follows the journey to the door. Amy reacts
   afterwards; repeat appearances use alternate dialogue.
 - **Printer Gone Crazy / Pencetak Buat Hal (Staff Office):** interact at the **Office printer**,
-  tap STOP, then tap four loose sheets to collect them in the paper tray. The printer is a
+  tap STOP on the printer, then drag four loose sheets into the paper tray. Missed drops
+  return to their starting positions; Enter/Space on a focused sheet also files it. The printer is a
   separate target from the End Shift desk; existing furniture, collisions and room geometry
   are unchanged.
 
@@ -68,7 +69,8 @@ Run `npm test` for scheduler and broom-guiding regression tests (tested with Nod
    no care-point change, and cleared markers. Check dragging, arrow keys and releasing the broom.
    Let the same incident recur after its 180-minute cooldown; check alternate dialogue. Try
    Later, Close, Skip and ignoring a request until staff resolution.
-3. Repeat with `event=printer-panic`: STOP, collect four sheets, Done. Verify the Staff Desk's
+3. Repeat with `event=printer-panic`: STOP, drag four sheets into the tray, Done. Try a missed
+   drop, cancel a drag, and check Enter/Space as an alternative. Verify the Staff Desk's
    End Shift action remains distinct. Check EN/BM and 568×320 landscape / phone portrait.
 4. Complete each of the five original events. Use a care tray while Amy is busy; if the event
    is delayed, let her clean it herself and confirm its stale request disappears.

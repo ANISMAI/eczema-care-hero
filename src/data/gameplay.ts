@@ -80,7 +80,7 @@ export function eventConfig(): EventConfig {
 export const COMEDY = {
   printerStopMs: 1800,
   printerSheets: 4,
-  paperCollectMs: 2000,
+  paperCollectMs: 280,
   staffResolveMs: 30000,
 } as const;
 

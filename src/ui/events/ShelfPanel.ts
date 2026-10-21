@@ -1,9 +1,10 @@
 import Overlay, { el, feedback } from "../case/Overlay";
+import { icon, type IconName } from "../icons";
 import type { EventOutcome, EventPanel, EventRewards } from "../../events/types";
 
 interface Supply {
   id: string;
-  icon: string;
+  icon: IconName;
   label: string;
 }
 
@@ -30,17 +31,17 @@ export const RESTOCK: ShelfConfig = {
   avatar: "assets/portraits/ravi.webp",
   subtitle: "Encik Ravi · Storage",
   supplies: [
-    { id: "gloves", icon: "🧤", label: "Gloves" },
-    { id: "plasters", icon: "🩹", label: "Plasters" },
-    { id: "gauze", icon: "🧻", label: "Gauze" },
-    { id: "cream", icon: "🧴", label: "Cream tubs" },
-    { id: "wash", icon: "🧼", label: "Gentle wash" },
-    { id: "masks", icon: "😷", label: "Masks" },
+    { id: "gloves", icon: "gloves", label: "Gloves" },
+    { id: "plasters", icon: "plaster", label: "Plasters" },
+    { id: "gauze", icon: "gauze", label: "Gauze" },
+    { id: "cream", icon: "cream-tub", label: "Cream tubs" },
+    { id: "wash", icon: "soap", label: "Gentle wash" },
+    { id: "masks", icon: "mask", label: "Masks" },
   ],
   missing: 1,
   decoys: 2,
   speech: ([l]) => `We've run out on one shelf. Find the box labelled "${l}" and put it in the empty slot.`,
-  doneSpeech: "Shelf's full again. Thanks for the help! 📦",
+  doneSpeech: "Shelf's full again. Thanks for the help!",
   doneLabel: "Restocked",
   confirmLabel: "Confirm restock",
 };
@@ -51,17 +52,17 @@ export const PHARMACY_SORT: ShelfConfig = {
   avatar: "assets/portraits/grace.webp",
   subtitle: "Grace · Pharmacy",
   supplies: [
-    { id: "cream", icon: "🧴", label: "Moisturising cream" },
-    { id: "wash", icon: "🧼", label: "Gentle cleanser" },
-    { id: "sun", icon: "🌞", label: "Sunscreen" },
-    { id: "plasters", icon: "🩹", label: "Plasters" },
-    { id: "pads", icon: "🧻", label: "Cotton pads" },
-    { id: "gel", icon: "🫧", label: "Hand sanitiser" },
+    { id: "cream", icon: "cream-tub", label: "Moisturising cream" },
+    { id: "wash", icon: "soap", label: "Gentle cleanser" },
+    { id: "sun", icon: "sunscreen", label: "Sunscreen" },
+    { id: "plasters", icon: "plaster", label: "Plasters" },
+    { id: "pads", icon: "cotton-pads", label: "Cotton pads" },
+    { id: "gel", icon: "sanitiser", label: "Hand sanitiser" },
   ],
   missing: 3,
   decoys: 0,
   speech: () => "A delivery got mixed up and these ended up on the counter. Can you put each one back where its label says?",
-  doneSpeech: "Everything's back in its place. Now I can find things quickly! 💊",
+  doneSpeech: "Everything's back in its place. Now I can find things quickly!",
   doneLabel: "Shelf sorted",
   confirmLabel: "Shelf looks right",
 };
@@ -78,7 +79,7 @@ export default class ShelfPanel implements EventPanel {
   private cfg: ShelfConfig;
 
   constructor(parent: HTMLElement, cfg: ShelfConfig) {
-    this.overlay = new Overlay(parent, "event-panel");
+    this.overlay = new Overlay(parent, "event-panel shelf-event");
     this.cfg = cfg;
   }
 
@@ -119,7 +120,10 @@ export default class ShelfPanel implements EventPanel {
       const empty = missing.includes(i);
       const slot = el("div", empty ? "shelf-slot empty" : "shelf-slot");
       slot.dataset.slot = String(i);
-      slot.append(el("span", "shelf-item", empty ? "" : s.icon), el("span", "shelf-label", s.label));
+      const graphic = el("span", "shelf-item");
+      graphic.setAttribute("aria-hidden", "true");
+      if (!empty) graphic.innerHTML = icon(s.icon);
+      slot.append(graphic, el("span", "shelf-label", s.label));
       if (empty) {
         slot.setAttribute("role", "button");
         slot.tabIndex = 0;
@@ -154,7 +158,7 @@ export default class ShelfPanel implements EventPanel {
       b.classList.add("gone");
       const s = slotEls.get(slot)!;
       s.classList.add("filled");
-      s.querySelector(".shelf-item")!.textContent = box.icon;
+      s.querySelector(".shelf-item")!.innerHTML = icon(box.icon);
       select(null);
       const left = c.missing - filled.size;
       note.replaceChildren(feedback(left ? `Labels match! ${left} to go.` : "Labels match. All done!", "good"));
@@ -164,7 +168,10 @@ export default class ShelfPanel implements EventPanel {
     const trayEl = el("div", "box-tray");
     for (const s of tray) {
       const b = el("button", "supply-box");
-      b.append(el("span", "supply-icon", s.icon), el("span", "supply-label", s.label));
+      const graphic = el("span", "supply-icon");
+      graphic.setAttribute("aria-hidden", "true");
+      graphic.innerHTML = icon(s.icon);
+      b.append(graphic, el("span", "supply-label", s.label));
       b.setAttribute("aria-label", `Box: ${s.label}`);
       boxEls.set(s.id, b);
       trayEl.append(b);
@@ -233,13 +240,13 @@ export default class ShelfPanel implements EventPanel {
       outcome = "resolved";
       const ok = el("button", "primary-btn wide", "Done");
       ok.addEventListener("click", () => this.overlay.close());
-      this.overlay.body.replaceChildren(el("div", "case-speech", c.doneSpeech), feedback(`${c.doneLabel} · +${rewards.coins} 🪙  +${rewards.xp} XP`, "good"));
+      this.overlay.body.replaceChildren(el("div", "case-speech", c.doneSpeech), feedback(`${c.doneLabel} · +${rewards.coins} coins · +${rewards.xp} XP`, "good"));
       this.overlay.footer.replaceChildren(ok);
     });
 
     const actions = el("div", "event-actions");
     actions.append(later, confirm);
-    const caption = el("div", "tray-caption", c.missing > 1 ? "Drag each box to its empty slot 👆" : "Drag a box to the empty slot 👆");
+    const caption = el("div", "tray-caption", c.missing > 1 ? "Drag each box to its empty slot" : "Drag a box to the empty slot");
     this.overlay.body.replaceChildren(speech, shelf, caption, trayEl, note);
     this.overlay.footer.replaceChildren(actions, skip);
     this.overlay.open(() => {
