@@ -6,6 +6,8 @@ import "./ui/case/case.css";
 import "./ui/case/care.css";
 import "./ui/title.css";
 import "./ui/howto.css";
+import "./ui/briefing.css";
+import "./ui/clockin.css";
 import TitleScreen from "./ui/TitleScreen";
 import { resetAllProgress } from "./game/settings";
 

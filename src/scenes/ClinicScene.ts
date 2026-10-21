@@ -16,6 +16,9 @@ import Amenities from "../systems/Amenities";
 import Announcement from "../ui/case/Announcement";
 import CaseDialog from "../ui/case/CaseDialog";
 import ShiftSummary from "../ui/ShiftSummary";
+import ShiftBriefing from "../ui/ShiftBriefing";
+import { playClockIn } from "../ui/ClockIn";
+import { STAFF } from "../data/staff";
 import Progress from "../systems/Progress";
 import EventDirector from "../events/EventDirector";
 import { eventBus } from "../game/EventBus";
@@ -91,6 +94,9 @@ export default class ClinicScene extends Phaser.Scene {
   private queueKey = "";
   private trays!: CareTrays;
   private shiftSummary!: ShiftSummary;
+  private briefing!: ShiftBriefing;
+  /** The briefing card opened the doctor picker: go back to the card afterwards. */
+  private backToBriefing = false;
   private shiftDialog!: CaseDialog;
   /** The clock reached 5:00 PM while a panel was open; end the shift once it closes. */
   private shiftEndPending = false;
@@ -204,9 +210,11 @@ export default class ClinicScene extends Phaser.Scene {
       this.hud.root.classList.remove("hud-off");
       this.inputLocked = false;
       this.hud.showRoomToast(this.roomLabel(findRoomAt(this.player.x, this.player.y)?.id ?? null));
-      // first launch: choose a doctor; refreshed during the day's summary: show it again
+      // first launch: choose a doctor; refreshed during the day's summary: show it again;
+      // otherwise the day's briefing card (the clinic opens when the player starts the shift)
       if (!this.character) this.openCharacterSelect(true);
       else if (this.progress.snapshot.shiftEnded) this.showShiftSummary();
+      else if (this.preShift) this.showBriefing();
     };
     if (!ms) {
       cam.setZoom(RENDER_SCALE);
@@ -303,6 +311,7 @@ export default class ClinicScene extends Phaser.Scene {
       onAvatarTap: () => this.openProfile(),
       onStaffTap: () => this.openStaffDirectory(),
       onObjectiveTap: () => this.goToObjective(),
+      onStartShiftTap: () => this.showBriefing(),
     });
     this.hud.setAvatar(this.character);
     this.miniMap = new MiniMap(this.hud.miniMapMount);
@@ -313,10 +322,14 @@ export default class ClinicScene extends Phaser.Scene {
     this.dialog = new Dialog(uiRoot);
     this.shiftDialog = new CaseDialog(uiRoot);
     this.shiftSummary = new ShiftSummary(uiRoot);
+    this.briefing = new ShiftBriefing(uiRoot);
     this.characterSelect = new CharacterSelect(
       uiRoot,
       (id) => this.chooseCharacter(id),
-      () => (this.inputLocked = false)
+      () => {
+        this.inputLocked = false;
+        this.returnToBriefing();
+      }
     );
     this.staffDirectory = new StaffDirectory(uiRoot, {
       onFind: (card) => this.findStaff(card),
@@ -412,6 +425,9 @@ export default class ClinicScene extends Phaser.Scene {
     // First run of the living clinic on an older save: the saved clock may be late in the day
     // (after the last arrival), so start this day fresh at 8:00 AM for a full day of patients.
     if (this.flow.isNewSave && !this.progress.snapshot.shiftEnded) this.clock.reset();
+    // left the game during a shift: that day starts over (from 7:45, at the entrance)
+    if (this.progress.shiftUnfinished) this.restartDay();
+    if (this.preShift) this.clock.setBeforeOpening();
     this.amenities = new Amenities({
       uiRoot,
       canPray: () => (this.character ?? CHARACTERS[0]).prays,
@@ -469,7 +485,7 @@ export default class ClinicScene extends Phaser.Scene {
     if (this.caseRunner.handle(item)) return;
     if (this.clinicEvents.handle(item)) return;
     if (this.trays.handle(item)) return;
-    if (item.id === SHIFT_DESK) return this.confirmEndShift();
+    if (item.id === SHIFT_DESK && !this.preShift) return this.confirmEndShift();
     if (this.caseRunner.hint(item)) return;
     this.lockInput();
     this.dialog.open(item.dialogTitle, item.dialogText, item.icon, () => {
@@ -483,7 +499,7 @@ export default class ClinicScene extends Phaser.Scene {
       this.caseRunner.actionLabel(item) ??
       this.clinicEvents.actionLabel(item) ??
       this.trays.actionLabel(item) ??
-      (item.id === SHIFT_DESK ? t("close.action") : null)
+      (item.id === SHIFT_DESK && !this.preShift ? t("close.action") : null)
     );
   }
 
@@ -535,11 +551,82 @@ export default class ClinicScene extends Phaser.Scene {
     });
   }
 
+  /** After the summary: a new day, the clinic closed until the player starts the shift. */
   private startNextShift(): void {
     this.progress.startNextShift();
     this.flow.openDay(this.progress.shift);
     this.clinicEvents.startShift(this.progress.shift);
     this.trays.reset();
+    this.clock.setBeforeOpening();
+    this.inputLocked = false;
+    this.caseRunner.refreshObjective();
+    this.persist();
+    this.showBriefing();
+  }
+
+  /** The same day again, from before opening: no patients, no events, clean trays. */
+  private restartDay(): void {
+    this.caseRunner.closeDay();
+    this.progress.restartDay();
+    this.flow.openDay(this.progress.shift);
+    this.clinicEvents.startShift(this.progress.shift);
+    this.trays.reset();
+    this.clock.setBeforeOpening();
+    this.caseRunner.refreshObjective(); // the old "call the next patient" banner goes too
+    const start = ROOMS.find((r) => r.id === "reception")!.spawn;
+    this.player.teleportTo(start.x, start.y);
+    this.currentRoomId = "reception";
+    this.persist();
+  }
+
+  /** Before the day's shift has started (the clinic is closed, nothing runs yet). */
+  private get preShift(): boolean {
+    const p = this.progress.snapshot;
+    return !p.shiftStarted && !p.shiftEnded;
+  }
+
+  /** The day's briefing card: who is on duty, a few facts, Start shift. */
+  private showBriefing(): void {
+    if (!this.preShift || this.briefing.isOpen || !this.character) return;
+    this.navigation.cancel();
+    this.lockInput();
+    const card = STAFF.find((c) => c.characterId === this.character!.id);
+    this.briefing.open({
+      day: this.progress.shift,
+      time: this.clock.label(),
+      doctor: { name: card?.name ?? this.character.label, portrait: card?.portrait ?? "" },
+      trays: { clean: this.trays.clean, total: TRAYS.count },
+      prayerReminders: prayerReminders(),
+      onStart: () => this.startShift(),
+      onChangeDoctor: () => {
+        this.backToBriefing = true;
+        this.characterSelect.open(this.character?.id, false);
+      },
+      onExplore: () => {
+        this.inputLocked = false;
+        this.hud.showRoomToast(`☀️  ${t("brief.notOpen")}`);
+      },
+    });
+  }
+
+  /** After the doctor picker that the briefing opened: show the briefing again. */
+  private returnToBriefing(): void {
+    if (!this.backToBriefing) return;
+    this.backToBriefing = false;
+    this.showBriefing();
+  }
+
+  /** "Start shift": the fingerprint clock-in, then the clinic opens at 8:00. */
+  private startShift(): void {
+    this.lockInput();
+    const card = STAFF.find((c) => c.characterId === this.character?.id);
+    const name = card?.name ?? this.character?.label ?? "";
+    void playClockIn(document.getElementById("game-container")!, name, "8:00 AM").then(() => this.openClinic());
+  }
+
+  /** The clinic opens at 8:00, patients start arriving. */
+  private openClinic(): void {
+    this.progress.startShift();
     this.clock.reset();
     this.inputLocked = false;
     this.caseRunner.refreshObjective();
@@ -619,6 +706,9 @@ export default class ClinicScene extends Phaser.Scene {
     this.hud.setAvatar(this.character);
     this.inputLocked = false;
     this.persist();
+    // first launch, or "Change doctor" on the briefing card: (back) to the briefing
+    if (this.preShift) this.backToBriefing = true;
+    this.returnToBriefing();
   }
 
   /** Avatar button: the player's own staff ID card (the picker only opens on first launch). */
@@ -710,7 +800,8 @@ export default class ClinicScene extends Phaser.Scene {
     const playerPos = { x: this.player.x, y: this.player.y };
     for (const npc of this.poseNpcs) npc.update(delta, playerPos);
     for (const walker of this.walkers) walker.update(delta, playerPos, this.inputLocked);
-    this.flow.update(delta, this.inputLocked);
+    const paused = this.inputLocked || this.preShift;
+    this.flow.update(delta, paused);
     const queue = this.flow.queue();
     this.queuePanel.update(queue);
     const queueKey = queue.map((q) => q.instanceId).join(",");
@@ -720,10 +811,11 @@ export default class ClinicScene extends Phaser.Scene {
       this.caseRunner.refreshObjective();
     }
     this.caseRunner.update();
-    this.clinicEvents.update(delta, this.inputLocked);
-    this.trays.update(delta, this.inputLocked);
+    this.clinicEvents.update(delta, paused);
+    this.trays.update(delta, paused);
     if (this.shiftEndPending && !this.inputLocked) this.endShift();
-    if (!this.inputLocked) this.clock.tick(delta);
+    if (!paused) this.clock.tick(delta);
+    this.hud.setStartShift(this.preShift && !this.onTitle && !this.briefing.isOpen);
     this.hud.setClock(`${t("hud.day", { day: this.progress.shift })} · ${this.clock.label()}`);
     this.amenities.update(room?.id ?? null);
     for (const item of [...WALKER_NPCS.map((d) => d.talk), ...this.dynamic]) {

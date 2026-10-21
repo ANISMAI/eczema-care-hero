@@ -45,6 +45,13 @@ export interface ProgressState {
   shift: number;
   /** The shift has been closed and its summary is showing (survives a refresh). */
   shiftEnded: boolean;
+  /**
+   * The player pressed "Start shift" today. Before that the clinic is not open yet: the clock
+   * waits at 7:45 and no patients arrive (the doctor can look around or change doctor).
+   */
+  shiftStarted: boolean;
+  /** Totals when today's shift started, to roll back an unfinished shift. */
+  dayStart?: { xp: number; coins: number; arcadeCoins: number; careTotal: number };
   xp: number;
   coins: number;
   arcadeCoins: number;
@@ -71,7 +78,7 @@ function emptyTally(): ShiftTally {
 }
 
 function fresh(): ProgressState {
-  return { version: VERSION, shift: 1, shiftEnded: false, xp: 0, coins: 0, arcadeCoins: 0, careTotal: 0, current: emptyTally() };
+  return { version: VERSION, shift: 1, shiftEnded: false, shiftStarted: false, xp: 0, coins: 0, arcadeCoins: 0, careTotal: 0, current: emptyTally() };
 }
 
 function load(): ProgressState {
@@ -80,7 +87,8 @@ function load(): ProgressState {
     if (!raw) return fresh();
     const s = JSON.parse(raw) as ProgressState;
     if (s?.version !== VERSION || !(s.shift >= 1)) return fresh();
-    return { ...fresh(), ...s, current: { ...emptyTally(), ...s.current } };
+    // a save from before "Start shift" existed was already mid-day: keep it running
+    return { ...fresh(), ...s, shiftStarted: s.shiftStarted ?? true, current: { ...emptyTally(), ...s.current } };
   } catch {
     return fresh();
   }
@@ -162,9 +170,36 @@ export default class Progress {
   }
 
   /** Starts the next shift with an empty tally. */
+  /** "Start shift": the clinic opens for the day. */
+  startShift(): void {
+    if (this.state.shiftStarted) return;
+    this.state.shiftStarted = true;
+    const { xp, coins, arcadeCoins, careTotal } = this.state;
+    this.state.dayStart = { xp, coins, arcadeCoins, careTotal };
+    this.commit();
+  }
+
+  /** True if the player left during a shift (started, not closed). */
+  get shiftUnfinished(): boolean {
+    return this.state.shiftStarted && !this.state.shiftEnded;
+  }
+
+  /**
+   * The player left mid-shift: the same day starts over. Points, coins and XP earned in that
+   * unfinished shift are rolled back, so restarting can't be used to farm them.
+   */
+  restartDay(): void {
+    const d = this.state.dayStart;
+    if (d) Object.assign(this.state, d);
+    this.state.shiftStarted = false;
+    this.state.current = emptyTally();
+    this.commit();
+  }
+
   startNextShift(): void {
     this.state.shift += 1;
     this.state.shiftEnded = false;
+    this.state.shiftStarted = false;
     this.state.current = emptyTally();
     this.commit();
   }

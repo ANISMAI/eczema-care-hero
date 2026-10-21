@@ -13,6 +13,8 @@ export interface HUDCallbacks {
   onStaffTap: () => void;
   /** Objective banner tapped: take the player to the next destination. */
   onObjectiveTap: () => void;
+  /** "Start shift" button, shown before the clinic opens. */
+  onStartShiftTap: () => void;
 }
 
 /** Mobile HUD: top-left stats, top-right mini-map mount, bottom-left joystick, bottom-right interact. */
@@ -21,6 +23,7 @@ export default class HUD {
   miniMapMount: HTMLButtonElement;
   /** Column under the stats: task card (objective + queue), then the event notice. */
   stack: HTMLDivElement;
+  private startShiftBtn: HTMLButtonElement;
   /** Where the doctor queue strip goes: its own panel under the mini-map. */
   queueMount: HTMLDivElement;
   private interactBtn: HTMLButtonElement;
@@ -145,7 +148,12 @@ export default class HUD {
     const card = document.createElement("div");
     card.className = "task-card";
     card.append(this.objective);
-    this.stack.append(card);
+    // before the clinic opens: a big Start shift button where the task card goes
+    this.startShiftBtn = document.createElement("button");
+    this.startShiftBtn.className = "hud-start-shift hidden";
+    this.startShiftBtn.textContent = `▶  ${t("brief.start")}`;
+    this.startShiftBtn.addEventListener("click", callbacks.onStartShiftTap);
+    this.stack.append(this.startShiftBtn, card);
 
     // Doctor queue: its own horizontal panel under the mini-map (QueuePanel mounts here)
     this.queueMount = document.createElement("div");
@@ -261,6 +269,11 @@ export default class HUD {
     this.avatarFace.style.backgroundSize = `${fw * 3}px ${sheet.frameHeight * 4 * scale}px`;
     this.avatarFace.style.backgroundPosition = `${20 - fw / 2}px ${-sheet.rows.down * sheet.frameHeight * scale - 2}px`;
     this.avatarBtn.setAttribute("aria-label", `My profile (${character.label})`);
+  }
+
+  /** Shows the Start shift button (before the clinic opens), or hides it. */
+  setStartShift(on: boolean): void {
+    this.startShiftBtn.classList.toggle("hidden", !on);
   }
 
   setClock(text: string): void {

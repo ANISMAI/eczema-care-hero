@@ -15,7 +15,18 @@ pharmacy, a bakery, a fountain plaza, a field, a pond and woods. Then the title 
 PLAY dives into the clinic's front door, a soft flash as we step inside, then the clinic interior
 from above (in landscape, the entrance side, larger), and finally the camera zooms down to the
 doctor; a new player then picks a doctor.
-Title menu: **PLAY**, then **How to play** (six swipeable cards), **Badges** (an empty shelf for
+**Before the shift:** ENTER takes the doctor inside, but the clinic isn't open yet: the clock
+waits at 7:45 AM, no patients arrive, events and tray cleaning wait. A briefing card shows who is
+on duty (with **Change doctor**), a few facts about the day and a big **Start shift** button
+(8:00 AM, patients start arriving). "Look around first" closes it; a green Start shift button then
+stays in the HUD. Every new day starts like this.
+Leaving the game during a shift (closing or reloading the page, back to the title) restarts that
+day from 7:45 AM at the entrance: patients, events and the open case are cleared, and points,
+coins and XP earned in that unfinished shift are rolled back (`Progress.restartDay`). A day that
+was closed (summary) is kept. (`src/ui/ShiftBriefing.ts`,
+`Progress.shiftStarted`.)
+
+Title menu: **ENTER**, then **How to play** (six swipeable cards), **Badges** (an empty shelf for
 now; the collection comes later), **Language** and **Settings**.
 Settings: sound on/off (announcement chimes), prayer time reminders (announcements only), and
 "Start again" (erases saved progress, with a confirm tap).

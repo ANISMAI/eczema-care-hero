@@ -1,0 +1,257 @@
+/* ---------- Start shift: fingerprint clock-in on a dark screen (ui/ClockIn.ts) ---------- */
+
+.clockin {
+  position: absolute;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  background: radial-gradient(ellipse at 50% 45%, #1d2a44 0%, #0b1120 70%);
+  color: #ffffff;
+  font-family: var(--font);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 0.4s ease;
+}
+
+.clockin.in {
+  opacity: 1;
+}
+
+.clockin.out {
+  opacity: 0;
+}
+
+/* the scanner: a rounded device with a glowing glass pad */
+.ci-device {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 168px;
+  height: 196px;
+  border: 3px solid #3a4a6b;
+  border-radius: 34px;
+  background: linear-gradient(160deg, #2c3a58, #18223a);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5), inset 0 2px 0 rgba(255, 255, 255, 0.08);
+  transform: scale(0.9);
+  transition: transform 0.5s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+
+.clockin.in .ci-device {
+  transform: scale(1);
+}
+
+.ci-pad {
+  position: relative;
+  width: 112px;
+  height: 138px;
+  overflow: hidden;
+  border: 2px solid #4fd1ff;
+  border-radius: 46px;
+  background: radial-gradient(ellipse at 50% 40%, rgba(79, 209, 255, 0.22), rgba(79, 209, 255, 0.04) 70%);
+  box-shadow: 0 0 22px rgba(79, 209, 255, 0.45), inset 0 0 18px rgba(79, 209, 255, 0.25);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+}
+
+.ci-print {
+  position: absolute;
+  inset: 8px 10px;
+  width: calc(100% - 20px);
+  height: calc(100% - 16px);
+}
+
+/* ridges draw in one after another */
+.ci-print path {
+  fill: none;
+  stroke: #8fe3ff;
+  stroke-width: 3.2;
+  stroke-linecap: round;
+  stroke-dasharray: 160;
+  stroke-dashoffset: 160;
+  animation: ci-draw 0.9s ease-out forwards;
+  animation-delay: calc(var(--i) * 0.07s + 0.2s);
+  transition: stroke 0.3s ease;
+}
+
+@keyframes ci-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* the scan line sweeps up and down */
+.ci-scan {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 4px;
+  border-radius: 2px;
+  background: #b8f1ff;
+  box-shadow: 0 0 14px 4px rgba(79, 209, 255, 0.7);
+  animation: ci-sweep 0.75s ease-in-out infinite alternate;
+}
+
+@keyframes ci-sweep {
+  from {
+    top: 6%;
+  }
+  to {
+    top: 92%;
+  }
+}
+
+.ci-tick {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin: -28px 0 0 -28px;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  background: #2fb38a;
+  font-size: 30px;
+  font-weight: 900;
+  opacity: 0;
+  transform: scale(0.3);
+  transition: opacity 0.2s ease, transform 0.45s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+
+/* the little status light under the pad */
+.ci-light {
+  position: absolute;
+  bottom: 12px;
+  width: 26px;
+  height: 6px;
+  border-radius: 3px;
+  background: #f5a524;
+  box-shadow: 0 0 10px rgba(245, 165, 36, 0.8);
+  animation: ci-blink 0.5s steps(2) infinite;
+}
+
+@keyframes ci-blink {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.ci-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.ci-status {
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.ci-who {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.ci-skip {
+  position: absolute;
+  bottom: calc(18px + var(--safe-bottom));
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+/* clocked in: everything turns green, the tick pops */
+.clockin.done .ci-pad {
+  border-color: #4fd1a1;
+  background: radial-gradient(ellipse at 50% 40%, rgba(79, 209, 161, 0.3), rgba(79, 209, 161, 0.06) 70%);
+  box-shadow: 0 0 30px rgba(79, 209, 161, 0.7), inset 0 0 18px rgba(79, 209, 161, 0.3);
+}
+
+.clockin.done .ci-print path {
+  stroke: #9ff0cf;
+  stroke-dashoffset: 0;
+  animation: none;
+}
+
+.clockin.done .ci-scan {
+  display: none;
+}
+
+.clockin.done .ci-tick {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.clockin.done .ci-light {
+  background: #4fd1a1;
+  box-shadow: 0 0 12px rgba(79, 209, 161, 0.9);
+  animation: none;
+}
+
+.clockin.done .ci-status {
+  color: #9ff0cf;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .clockin {
+    gap: 12px;
+  }
+
+  .ci-device {
+    width: 128px;
+    height: 150px;
+    border-radius: 26px;
+  }
+
+  .ci-pad {
+    width: 86px;
+    height: 106px;
+    border-radius: 36px;
+  }
+
+  .ci-status {
+    font-size: 18px;
+  }
+}
+
+@media (min-width: 600px) and (min-height: 700px) {
+  .ci-device {
+    transform: scale(1.1);
+  }
+
+  .clockin.in .ci-device {
+    transform: scale(1.25);
+  }
+
+  .clockin {
+    gap: 44px;
+  }
+
+  .ci-status {
+    font-size: 28px;
+  }
+
+  .ci-who {
+    font-size: 18px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ci-print path {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+
+  .ci-scan,
+  .ci-light {
+    animation: none;
+  }
+}

@@ -18,7 +18,7 @@ export const LANGUAGES: { id: Lang; name: string; code: string }[] = [
 const STRINGS = {
   // ---------- title menu ----------
   "menu.tagline": { en: "A cosy clinic game", ms: "Permainan klinik yang santai" },
-  "menu.play": { en: "PLAY", ms: "MAIN" },
+  "menu.play": { en: "ENTER", ms: "MASUK" },
   "menu.continue": { en: "Continue · Day {day}", ms: "Sambung · Hari {day}" },
   "menu.howTo": { en: "How to play", ms: "Cara main" },
   "menu.badges": { en: "Badges", ms: "Lencana" },
@@ -82,6 +82,22 @@ const STRINGS = {
     en: "The clinic closes at 5 PM, or close it yourself at the Staff Office desk. Then see your day's results.",
     ms: "Klinik ditutup jam 5 petang, atau tutup sendiri di meja Pejabat Staf. Kemudian lihat keputusan hari anda.",
   },
+
+  // ---------- before the shift ----------
+  "brief.title": { en: "Day {day} shift", ms: "Shift Hari {day}" },
+  "brief.subtitle": { en: "{time} · The clinic opens at 8:00 AM", ms: "{time} · Klinik dibuka jam 8:00 pagi" },
+  "brief.today": { en: "On duty today", ms: "Bertugas hari ini" },
+  "brief.opens": { en: "Patients start arriving once you start your shift.", ms: "Pesakit mula tiba sebaik anda memulakan shift." },
+  "brief.patients": { en: "Call them in at the Consultation desk.", ms: "Panggil mereka masuk di meja Konsultasi." },
+  "brief.trays": { en: "Care trays: {clean}/{total} clean", ms: "Dulang rawatan: {clean}/{total} bersih" },
+  "brief.prayerOn": { en: "Prayer time reminders: on", ms: "Peringatan waktu solat: hidup" },
+  "brief.prayerOff": { en: "Prayer time reminders: off", ms: "Peringatan waktu solat: mati" },
+  "brief.start": { en: "Start shift", ms: "Mula shift" },
+  "brief.explore": { en: "Look around first", ms: "Teroka dulu" },
+  "clockin.scanning": { en: "Scanning…", ms: "Mengimbas…" },
+  "clockin.done": { en: "Clocked in!", ms: "Daftar masuk berjaya!" },
+  "clockin.skip": { en: "Tap to skip", ms: "Ketik untuk langkau" },
+  "brief.notOpen": { en: "The clinic isn't open yet. Start your shift first!", ms: "Klinik belum dibuka. Mulakan shift anda dahulu!" },
 
   // ---------- doctor picker ----------
   "picker.title": { en: "Choose your doctor", ms: "Pilih doktor anda" },

@@ -66,6 +66,12 @@ export default class GameClock {
     return this.minutes;
   }
 
+  /** Before the clinic opens: the clock waits at 7:45 AM (it is not ticked until the shift starts). */
+  setBeforeOpening(): void {
+    this.minutes = SHIFT_START - 15;
+    this.over = false;
+  }
+
   /** New shift: back to 8:00 AM. */
   reset(): void {
     this.minutes = SHIFT_START;
