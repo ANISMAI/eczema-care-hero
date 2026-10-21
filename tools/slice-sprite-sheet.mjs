@@ -14,7 +14,13 @@
 //
 // usage:
 //   node tools/slice-sprite-sheet.mjs <input> <output.webp> <preview.png> [--rows 4] [--cols 3] [--height 168]
+//        [--mirror-steps 0,3]
 // Then copy the printed numbers into src/data/assets.ts.
+//
+// --mirror-steps  walk sheets only: for the listed rows (0 = front, 3 = back), build the second
+//                 step frame (column 3) by mirroring the first (column 2). Fixes AI sheets where
+//                 both step frames move the same leg. Only for front/back views (a mirrored side
+//                 view would face the other way) and characters with nothing held on one side.
 
 import sharp from "sharp";
 
@@ -28,6 +34,8 @@ const ROWS = opt("rows", 4);
 const COLS = opt("cols", 3);
 const TARGET_CONTENT_H = opt("height", 168);
 const PAD = 6;
+const mirrorAt = argv.indexOf("--mirror-steps");
+const MIRROR_ROWS = mirrorAt >= 0 ? argv[mirrorAt + 1].split(",").map(Number) : [];
 if (!SRC || !OUT || !PREVIEW) {
   console.error("usage: node tools/slice-sprite-sheet.mjs <input> <output.webp> <preview.png> [--rows 4] [--cols 3] [--height 168]");
   process.exit(1);
@@ -235,6 +243,16 @@ for (const [key, ids] of cells) {
       }
   const anchorX = Number.isFinite(hx0) ? (hx0 + hx1) / 2 : cw / 2;
   frames.set(key, { crop, w: cw, h: ch, anchorX });
+}
+
+// optional: second step frame = mirror of the first (head stays on the same anchor)
+for (const r of MIRROR_ROWS) {
+  const f = frames.get(`${r},1`);
+  if (!f || COLS < 3) continue;
+  const flipped = Buffer.alloc(f.crop.length);
+  for (let y = 0; y < f.h; y++)
+    for (let x = 0; x < f.w; x++) f.crop.copy(flipped, (y * f.w + (f.w - 1 - x)) * 4, (y * f.w + x) * 4, (y * f.w + x) * 4 + 4);
+  frames.set(`${r},2`, { crop: flipped, w: f.w, h: f.h, anchorX: f.w - f.anchorX });
 }
 
 const all = [...frames.values()];

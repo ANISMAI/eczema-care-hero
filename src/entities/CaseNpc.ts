@@ -4,9 +4,11 @@ import { addBaked } from "../art/bake";
 import { PAL } from "../art/palette";
 import { textStyle } from "../art/environment";
 import type { CharacterDirection, CharacterSheet, SheetDef } from "../data/assets";
+import { walkAnimScale } from "../data/assets";
 import type { InteractableDef, Point } from "../data/rooms";
 
-const WALK_SPEED = 70;
+/** Visitors walk a little slower than the doctor (115) but not sluggishly. */
+const WALK_SPEED = 80;
 
 /**
  * A visiting patient. They can sit on a chair (pose sheet), walk somewhere on their own
@@ -183,7 +185,7 @@ export default class CaseNpc {
       this.pos.y += (dy / dist) * step;
       this.dir = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? "left" : "right") : dy < 0 ? "up" : "down";
       this.walker.anims.play(`${this.walkSheet.key}-walk-${this.dir}`, true);
-      this.walker.anims.timeScale = WALK_SPEED / this.walkSheet.walkSpeed;
+      this.walker.anims.timeScale = walkAnimScale(WALK_SPEED, this.walkSheet);
     }
     this.sync();
   }

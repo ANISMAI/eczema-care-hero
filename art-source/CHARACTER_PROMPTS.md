@@ -13,6 +13,7 @@ Prompt untuk menjana 7 watak pesakit baru supaya sama gaya dengan Amina. Setiap 
 - Latar mesti **putih kosong**, dan figura **tidak bersentuhan**. Skrip pemotong sprite
   (`tools/slice-sprite-sheet.py`) bergantung pada dua perkara ini.
 - Jana semula kalau:
+  - frame langkah (lajur 2 dan 3) menunjukkan kaki yang sama melangkah — terutama pandangan belakang
   - bilangan figura salah (walk = 12, sit = 3)
   - arah tertukar (baris mesti ikut urutan: depan → kiri → kanan → belakang)
   - ada bayang, lantai, kerusi, teks atau garis grid
@@ -54,7 +55,14 @@ Row 1: facing the viewer (front view).
 Row 2: facing left (side view, walking to the left).
 Row 3: facing right (side view, walking to the right).
 Row 4: back view (walking away from the viewer).
-Column 1: standing still. Column 2: walking, left foot forward. Column 3: walking, right foot forward.
+Column 1: standing still, both feet together.
+WALK CYCLE (very important): column 2 and column 3 must be DIFFERENT steps, mirror opposites of
+each other, so the legs clearly alternate. Column 2: LEFT foot forward, right foot back, right arm
+swinging forward. Column 3: RIGHT foot forward, left foot back, left arm swinging forward. In the
+back view (row 4) a different heel is lifted in column 2 and column 3.
+Use chibi body proportions exactly like the reference: a big round head about one third of the
+total height, a short chubby body and short legs. Keep any carried item in the same hand in every
+frame of a row.
 
 Pure white background. No floor, no shadows, no text, no labels, no grid lines, no frames.
 Figures must not touch or overlap.
@@ -154,6 +162,10 @@ node tools/slice-sprite-sheet.mjs art-source/characters/patient-suresh-walk-shee
 node tools/slice-sprite-sheet.mjs art-source/characters/patient-suresh-sit-sheet.webp public/assets/characters/suresh-sit.webp preview.png --rows 1 --cols 3
 node tools/make-portrait.mjs art-source/characters/patient-suresh-walk-sheet.webp public/assets/portraits/suresh.webp
 ```
+
+Kalau frame langkah pandangan depan/belakang melangkah dengan kaki yang sama, dan watak tu tak
+pegang barang di sebelah tangan, tambah `--mirror-steps 0,3` pada arahan walk sheet (frame langkah
+kedua dibina daripada cerminan yang pertama). Wong dan Farid dipotong dengan pilihan ni.
 
 Lepas tu masukkan nombor `frameWidth` yang dicetak ke dalam `src/data/assets.ts`, dan tukar watak
 tu dalam `src/data/patients.ts` (buang `tint`, set `portrait`). Watak yang belum siap guna sprite

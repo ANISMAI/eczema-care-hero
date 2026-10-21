@@ -3,6 +3,7 @@ import { drawStaff, type Facing } from "../art/characters";
 import { PAL } from "../art/palette";
 import { PLAYER_RADIUS } from "../data/rooms";
 import type { CharacterDirection, CharacterSheet } from "../data/assets";
+import { walkAnimScale } from "../data/assets";
 
 /**
  * Player avatar. The container's position is the point between the feet, which is also the
@@ -112,7 +113,7 @@ export default class Player extends Phaser.GameObjects.Container {
       if (moving) {
         this.sprite.anims.play(`${this.sheet.key}-walk-${this.direction}`, true);
         // steps keep pace with the actual speed (normal walk, brisk auto-walk...)
-        this.sprite.anims.timeScale = this.body.velocity.length() / this.sheet.walkSpeed;
+        this.sprite.anims.timeScale = walkAnimScale(this.body.velocity.length(), this.sheet);
       } else if (this.wasMoving) {
         this.sprite.anims.stop();
         this.sprite.setFrame(this.sheet.rows[this.direction] * 3);

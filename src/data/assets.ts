@@ -36,6 +36,18 @@ export interface CharacterSheet extends SheetDef {
 /** The player's normal walking speed (world units / s). A doctor is 64 units tall. */
 export const PLAYER_WALK_SPEED = 115;
 
+/**
+ * Walk cycles are only 4 frames (stand, step, stand, step), so slow walkers (visitors, nurses,
+ * a gently tilted joystick) dropped to 3–4 frames a second and looked choppy. Steps still keep
+ * pace with the speed, but never slower than ~85% of the base rate (about 6 frames a second).
+ */
+export const MIN_WALK_ANIM_SCALE = 0.85;
+
+/** Animation speed for a character moving at `speed` (world units / s). */
+export function walkAnimScale(speed: number, sheet: CharacterSheet): number {
+  return Math.max(MIN_WALK_ANIM_SCALE, speed / sheet.walkSpeed);
+}
+
 const FRAME = { frameHeight: 180, padding: 6, contentHeight: 168 } as const;
 const WALKER = {
   ...FRAME,
@@ -109,6 +121,7 @@ export const NPC_WALKER_SHEETS = {
     displayHeight: 60,
   },
   // Phase 3 patients (art-source/characters/patient-<id>-walk-sheet.webp -> tools/slice-sprite-sheet.mjs)
+  // wong and farid: sliced with --mirror-steps 0,3 (their AI sheets step with the same leg front/back)
   daniel: {
     key: "npc-daniel-walk",
     url: "assets/characters/daniel-walk.webp",

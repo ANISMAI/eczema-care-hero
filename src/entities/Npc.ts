@@ -3,6 +3,7 @@ import { drawPatient } from "../art/characters";
 import { addBaked } from "../art/bake";
 import { PAL } from "../art/palette";
 import type { CharacterDirection, SheetDef } from "../data/assets";
+import { walkAnimScale } from "../data/assets";
 import type { PoseNpcDef, WalkerNpcDef } from "../data/npcs";
 import type { Point } from "../data/rooms";
 
@@ -152,7 +153,7 @@ export class WalkerNpc {
       this.pos.y += (dy / dist) * move;
       this.dir = this.facing(dx, dy);
       this.sprite.anims.play(`${sheet.key}-walk-${this.dir}`, true);
-      this.sprite.anims.timeScale = speed / sheet.walkSpeed;
+      this.sprite.anims.timeScale = walkAnimScale(speed, sheet);
     }
     this.sync();
   }
