@@ -1358,6 +1358,60 @@ button {
     grid-column: 1 / -1;
     margin: 6px 14px 0;
   }
+
+  /* My Profile: the buttons and the notice go beside the card instead of under it, so nothing
+     is pushed off a short screen */
+  .profile-overlay .staff-wrap {
+    display: grid;
+    grid-template-columns: auto minmax(150px, 190px);
+    grid-template-areas:
+      "title title"
+      "stage actions"
+      "stage notice";
+    align-items: end;
+    column-gap: 14px;
+    row-gap: 8px;
+    width: auto;
+    max-width: 100%;
+  }
+
+  .profile-overlay .staff-title {
+    grid-area: title;
+  }
+
+  .profile-overlay .staff-stage {
+    grid-area: stage;
+    align-self: center;
+  }
+
+  .profile-overlay .profile-actions {
+    grid-area: actions;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .profile-overlay .app-notice {
+    grid-area: notice;
+    align-self: start;
+    margin: 0;
+    font-size: 10.5px;
+    text-align: left;
+  }
+
+  .profile-overlay .id-card {
+    width: min(520px, calc(100vw - 260px));
+  }
+}
+
+/* very short landscape screens (older small phones): the profile card a little smaller */
+@media (orientation: landscape) and (max-height: 340px) {
+  .profile-overlay .staff-stage {
+    zoom: 0.8;
+  }
+
+  .profile-overlay .id-card {
+    width: min(520px, calc((100vw - 240px) / 0.8));
+  }
 }
 
 /* ---------- Staff button: mini ID card on a lanyard ---------- */
