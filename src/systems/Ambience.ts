@@ -1,13 +1,13 @@
 import { audioEngine, audioLoop, play, ramp, type AudioLoop, type Effect } from "../game/audio";
-import { crowdVoice, type CrowdVoice } from "../game/crowd";
+import { crowdLoop } from "../game/crowd";
 import type { RoomId } from "../data/rooms";
 
 // Clinic sound is a room, never a soundtrack. Update control values four times a second;
-// the audio graph supplies smooth ramps. Voiced phrases leave gaps; no AC or noise bed.
+// the audio graph supplies smooth ramps. A soft recording supplies the crowd; no AC bed.
 
 export function murmurVolume(visitors: number, open = true): number {
   if (!open || !Number.isFinite(visitors) || visitors <= 0) return 0;
-  return Math.min(0.075, 0.018 * Math.sqrt(visitors));
+  return Math.min(0.14, 0.045 * Math.sqrt(visitors));
 }
 
 export function roomMix(room: RoomId | null): { crowd: number; arcade: number } {
@@ -34,7 +34,7 @@ interface SoundscapeState {
 export interface AmbienceAudio {
   ready(): boolean;
   loop: typeof audioLoop;
-  voice: typeof crowdVoice;
+  crowd: typeof crowdLoop;
   ramp: typeof ramp;
   play: typeof play;
 }
@@ -44,12 +44,12 @@ const SOUNDS: Effect[] = ["chair", "footsteps", "paper", "bell", "giggle", "phon
 export default class Ambience {
   private audio: AmbienceAudio;
   private motor: AudioLoop | null = null;
-  private crowd: { voice: CrowdVoice; nextIn: number }[] = [];
+  private crowd: AudioLoop | null = null;
   private elapsed = 0;
   private randomIn = 6 + Math.random() * 8;
   private arcadeIn = 3;
 
-  constructor(audio: AmbienceAudio = { ready: () => !!audioEngine(), loop: audioLoop, voice: crowdVoice, ramp, play }) {
+  constructor(audio: AmbienceAudio = { ready: () => !!audioEngine(), loop: audioLoop, crowd: crowdLoop, ramp, play }) {
     this.audio = audio;
   }
 
@@ -63,24 +63,12 @@ export default class Ambience {
     if (!this.motor) {
       this.motor = this.audio.loop("effects", 95);
       if (!this.motor) return;
-      for (const pitch of [145, 185, 225]) {
-        const voice = this.audio.voice(pitch);
-        if (!voice) { this.stop(); return; }
-        this.crowd.push({ voice, nextIn: Math.random() * 1.2 });
-      }
     }
+    if (!this.crowd && state.open && state.visitors > 0) this.crowd = this.audio.crowd();
     const mix = roomMix(state.room);
     const panel = state.panel ? 0.7 : 1;
     const volume = murmurVolume(state.visitors, state.open) * mix.crowd * panel;
-    for (const [i, speaker] of this.crowd.entries()) {
-      const active = state.open && state.visitors > i;
-      this.audio.ramp(speaker.voice.gain.gain, active ? volume : 0, 1.5);
-      speaker.nextIn -= seconds;
-      if (active && speaker.nextIn <= 0) {
-        // Pause between utterances; busier clinics have more overlapping conversations.
-        speaker.nextIn = speaker.voice.speak() + 0.6 + Math.random() * 1.4;
-      }
-    }
+    if (this.crowd) this.audio.ramp(this.crowd.gain.gain, volume, 1.5);
     const moving = state.riding && state.speed > 3 && !state.panel;
     this.audio.ramp(this.motor.gain.gain, moving ? 0.018 : 0, 0.2);
     this.audio.ramp(this.motor.oscillator!.frequency, 95 + Math.min(1, state.speed / 330) * 50, 0.3);
@@ -100,7 +88,7 @@ export default class Ambience {
   stop(): void {
     this.motor?.stop();
     this.motor = null;
-    this.crowd.forEach(({ voice }) => voice.stop());
-    this.crowd = [];
+    this.crowd?.stop();
+    this.crowd = null;
   }
 }

@@ -1,99 +1,86 @@
-import { audioEngine } from "./audio";
+import { audioEngine, type AudioLoop } from "./audio";
 
-// Filtered white noise sounded like rain on phone speakers. Use voiced harmonics shaped into
-// vowels instead, with irregular syllables, pitch changes and pauses between short phrases.
-// There are no words, recordings, speech synthesis calls, or continuous hiss in this crowd.
+// The supplied clinic recording replaces the synthetic voices. Decode once, overlap its tail
+// with its head, then loop a single buffer: no MP3 restart gap, timers, or growing source pool.
 
-const VOWELS = [[650, 1100, 2500], [400, 1700, 2600], [350, 900, 2200], [550, 1450, 2400]];
+let recording: AudioBuffer | null = null;
+let loading = false;
+let retryAt = 0;
 
-export interface Syllable {
-  at: number;
-  duration: number;
-  pitch: number;
-  vowel: number[];
-}
-
-/** A phrase has audible articulation and a falling cadence rather than a steady drone. */
-export function crowdPhrase(random: () => number = Math.random): Syllable[] {
-  const phrase: Syllable[] = [];
-  const count = 3 + Math.floor(random() * 4);
-  let at = 0;
-  for (let i = 0; i < count; i++) {
-    const duration = 0.1 + random() * 0.1;
-    phrase.push({
-      at,
-      duration,
-      pitch: (0.92 + random() * 0.23) * (i === count - 1 ? 0.88 : 1),
-      vowel: VOWELS[Math.floor(random() * VOWELS.length)],
-    });
-    at += duration + 0.025 + random() * 0.065;
+/** Equal-power overlap hides the cut; the loop boundary follows adjacent original samples. */
+export function crossfadeLoop(channels: readonly Float32Array[], sampleRate: number): Float32Array<ArrayBuffer>[] {
+  const frames = channels[0]?.length ?? 0;
+  if (frames < 8) return channels.map((samples) => samples.slice());
+  let peak = 0;
+  for (const samples of channels) for (const value of samples) peak = Math.max(peak, Math.abs(value));
+  // Remove only almost-silent padding at the recording's ends, never pauses inside the room.
+  const threshold = Math.max(0.00005, peak * 0.005);
+  const audible = (frame: number) => channels.some((samples) => Math.abs(samples[frame]) > threshold);
+  let start = 0;
+  let end = frames;
+  while (start < end && !audible(start)) start++;
+  while (end > start && !audible(end - 1)) end--;
+  if (end - start < 8) return channels.map((samples) => samples.slice());
+  const length = end - start;
+  const overlap = Math.max(2, Math.min(Math.round(sampleRate * 1.2), Math.floor(length / 4)));
+  const middle = length - 2 * overlap;
+  const result = channels.map((samples) => {
+    const output = new Float32Array(length - overlap);
+    output.set(samples.subarray(start + overlap, end - overlap));
+    for (let i = 0; i < overlap; i++) {
+      const angle = i / (overlap - 1) * Math.PI / 2;
+      output[middle + i] = samples[end - overlap + i] * Math.cos(angle)
+        + samples[start + i] * Math.sin(angle);
+    }
+    return output;
+  });
+  // Correlated material can gain up to 3 dB in an equal-power overlap; retain headroom.
+  let mixedPeak = 0;
+  for (const samples of result) for (const value of samples) mixedPeak = Math.max(mixedPeak, Math.abs(value));
+  if (mixedPeak > 0.98) {
+    for (const samples of result) for (let i = 0; i < samples.length; i++) samples[i] *= 0.98 / mixedPeak;
   }
-  return phrase;
+  return result;
 }
 
-export interface CrowdVoice {
-  gain: GainNode;
-  speak(): number;
-  stop(): void;
-}
-
-/** One reusable glottal source and three parallel formants, all routed through Ambience. */
-export function crowdVoice(fundamental: number): CrowdVoice | null {
+/** Fetch and decode only after audio is unlocked and the open clinic needs crowd sound. */
+export function crowdLoop(): AudioLoop | null {
   const e = audioEngine();
   if (!e) return null;
-  const { ctx } = e;
-  const gain = ctx.createGain();
+  if (!recording) {
+    if (!loading && Date.now() >= retryAt) {
+      loading = true;
+      void (async () => {
+        const response = await fetch(`${import.meta.env.BASE_URL}sound/busy%20clinic.mp3`);
+        if (!response.ok) throw new Error("Clinic ambience unavailable");
+        const decoded = await e.ctx.decodeAudioData(await response.arrayBuffer());
+        const channels = crossfadeLoop(Array.from({ length: decoded.numberOfChannels }, (_, i) => decoded.getChannelData(i)), decoded.sampleRate);
+        // This recording is very quiet. Set a consistent source level, then let the clinic
+        // mix keep it soft relative to dialogue/chimes, with peak headroom for the overlap.
+        let energy = 0;
+        let peak = 0;
+        for (const samples of channels) for (const value of samples) {
+          energy += value * value;
+          peak = Math.max(peak, Math.abs(value));
+        }
+        const rms = Math.sqrt(energy / (channels.length * channels[0].length));
+        const level = rms > 0 ? Math.min(16, 0.12 / rms, 0.8 / peak) : 1;
+        for (const samples of channels) for (let i = 0; i < samples.length; i++) samples[i] *= level;
+        const buffer = e.ctx.createBuffer(channels.length, channels[0].length, decoded.sampleRate);
+        channels.forEach((samples, i) => buffer.copyToChannel(samples, i));
+        recording = buffer;
+      })().catch(() => {
+        retryAt = Date.now() + 30000; // a temporary connection failure must not spam requests
+      }).finally(() => { loading = false; });
+    }
+    return null;
+  }
+  const source = e.ctx.createBufferSource();
+  source.buffer = recording;
+  source.loop = true;
+  const gain = e.ctx.createGain();
   gain.gain.value = 0;
-  gain.connect(e.buses.ambience);
-  const syllables = ctx.createGain();
-  syllables.gain.value = 0;
-  syllables.connect(gain);
-  const source = ctx.createOscillator();
-  // A soft, harmonic-rich glottal pulse, without the bright buzz of a plain sawtooth.
-  const real = new Float32Array(33);
-  const imaginary = new Float32Array(33);
-  for (let harmonic = 1; harmonic < imaginary.length; harmonic++) imaginary[harmonic] = 1 / harmonic ** 1.15;
-  source.setPeriodicWave(ctx.createPeriodicWave(real, imaginary));
-  source.frequency.value = fundamental;
-  const bands = VOWELS[0].map((frequency, i) => {
-    const filter = ctx.createBiquadFilter();
-    filter.type = "bandpass";
-    filter.frequency.value = frequency;
-    filter.Q.value = [4, 6, 8][i];
-    const boost = ctx.createGain();
-    boost.gain.value = [7, 4, 2][i];
-    source.connect(filter).connect(boost).connect(syllables);
-    return { filter, boost };
-  });
+  source.connect(gain).connect(e.buses.ambience);
   source.start();
-  return {
-    gain,
-    speak: () => {
-      const now = ctx.currentTime + 0.025;
-      const phrase = crowdPhrase();
-      syllables.gain.cancelScheduledValues(ctx.currentTime);
-      syllables.gain.setValueAtTime(0, ctx.currentTime);
-      source.frequency.cancelScheduledValues(ctx.currentTime);
-      bands.forEach(({ filter }) => filter.frequency.cancelScheduledValues(ctx.currentTime));
-      for (const syllable of phrase) {
-        const start = now + syllable.at;
-        const end = start + syllable.duration;
-        source.frequency.setTargetAtTime(fundamental * syllable.pitch, start, 0.035);
-        source.frequency.setTargetAtTime(fundamental * syllable.pitch * 0.94, start + 0.06, 0.06);
-        bands.forEach(({ filter }, i) => filter.frequency.setTargetAtTime(syllable.vowel[i], start, 0.025));
-        syllables.gain.setValueAtTime(0, start);
-        syllables.gain.linearRampToValueAtTime(0.6 + Math.random() * 0.4, start + 0.025);
-        syllables.gain.linearRampToValueAtTime(0, end);
-      }
-      const last = phrase[phrase.length - 1];
-      return last.at + last.duration + 0.025;
-    },
-    stop: () => {
-      source.stop();
-      source.disconnect();
-      bands.forEach(({ filter, boost }) => { filter.disconnect(); boost.disconnect(); });
-      syllables.disconnect();
-      gain.disconnect();
-    },
-  };
+  return { gain, stop: () => { source.stop(); source.disconnect(); gain.disconnect(); } };
 }

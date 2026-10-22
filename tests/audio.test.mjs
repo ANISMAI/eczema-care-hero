@@ -6,7 +6,7 @@ import { register } from 'node:module';
 register('./ts-resolve.mjs', import.meta.url);
 const { migrateSettings, setAudioOn, audioOn, soundOn, setSoundOn, onAudioSettings } = await import('../src/game/settings.ts');
 const { EffectLimiter, play, tone, noise } = await import('../src/game/audio.ts');
-const { crowdPhrase } = await import('../src/game/crowd.ts');
+const { crossfadeLoop } = await import('../src/game/crowd.ts');
 const { default: Ambience, murmurVolume, roomMix } = await import('../src/systems/Ambience.ts');
 
 test('legacy Sound off migrates all three buses off; fresh/invalid saves default on', () => {
@@ -55,7 +55,7 @@ test('crowd gain is silent before opening, increases gently, and is bounded', ()
   assert.ok(murmurVolume(1) > 0);
   for (let n = 1; n < 20; n++) assert.ok(murmurVolume(n + 1) >= murmurVolume(n));
   assert.ok(murmurVolume(2) < murmurVolume(8));
-  assert.equal(murmurVolume(10000), 0.075);
+  assert.equal(murmurVolume(10000), 0.14);
 });
 
 test('lobby is busiest, treatment quieter, private rooms quiet, arcade adds bleeps', () => {
@@ -85,26 +85,40 @@ test('sound helpers are harmless without Web Audio or a gesture', () => {
   noise(0.1, { frequency: 500 })();
 });
 
-test('crowd phrases articulate short vowels with gaps and a falling final syllable', () => {
-  for (const random of [() => 0, () => 0.99]) {
-    const phrase = crowdPhrase(random);
-    assert.ok(phrase.length >= 3 && phrase.length <= 6);
-    for (const [i, syllable] of phrase.entries()) {
-      assert.ok(syllable.duration >= 0.1 && syllable.duration <= 0.2);
-      assert.equal(syllable.vowel.length, 3);
-      assert.ok(syllable.vowel[0] >= 300 && syllable.vowel[2] <= 3000);
-      if (i) assert.ok(syllable.at > phrase[i - 1].at + phrase[i - 1].duration + 0.02);
-    }
-    assert.ok(phrase.at(-1).pitch < phrase[0].pitch);
-    assert.ok(phrase.at(-1).at + phrase.at(-1).duration < 1.8);
+test('recording loop overlaps stereo channels and wraps through adjacent original samples', () => {
+  const left = Float32Array.from({ length: 1000 }, (_, i) => 0.2 + Math.sin(i / 13) * 0.1);
+  const right = Float32Array.from({ length: 1000 }, (_, i) => 0.3 + Math.cos(i / 17) * 0.1);
+  const original = left.slice();
+  const output = crossfadeLoop([left, right], 100);
+  assert.equal(output.length, 2);
+  for (const [channel, source] of [[output[0], left], [output[1], right]]) {
+    assert.equal(channel.length, 880);
+    assert.equal(channel[0], source[120]);
+    assert.equal(channel.at(-1), source[119]);
+    assert.equal(channel[760], source[880]);
+    // The repeat boundary has exactly the same step as these adjacent source samples.
+    assert.equal(channel[0] - channel.at(-1), source[120] - source[119]);
   }
+  assert.deepEqual(left, original);
+});
+
+test('recording loop trims quiet end padding, keeps internal pauses and prevents clipping', () => {
+  const samples = new Float32Array(1000);
+  samples.fill(0.2, 100, 900);
+  samples.fill(0, 450, 500);
+  const [loop] = crossfadeLoop([samples], 100);
+  assert.equal(loop.length, 680);
+  assert.equal(loop[450 - 100 - 120], 0);
+  const [loud] = crossfadeLoop([new Float32Array(1000).fill(1)], 100);
+  assert.ok(Math.max(...loud) <= 0.980001);
+  assert.deepEqual(crossfadeLoop([new Float32Array(10)], 100)[0], new Float32Array(10));
+  assert.equal(crossfadeLoop([new Float32Array(2)], 100)[0].length, 2);
 });
 
 test('ambience reuses nodes, ducks panels, stops on title, and retries after unlocking', () => {
   let ready = false;
   let allocations = 0;
   let stopped = 0;
-  let spoken = 0;
   const params = [];
   const audio = {
     ready: () => ready,
@@ -117,11 +131,11 @@ test('ambience reuses nodes, ducks panels, stops on title, and retries after unl
       params.push(gain);
       return { gain: { gain }, filter: { frequency: { value: 0 } }, oscillator: { frequency: { value: 0 } }, stop: () => stopped++ };
     },
-    voice: () => {
+    crowd: () => {
       allocations++;
       const gain = { value: 0 };
       params.push(gain);
-      return { gain: { gain }, speak: () => { spoken++; return 1; }, stop: () => stopped++ };
+      return { gain: { gain }, stop: () => stopped++ };
     },
     ramp: (param, value) => { param.value = value; },
     play: () => () => {},
@@ -132,28 +146,25 @@ test('ambience reuses nodes, ducks panels, stops on title, and retries after unl
   assert.equal(allocations, 0);
   ready = true;
   system.update(250, state);
-  assert.equal(allocations, 4);
+  assert.equal(allocations, 2);
   const lobbyCrowd = params[1].value;
   system.update(250, { ...state, room: 'office' });
   assert.ok(params[1].value < lobbyCrowd * 0.2);
   system.update(250, { ...state, panel: true });
   assert.ok(params[1].value < lobbyCrowd);
   for (let i = 0; i < 20; i++) system.update(250, state);
-  assert.equal(allocations, 4);
-  assert.ok(spoken > 0);
+  assert.equal(allocations, 2);
   system.update(250, { ...state, riding: true, speed: 200 });
   assert.ok(params[0].value > 0);
   system.update(250, { ...state, riding: true, speed: 0 });
   assert.equal(params[0].value, 0);
   system.update(250, { ...state, title: true });
-  assert.equal(stopped, 4);
+  assert.equal(stopped, 2);
   system.update(250, { ...state, title: true });
-  assert.equal(stopped, 4);
-  const previousPhrases = spoken;
+  assert.equal(stopped, 2);
   system.update(250, { ...state, open: false });
-  assert.equal(allocations, 8);
-  for (const gain of params.slice(4)) assert.equal(gain.value, 0);
-  assert.equal(spoken, previousPhrases);
+  assert.equal(allocations, 3); // motor only; no crowd asset is requested before opening
+  assert.equal(params[2].value, 0);
   system.stop();
 });
 
@@ -165,7 +176,7 @@ test('random clinic sounds only occur while open and route through the ambience 
     const system = new Ambience({
       ready: () => true,
       loop: () => ({ gain: { gain: {} }, filter: { frequency: {} }, oscillator: { frequency: {} }, stop() {} }),
-      voice: () => ({ gain: { gain: {} }, speak: () => 1, stop() {} }),
+      crowd: () => ({ gain: { gain: {} }, stop() {} }),
       ramp() {},
       play: (...args) => { played.push(args); return () => {}; },
     });
@@ -182,4 +193,30 @@ test('random clinic sounds only occur while open and route through the ambience 
     assert.ok(played.some(([name, bus]) => name === 'beep' && bus === 'ambience'));
     system.stop();
   } finally { Math.random = original; }
+});
+
+test('a pending recording load retries without recreating the motor or using synthetic voices', () => {
+  let motorCount = 0;
+  let requests = 0;
+  let loaded = false;
+  const system = new Ambience({
+    ready: () => true,
+    loop: () => { motorCount++; return { gain: { gain: {} }, oscillator: { frequency: {} }, stop() {} }; },
+    crowd: () => { requests++; return loaded ? { gain: { gain: {} }, stop() {} } : null; },
+    ramp() {},
+    play: () => () => {},
+  });
+  const state = { title: false, open: false, visitors: 3, room: 'waiting', panel: false, riding: false, speed: 0 };
+  system.update(250, state);
+  assert.equal(requests, 0);
+  system.update(250, { ...state, open: true, visitors: 0 });
+  assert.equal(requests, 0);
+  system.update(250, { ...state, open: true });
+  assert.equal(requests, 1);
+  loaded = true;
+  system.update(250, { ...state, open: true });
+  for (let i = 0; i < 5; i++) system.update(250, { ...state, open: true });
+  assert.equal(requests, 2);
+  assert.equal(motorCount, 1);
+  system.stop();
 });

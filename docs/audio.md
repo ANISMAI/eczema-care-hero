@@ -1,6 +1,7 @@
 # Runtime audio
 
-All audio is synthesized with Web Audio; there are no audio assets or added dependencies.
+The clinic crowd uses the player-supplied `public/sound/busy clinic.mp3`. Other effects and
+music are synthesized with Web Audio. There are no added dependencies.
 The existing queue announcements still use Web Speech and follow the Effects switch.
 
 `src/game/audio.ts` owns the only AudioContext, created after a pointer or keyboard gesture.
@@ -12,12 +13,16 @@ cancel speech; returning resumes it, with another gesture available if mobile au
 The title has an eight-bar, 96 BPM tune with a short scheduling window. It fades away on
 entry. The shift summary has a 2.6-second jingle. No music runs during clinic play.
 
-The clinic reuses four sources (three voiced crowd speakers and a hoverboard motor).
-The AC hum and air/noise beds were removed after phone listening feedback: their filtered
-noise sounded like rain. Crowd voices now use harmonics shaped into vowel formants, with
-irregular syllables, changes in pitch and pauses between utterances. They are synthetic,
-unintelligible vocal sounds, not recordings of real conversations. Only as many speakers
-as there are visitors speak, up to three overlapping voices.
+The clinic reuses two sources (the supplied crowd recording and a hoverboard motor).
+The AC hum, hiss and synthetic crowd voices have been removed. The recording is decoded
+once on demand after a gesture, routed through Ambience and cached across shifts. Its
+12.28 seconds become an 11.08-second loop by overlapping the last/first 1.2 seconds with
+an equal-power crossfade. The wrap itself follows adjacent source samples; there is no
+MP3 restart or repeated network request. Almost-silent padding is trimmed at the ends.
+The original file is preserved and playback stays at its original speed/pitch. The quiet
+recording gets a consistent source level (0.12 RMS, peak capped at 0.8), then plays at a
+low clinic gain of 0.045–0.14 before the bus/master attenuation. No nodes are created
+per frame. Failed loads retry at most once per 30 seconds and do not restore synthetic voices.
 Control values update four times a second, with 1.5-second crowd/room ramps. Visitor count
 uses a capped square-root curve so a full queue stays comfortable. Panels reduce ambience
 to 70%; private rooms carry 10% of the lobby crowd mix. Room changes update the target
@@ -36,6 +41,7 @@ Files added:
 
 - `src/game/audio.ts`
 - `src/game/crowd.ts`
+- `public/sound/busy clinic.mp3` (supplied by the player)
 - `src/systems/Ambience.ts`
 - `tests/audio.test.mjs`
 - `docs/audio.md`
@@ -62,7 +68,7 @@ Validation:
   console exceptions were observed. Source/gain checks verify synthesis and routing;
   these checks do not replace listening on a physical device.
 - Actual iOS Safari and Android hardware were not available for testing.
-- After the phone feedback, a Chrome phone-viewport waveform check confirmed silence before
-  opening, voiced bursts separated by pauses, no buffer/noise sources allocated for the
-  crowd, and no clipping or game exceptions. This measures the signal; physical-speaker
-  listening still needs to be checked on the player's phone.
+- The supplied recording was decoded and looped in Chrome with a phone viewport. An offline
+  render across multiple real repeat boundaries confirmed audio at the seam, while live checks
+  verified low crowd gain, room ducking, the Ambience toggle, one shared context and source
+  reuse. Waveform checks do not replace listening on the player's phone.
