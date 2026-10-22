@@ -12,12 +12,19 @@ cancel speech; returning resumes it, with another gesture available if mobile au
 The title has an eight-bar, 96 BPM tune with a short scheduling window. It fades away on
 entry. The shift summary has a 2.6-second jingle. No music runs during clinic play.
 
-The clinic reuses six continuous sources (air, AC, three crowd bands and a hoverboard motor).
+The clinic reuses four sources (three voiced crowd speakers and a hoverboard motor).
+The AC hum and air/noise beds were removed after phone listening feedback: their filtered
+noise sounded like rain. Crowd voices now use harmonics shaped into vowel formants, with
+irregular syllables, changes in pitch and pauses between utterances. They are synthetic,
+unintelligible vocal sounds, not recordings of real conversations. Only as many speakers
+as there are visitors speak, up to three overlapping voices.
 Control values update four times a second, with 1.5-second crowd/room ramps. Visitor count
 uses a capped square-root curve so a full queue stays comfortable. Panels reduce ambience
 to 70%; private rooms carry 10% of the lobby crowd mix. Room changes update the target
-immediately. Before opening there is only near-silent AC, with no crowd or random activity.
-Ambient one-shots occur every 6–20 seconds while open; arcade bleeps use the ambience bus.
+immediately. Before opening there is no ambient sound.
+Ambient one-shots occur every 6–14 seconds while open, at twice their original level so they
+stand out on phone speakers; arcade bleeps use the ambience bus. Footsteps use a higher
+frequency that small speakers can reproduce.
 The giggle is a short pitched approximation, not recorded speech. The water effect is a
 short burst to match the requested maximum effect duration, while the washing animation continues.
 
@@ -28,6 +35,7 @@ clicks yield to event-specific audio, with an explicit opt-out for buttons that 
 Files added:
 
 - `src/game/audio.ts`
+- `src/game/crowd.ts`
 - `src/systems/Ambience.ts`
 - `tests/audio.test.mjs`
 - `docs/audio.md`
@@ -54,3 +62,7 @@ Validation:
   console exceptions were observed. Source/gain checks verify synthesis and routing;
   these checks do not replace listening on a physical device.
 - Actual iOS Safari and Android hardware were not available for testing.
+- After the phone feedback, a Chrome phone-viewport waveform check confirmed silence before
+  opening, voiced bursts separated by pauses, no buffer/noise sources allocated for the
+  crowd, and no clipping or game exceptions. This measures the signal; physical-speaker
+  listening still needs to be checked on the player's phone.

@@ -6,6 +6,7 @@ import { register } from 'node:module';
 register('./ts-resolve.mjs', import.meta.url);
 const { migrateSettings, setAudioOn, audioOn, soundOn, setSoundOn, onAudioSettings } = await import('../src/game/settings.ts');
 const { EffectLimiter, play, tone, noise } = await import('../src/game/audio.ts');
+const { crowdPhrase } = await import('../src/game/crowd.ts');
 const { default: Ambience, murmurVolume, roomMix } = await import('../src/systems/Ambience.ts');
 
 test('legacy Sound off migrates all three buses off; fresh/invalid saves default on', () => {
@@ -63,7 +64,7 @@ test('lobby is busiest, treatment quieter, private rooms quiet, arcade adds blee
   for (const room of ['office', 'surau', 'lounge', 'toilet']) assert.ok(roomMix(room).crowd < roomMix('care').crowd);
   assert.equal(roomMix('arcade').arcade, 1);
   for (const room of ['office', 'reception', 'storage', null]) assert.equal(roomMix(room).arcade, 0);
-  assert.ok(roomMix(null).room > 0);
+  assert.ok(roomMix(null).crowd > 0);
 });
 
 test('effects throttle independently at the 80 ms boundary, with a slower scratch limit', () => {
@@ -84,18 +85,43 @@ test('sound helpers are harmless without Web Audio or a gesture', () => {
   noise(0.1, { frequency: 500 })();
 });
 
+test('crowd phrases articulate short vowels with gaps and a falling final syllable', () => {
+  for (const random of [() => 0, () => 0.99]) {
+    const phrase = crowdPhrase(random);
+    assert.ok(phrase.length >= 3 && phrase.length <= 6);
+    for (const [i, syllable] of phrase.entries()) {
+      assert.ok(syllable.duration >= 0.1 && syllable.duration <= 0.2);
+      assert.equal(syllable.vowel.length, 3);
+      assert.ok(syllable.vowel[0] >= 300 && syllable.vowel[2] <= 3000);
+      if (i) assert.ok(syllable.at > phrase[i - 1].at + phrase[i - 1].duration + 0.02);
+    }
+    assert.ok(phrase.at(-1).pitch < phrase[0].pitch);
+    assert.ok(phrase.at(-1).at + phrase.at(-1).duration < 1.8);
+  }
+});
+
 test('ambience reuses nodes, ducks panels, stops on title, and retries after unlocking', () => {
   let ready = false;
   let allocations = 0;
   let stopped = 0;
+  let spoken = 0;
   const params = [];
   const audio = {
     ready: () => ready,
-    loop: () => {
+    loop: (bus, frequency, noisy) => {
+      assert.equal(bus, 'effects');
+      assert.equal(frequency, 95);
+      assert.notEqual(noisy, true); // there must be no continuous noise or AC bed
       allocations++;
       const gain = { value: 0 };
       params.push(gain);
       return { gain: { gain }, filter: { frequency: { value: 0 } }, oscillator: { frequency: { value: 0 } }, stop: () => stopped++ };
+    },
+    voice: () => {
+      allocations++;
+      const gain = { value: 0 };
+      params.push(gain);
+      return { gain: { gain }, speak: () => { spoken++; return 1; }, stop: () => stopped++ };
     },
     ramp: (param, value) => { param.value = value; },
     play: () => () => {},
@@ -106,26 +132,28 @@ test('ambience reuses nodes, ducks panels, stops on title, and retries after unl
   assert.equal(allocations, 0);
   ready = true;
   system.update(250, state);
-  assert.equal(allocations, 6);
-  const roomGain = params[0].value;
-  const lobbyCrowd = params[2].value;
+  assert.equal(allocations, 4);
+  const lobbyCrowd = params[1].value;
   system.update(250, { ...state, room: 'office' });
-  assert.ok(params[2].value < lobbyCrowd * 0.2);
+  assert.ok(params[1].value < lobbyCrowd * 0.2);
   system.update(250, { ...state, panel: true });
-  assert.ok(params[0].value < roomGain);
+  assert.ok(params[1].value < lobbyCrowd);
   for (let i = 0; i < 20; i++) system.update(250, state);
-  assert.equal(allocations, 6);
+  assert.equal(allocations, 4);
+  assert.ok(spoken > 0);
   system.update(250, { ...state, riding: true, speed: 200 });
-  assert.ok(params[5].value > 0);
+  assert.ok(params[0].value > 0);
   system.update(250, { ...state, riding: true, speed: 0 });
-  assert.equal(params[5].value, 0);
+  assert.equal(params[0].value, 0);
   system.update(250, { ...state, title: true });
-  assert.equal(stopped, 6);
+  assert.equal(stopped, 4);
   system.update(250, { ...state, title: true });
-  assert.equal(stopped, 6);
+  assert.equal(stopped, 4);
+  const previousPhrases = spoken;
   system.update(250, { ...state, open: false });
-  assert.equal(allocations, 12);
-  assert.equal(params[8].value, 0);
+  assert.equal(allocations, 8);
+  for (const gain of params.slice(4)) assert.equal(gain.value, 0);
+  assert.equal(spoken, previousPhrases);
   system.stop();
 });
 
@@ -137,6 +165,7 @@ test('random clinic sounds only occur while open and route through the ambience 
     const system = new Ambience({
       ready: () => true,
       loop: () => ({ gain: { gain: {} }, filter: { frequency: {} }, oscillator: { frequency: {} }, stop() {} }),
+      voice: () => ({ gain: { gain: {} }, speak: () => 1, stop() {} }),
       ramp() {},
       play: (...args) => { played.push(args); return () => {}; },
     });
@@ -146,7 +175,7 @@ test('random clinic sounds only occur while open and route through the ambience 
     for (let i = 0; i < 23; i++) system.update(250, { ...state, open: true });
     assert.equal(played.length, 0);
     system.update(250, { ...state, open: true });
-    assert.deepEqual(played[0], ['chair', 'ambience', 0.45]);
+    assert.deepEqual(played[0], ['chair', 'ambience', 0.9]);
     system.update(250, { ...state, open: true, room: 'arcade' });
     assert.equal(played.at(-1)[0], 'chair');
     for (let i = 0; i < 12; i++) system.update(250, { ...state, open: true, room: 'arcade' });

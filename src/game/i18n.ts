@@ -30,7 +30,7 @@ const STRINGS = {
   "menu.gotIt": { en: "Got it!", ms: "Faham!" },
 
   "settings.ambience": { en: "Ambience", ms: "Bunyi persekitaran" },
-  "settings.ambienceHint": { en: "Clinic room tone and quiet activity", ms: "Bunyi bilik dan aktiviti perlahan di klinik" },
+  "settings.ambienceHint": { en: "Quiet conversations and clinic activity", ms: "Perbualan perlahan dan aktiviti klinik" },
   "settings.effects": { en: "Sound effects", ms: "Kesan bunyi" },
   "settings.effectsHint": { en: "Actions, chimes and spoken queue numbers", ms: "Tindakan, loceng dan panggilan nombor giliran" },
   "settings.music": { en: "Music", ms: "Muzik" },

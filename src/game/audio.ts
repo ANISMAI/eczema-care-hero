@@ -207,7 +207,7 @@ export function play(name: Effect, bus: AudioBus = "effects", level = 1): () => 
     case "scuttle": notes([180, 220, 195, 245], 0.05, 0.07, 0.035, "triangle"); hiss(0.24, 1700, 0.035); break;
     case "tick": notes([880, 1175], 0.1, 0.06, 0.05); break;
     case "chair": hiss(0.45, 410, 0.055, 4); break;
-    case "footsteps": notes([100, 85, 100], 0.08, 0.16, 0.045, "triangle"); break;
+    case "footsteps": notes([220, 180, 230], 0.08, 0.16, 0.06, "triangle"); break;
     case "paper": hiss(0.32, 1800, 0.06, 0.5); break;
     case "bell": notes([1568, 2093], 0.4, 0.01, 0.035); break;
     case "giggle": notes([430, 580, 510], 0.11, 0.13, 0.035, "triangle"); break;
