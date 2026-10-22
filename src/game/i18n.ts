@@ -35,6 +35,7 @@ const STRINGS = {
   "settings.effectsHint": { en: "Actions, chimes and spoken queue numbers", ms: "Tindakan, loceng dan panggilan nombor giliran" },
   "settings.music": { en: "Music", ms: "Muzik" },
   "settings.musicHint": { en: "Title tune and end-of-shift jingle", ms: "Lagu tajuk dan melodi tamat shift" },
+  "settings.languageHint": { en: "Applies after a quick reload. Your progress is kept.", ms: "Digunakan selepas muat semula ringkas. Kemajuan anda disimpan." },
   "settings.sound": { en: "Sound", ms: "Bunyi" },
   "settings.soundHint": { en: "Announcement chimes", ms: "Loceng pengumuman" },
   "settings.prayer": { en: "Prayer time reminders", ms: "Peringatan waktu solat" },

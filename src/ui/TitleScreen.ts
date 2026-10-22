@@ -1,14 +1,11 @@
 import { titleMusic } from "../game/audio";
 import { eventBus } from "../game/EventBus";
-import { prayerReminders, resetAllProgress, setPrayerReminders, audioOn, setAudioOn, type AudioBus } from "../game/settings";
+import { QUICK_TITLE_KEY, RESUME_SETTINGS_KEY, reloadLanguage } from "../game/settings";
 import { buildTown, type Town } from "../art/town";
 import TownTraffic from "./TownTraffic";
-import { LANGUAGES, lang, t, type StringKey } from "../game/i18n";
-import { setLanguage } from "../game/settings";
+import { t, type StringKey } from "../game/i18n";
+import SettingsPanel from "./SettingsPanel";
 import { howToScene } from "./howToScenes";
-
-/** Set before a language-change reload, so the clouds part straight away instead of waiting. */
-const QUICK_KEY = "eczema-care-hero-quick-title";
 
 // Opening sequence (shown on top of everything from the first frame):
 //   1. the screen is full of fluffy clouds drifting gently (also covers asset loading)
@@ -61,7 +58,7 @@ export default class TitleScreen {
   private flash: HTMLDivElement;
   private clouds: { el: HTMLDivElement; dx: number; dy: number; delay: number }[] = [];
   private title: HTMLDivElement;
-  private settings: HTMLDivElement;
+  private settings: SettingsPanel;
   private panels: HTMLDivElement[] = [];
   private shownAt = performance.now();
   private parted = false;
@@ -111,11 +108,14 @@ export default class TitleScreen {
       </div>`;
     this.root.append(this.title);
 
-    this.settings = this.makeSettings();
+    this.settings = new SettingsPanel(this.root, {
+      allowReset: true,
+      onClose: () => this.title.querySelector<HTMLButtonElement>(".title-settings")?.focus({ preventScroll: true }),
+      onLanguageChange: (language) => reloadLanguage(language),
+    });
     const howTo = this.makeHowTo();
     const badges = this.makeBadges();
-    const language = this.makeLanguage();
-    this.panels = [this.settings, howTo, badges, language];
+    this.panels = [howTo, badges];
     this.root.append(...this.panels, this.flash);
     parent.append(this.root);
     titleMusic(true);
@@ -124,10 +124,10 @@ export default class TitleScreen {
 
     this.title.querySelector(".title-play")!.addEventListener("click", () => this.play());
     const open: Record<string, () => void> = {
-      settings: () => this.openSettings(),
+      settings: () => this.settings.open(),
       howto: () => this.openPanel(howTo),
       badges: () => this.openPanel(badges),
-      language: () => this.openPanel(language),
+      language: () => this.settings.open(true),
     };
     this.title.querySelectorAll<HTMLButtonElement>(".title-menu-btn").forEach((b) => b.addEventListener("click", () => open[b.dataset.open!]()));
     window.addEventListener("keydown", (e) => {
@@ -136,14 +136,20 @@ export default class TitleScreen {
 
     // part the clouds once the clinic is drawn and the clouds have had their moment
     // (`?title=off` skips the whole opening, for testing)
-    const skip = new URLSearchParams(window.location.search).get("title") === "off";
+    let resumeSettings = false;
+    try {
+      resumeSettings = sessionStorage.getItem(RESUME_SETTINGS_KEY) === "1";
+    } catch {
+      // The normal title still works when session storage is unavailable.
+    }
+    const skip = resumeSettings || new URLSearchParams(window.location.search).get("title") === "off";
     if (skip) this.root.classList.add("skipped");
     eventBus.on("clinic-ready", () => {
       if (skip) return this.play();
       let quick = false;
       try {
-        quick = sessionStorage.getItem(QUICK_KEY) === "1";
-        sessionStorage.removeItem(QUICK_KEY);
+        quick = sessionStorage.getItem(QUICK_TITLE_KEY) === "1";
+        sessionStorage.removeItem(QUICK_TITLE_KEY);
       } catch {
         // storage unavailable
       }
@@ -285,71 +291,6 @@ export default class TitleScreen {
     }, 1550);
   }
 
-  private makeSettings(): HTMLDivElement {
-    const box = document.createElement("div");
-    box.className = "title-settings-panel hidden";
-    box.setAttribute("role", "dialog");
-    box.setAttribute("aria-label", t("menu.settings"));
-    box.innerHTML = `
-      <div class="ts-card">
-        <h2>⚙️ ${t("menu.settings")}</h2>
-        ${(["ambience", "effects", "music"] as const).map((bus) => `
-        <label class="ts-row">
-          <span><strong>${t(`settings.${bus}`)}</strong><small>${t(`settings.${bus}Hint`)}</small></span>
-          <input type="checkbox" class="ts-toggle ts-${bus}" />
-          <span class="ts-switch" aria-hidden="true"></span>
-        </label>`).join("")}
-        <label class="ts-row">
-          <span><strong>${t("settings.prayer")}</strong><small>${t("settings.prayerHint")}</small></span>
-          <input type="checkbox" class="ts-toggle ts-prayer" />
-          <span class="ts-switch" aria-hidden="true"></span>
-        </label>
-        <div class="ts-row ts-reset-row">
-          <span><strong>${t("settings.reset")}</strong><small>${t("settings.resetHint")}</small></span>
-          <button type="button" class="ts-reset">${t("settings.resetBtn")}</button>
-        </div>
-        <button type="button" class="primary-btn wide ts-close">${t("menu.done")}</button>
-      </div>`;
-    for (const bus of ["ambience", "effects", "music"] as AudioBus[]) {
-      const toggle = box.querySelector<HTMLInputElement>(`.ts-${bus}`)!;
-      toggle.addEventListener("change", () => setAudioOn(bus, toggle.checked));
-    }
-    const prayer = box.querySelector<HTMLInputElement>(".ts-prayer")!;
-    prayer.addEventListener("change", () => setPrayerReminders(prayer.checked));
-    const reset = box.querySelector<HTMLButtonElement>(".ts-reset")!;
-    reset.addEventListener("click", () => {
-      if (reset.dataset.confirm) {
-        resetAllProgress();
-        window.location.reload();
-        return;
-      }
-      reset.dataset.confirm = "1";
-      reset.textContent = t("settings.resetConfirm");
-      reset.classList.add("confirm");
-    });
-    box.querySelector(".ts-close")!.addEventListener("click", () => this.closeSettings());
-    box.addEventListener("click", (e) => {
-      if (e.target === box) this.closeSettings();
-    });
-    return box;
-  }
-
-  private openSettings(): void {
-    for (const bus of ["ambience", "effects", "music"] as AudioBus[]) {
-      this.settings.querySelector<HTMLInputElement>(`.ts-${bus}`)!.checked = audioOn(bus);
-    }
-    this.settings.querySelector<HTMLInputElement>(".ts-prayer")!.checked = prayerReminders();
-    const reset = this.settings.querySelector<HTMLButtonElement>(".ts-reset")!;
-    delete reset.dataset.confirm;
-    reset.textContent = t("settings.resetBtn");
-    reset.classList.remove("confirm");
-    this.settings.classList.remove("hidden");
-  }
-
-  private closeSettings(): void {
-    this.closePanel(this.settings);
-  }
-
   // ---------- menu panels ----------
 
   /** A panel in the same style as Settings: a card with a title, a body and a footer. */
@@ -464,31 +405,4 @@ export default class TitleScreen {
     return box;
   }
 
-  /** Language: picking one saves it and reloads, so every label (and room plaque) follows. */
-  private makeLanguage(): HTMLDivElement {
-    const { box, body, foot } = this.panel(`🌐 ${t("language.title")}`, "tm-language");
-    for (const l of LANGUAGES) {
-      const b = document.createElement("button");
-      b.type = "button";
-      b.className = `tm-lang${l.id === lang() ? " on" : ""}`;
-      b.innerHTML = `<span class="tm-flag">${l.code}</span><strong>${l.name}</strong><span class="tm-check">✓</span>`;
-      b.addEventListener("click", () => {
-        if (l.id === lang()) return this.closePanel(box);
-        setLanguage(l.id);
-        try {
-          sessionStorage.setItem(QUICK_KEY, "1");
-        } catch {
-          // storage unavailable: the clouds just take their usual moment
-        }
-        window.location.reload();
-      });
-      body.append(b);
-    }
-    const note = document.createElement("p");
-    note.className = "tm-small";
-    note.textContent = t("language.note");
-    body.append(note);
-    foot.append(this.doneButton(box));
-    return box;
-  }
 }

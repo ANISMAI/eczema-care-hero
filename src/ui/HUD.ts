@@ -166,6 +166,7 @@ export default class HUD {
     // Bottom-right, above the interact button: hoverboard on / off (a little drawn board icon)
     this.boardBtn = document.createElement("button");
     this.boardBtn.className = "hud-board-btn";
+    this.boardBtn.dataset.audio = "own"; // mounting/dismounting is intentionally silent, including UI clicks
     this.boardBtn.innerHTML =
       '<svg class="hud-board-icon" viewBox="0 0 40 20" aria-hidden="true"><rect x="7" y="7" width="26" height="7" rx="3.5" fill="#26324a"/><rect x="11" y="9.5" width="18" height="2" rx="1" fill="#5ee6f5"/><circle cx="6" cy="11" r="5.5" fill="#26324a"/><circle cx="6" cy="11" r="2.5" fill="#cfd8e6"/><circle cx="34" cy="11" r="5.5" fill="#26324a"/><circle cx="34" cy="11" r="2.5" fill="#cfd8e6"/></svg>' +
       `<span class="hud-board-label">${t("hud.hoverboard")}</span>`;

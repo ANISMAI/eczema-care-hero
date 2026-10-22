@@ -4,7 +4,7 @@ import { audioOn, onAudioSettings, type AudioBus } from "./settings";
 // share a noise buffer, have a voice budget, and disconnect themselves when their envelope ends.
 
 export type Effect = "chime" | "softChime" | "beep" | "trill" | "click" | "good" | "gentle"
-  | "coin" | "fanfare" | "pop" | "door" | "whoosh" | "water" | "box" | "signature"
+  | "coin" | "fanfare" | "pop" | "door" | "water" | "box"
   | "printer" | "scuttle" | "tick" | "chair" | "footsteps" | "paper" | "bell" | "giggle" | "phone";
 
 /** Monotonic milliseconds, injected by callers so throttling also runs in Node tests. */
@@ -178,7 +178,7 @@ export function noise(duration: number, filter: { frequency: number; type?: Biqu
 
 /** Returns a cancellation handle (the incoming phone stops as soon as it is answered). */
 export function play(name: Effect, bus: AudioBus = "effects", level = 1): () => void {
-  if (!audioEngine() || !audioOn(bus) || voices > 22 || !limiter.allow(name, performance.now(), name === "signature" ? 130 : 80)) return () => {};
+  if (!audioEngine() || !audioOn(bus) || voices > 22 || !limiter.allow(name, performance.now())) return () => {};
   effectSerial++;
   const stops: (() => void)[] = [];
   const notes = (freqs: number[], duration = 0.18, gap = 0.09, peak = 0.07, type: OscillatorType = "sine") => {
@@ -199,10 +199,8 @@ export function play(name: Effect, bus: AudioBus = "effects", level = 1): () => 
     case "fanfare": notes([523, 659, 784, 1047], 0.23, 0.1, 0.065, "triangle"); break;
     case "pop": stops.push(tone(660, 0.12, "sine", { bus, peak: 0.07 * level, endFreq: 1100 })); break;
     case "door": notes([1175, 880], 0.27, 0.16, 0.06); break;
-    case "whoosh": hiss(0.4, 950, 0.12); break;
     case "water": hiss(0.6, 2400, 0.13, 0.4); break;
     case "box": hiss(0.38, 700, 0.13); notes([160], 0.1, 0, 0.045, "triangle"); break;
-    case "signature": hiss(0.075, 2900, 0.045); break;
     case "printer": hiss(0.5, 900, 0.065, 3); notes([130, 155, 130], 0.14, 0.15, 0.025, "triangle"); break;
     case "scuttle": notes([180, 220, 195, 245], 0.05, 0.07, 0.035, "triangle"); hiss(0.24, 1700, 0.035); break;
     case "tick": notes([880, 1175], 0.1, 0.06, 0.05); break;

@@ -14,6 +14,8 @@ The title has an eight-bar, 96 BPM tune with a short scheduling window. It fades
 entry. The shift summary has a 2.6-second jingle. No music runs during clinic play.
 
 The clinic reuses two sources (the supplied crowd recording and a hoverboard motor).
+Mounting and dismounting the hoverboard are silent, including its button's UI click.
+The quiet motor hum remains while riding and moving.
 The AC hum, hiss and synthetic crowd voices have been removed. The recording is decoded
 once on demand after a gesture, routed through Ambience and cached across shifts. Its
 12.28 seconds become an 11.08-second loop by overlapping the last/first 1.2 seconds with
@@ -34,13 +36,17 @@ The giggle is a short pitched approximation, not recorded speech. The water effe
 short burst to match the requested maximum effect duration, while the washing animation continues.
 
 One-shots share a generated noise buffer, disconnect on completion, and have a 32-source
-budget. Named effects are at least 80 ms apart (signature strokes: 130 ms). Delegated UI
+budget. Named effects are at least 80 ms apart. Signature writing uses one reusable filtered
+noise source with smooth motion-driven gain, rather than repeated one-shots that sounded like
+typewriter taps. It fades when movement pauses and stops on lift, cancellation, lost pointer
+capture, Clear, confirmation, panel close, window blur or a hidden tab. Delegated UI
 clicks yield to event-specific audio, with an explicit opt-out for buttons that own their sound.
 
 Files added:
 
 - `src/game/audio.ts`
 - `src/game/crowd.ts`
+- `src/game/pen.ts`
 - `public/sound/busy clinic.mp3` (supplied by the player)
 - `src/systems/Ambience.ts`
 - `tests/audio.test.mjs`
@@ -52,6 +58,7 @@ Files updated:
 - `src/scenes/ClinicScene.ts`, `src/clinic/ClinicFlow.ts`, `src/events/EventDirector.ts`
 - `src/mission/CaseRunner.ts`, `src/systems/MorningRoutine.ts`
 - `src/ui/TitleScreen.ts`, `src/ui/ShiftSummary.ts`, `src/ui/ClockIn.ts`, `src/ui/IncomingCall.ts`
+- `src/ui/HUD.ts`
 - `src/ui/case/Announcement.ts`, `Interview.ts`, `Consultation.ts`, `Treatment.ts`
 - `src/ui/events/EventNotice.ts`, `DeliveryPanel.ts`, `PrinterPanel.ts`, `CockroachPanel.ts`
 - `package.json` (includes audio tests in the existing test command)
@@ -72,3 +79,6 @@ Validation:
   render across multiple real repeat boundaries confirmed audio at the seam, while live checks
   verified low crowd gain, room ducking, the Ambience toggle, one shared context and source
   reuse. Waveform checks do not replace listening on the player's phone.
+- Live signature-pad checks in a Chrome phone viewport verified no sound on touchdown,
+  one source reused across strokes, smooth movement gain, silence on pause/lift, Effects
+  mute, Clear/close cleanup and no game exceptions.

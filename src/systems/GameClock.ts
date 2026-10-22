@@ -38,7 +38,8 @@ export default class GameClock {
     this.events = events;
     try {
       const v = Number(localStorage.getItem(STORAGE_KEY));
-      if (v >= SHIFT_START && v <= SHIFT_END) this.minutes = v;
+      // A language reload can resume the opening checklist between 7:45 and 8:00.
+      if (v >= SHIFT_START - 15 && v <= SHIFT_END) this.minutes = v;
     } catch {
       // storage unavailable: start of shift
     }

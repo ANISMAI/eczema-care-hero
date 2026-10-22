@@ -1,6 +1,8 @@
-// Player settings (title screen → Settings), saved on this device.
+// Player settings shared by the title and in-game profile, saved on this device.
 
 const STORAGE_KEY = "eczema-care-hero-settings-v1";
+export const QUICK_TITLE_KEY = "eczema-care-hero-quick-title";
+export const RESUME_SETTINGS_KEY = "eczema-care-hero-resume-settings";
 
 export type AudioBus = "ambience" | "effects" | "music";
 
@@ -86,6 +88,20 @@ export function language(): string {
 export function setLanguage(id: string): void {
   settings.language = id;
   save();
+}
+
+/** Room plaques and mounted UI are translated at startup; a reload applies them together. */
+export function reloadLanguage(id: string, resumeClinic = false): void {
+  if (id === settings.language) return;
+  setLanguage(id);
+  try {
+    sessionStorage.setItem(QUICK_TITLE_KEY, "1");
+    if (resumeClinic) sessionStorage.setItem(RESUME_SETTINGS_KEY, "1");
+    else sessionStorage.removeItem(RESUME_SETTINGS_KEY);
+  } catch {
+    // Without session storage the reload falls back to the normal title.
+  }
+  window.location.reload();
 }
 
 function save(): void {

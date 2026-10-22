@@ -1068,6 +1068,11 @@ button {
 
 .profile-actions {
   width: min(390px, 100%);
+  flex-wrap: wrap;
+}
+
+.profile-actions .profile-settings {
+  flex: 1 0 100%;
 }
 
 .profile-exit {
@@ -1480,6 +1485,10 @@ button {
     grid-area: actions;
     flex-direction: column;
     width: 100%;
+  }
+
+  .profile-overlay .profile-actions .profile-settings {
+    flex: initial;
   }
 
   .profile-overlay .app-notice {

@@ -33,7 +33,7 @@ import { STAFF } from "../data/staff";
 import Progress from "../systems/Progress";
 import EventDirector from "../events/EventDirector";
 import { eventBus } from "../game/EventBus";
-import { prayerReminders, resetAllProgress } from "../game/settings";
+import { prayerReminders, resetAllProgress, reloadLanguage, RESUME_SETTINGS_KEY } from "../game/settings";
 import CareTrays from "../systems/CareTrays";
 import ClinicFlow from "../clinic/ClinicFlow";
 import QueuePanel from "../ui/QueuePanel";
@@ -130,6 +130,8 @@ export default class ClinicScene extends Phaser.Scene {
   private shiftEndPending = false;
   /** The title screen is up: overview camera, game paused. */
   private onTitle = true;
+  /** A language reload returns to the paused profile settings, bypassing the opening. */
+  private resumeSettings = false;
   /** Dev panel: how fast the clock, visitors and events run. */
   private devSpeed = 1;
   private character: PlayableCharacter | undefined;
@@ -152,6 +154,12 @@ export default class ClinicScene extends Phaser.Scene {
 
   create(): void {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.soundscape.stop());
+    try {
+      this.resumeSettings = sessionStorage.getItem(RESUME_SETTINGS_KEY) === "1";
+      sessionStorage.removeItem(RESUME_SETTINGS_KEY);
+    } catch {
+      // No automatic return when session storage is unavailable.
+    }
     const save = loadSave();
     this.currentRoomId = save.currentRoomId;
 
@@ -202,7 +210,6 @@ export default class ClinicScene extends Phaser.Scene {
   private toggleHoverboard(): void {
     if (this.inputLocked) return;
     this.setHoverboard(!this.player.riding);
-    play("whoosh");
     this.hud.showRoomToast(t(this.player.riding ? "hoverboard.on" : "hoverboard.off"));
   }
 
@@ -264,7 +271,7 @@ export default class ClinicScene extends Phaser.Scene {
   /** Play pressed: zoom down from the overview to the doctor, then hand over control. */
   private leaveTitle(): void {
     const cam = this.cameras.main;
-    const ms = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 1300;
+    const ms = this.resumeSettings || window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 1300;
     const start = () => {
       this.onTitle = false;
       cam.startFollow(this.player, true, 0.12, 0.12);
@@ -272,6 +279,12 @@ export default class ClinicScene extends Phaser.Scene {
       this.hud.root.classList.remove("hud-off");
       this.inputLocked = false;
       this.hud.showRoomToast(this.roomLabel(findRoomAt(this.player.x, this.player.y)?.id ?? null));
+      if (this.resumeSettings && this.character) {
+        this.resumeSettings = false;
+        this.openProfile();
+        this.profile.openSettings();
+        return;
+      }
       // first launch: choose a doctor; refreshed during the day's summary: show it again;
       // otherwise the day's briefing card (the clinic opens when the player starts the shift)
       if (!this.character) this.openCharacterSelect(true);
@@ -403,6 +416,11 @@ export default class ClinicScene extends Phaser.Scene {
       // stays locked: the character picker takes over and unlocks when it closes
       onChangeCharacter: () => this.characterSelect.open(this.character?.id, false),
       onExit: () => this.exitToMenu(),
+      onLanguageChange: (language) => {
+        this.persist();
+        this.clock.save();
+        reloadLanguage(language, true);
+      },
       onClose: () => (this.inputLocked = false),
     });
     // Phase 3: visitors arrive all day; the doctor queue and Nurul / Grace's routine visits
@@ -540,10 +558,12 @@ export default class ClinicScene extends Phaser.Scene {
       },
       this.progress.shift
     );
-    // left the game during a shift: that day starts over (from 7:45, at the entrance)
-    if (this.progress.shiftUnfinished) this.restartDay();
-    if (this.preShift) this.clock.setBeforeOpening();
-    else this.morning.reset(this.progress.shift);
+    // Leaving a shift starts the day over; a settings-language reload continues it instead.
+    if (this.progress.shiftUnfinished && !this.resumeSettings) this.restartDay();
+    if (!this.resumeSettings) {
+      if (this.preShift) this.clock.setBeforeOpening();
+      else this.morning.reset(this.progress.shift);
+    }
     this.amenities = new Amenities({
       uiRoot,
       canPray: () => prayerReminders(),

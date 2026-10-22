@@ -4,8 +4,10 @@ import { register } from 'node:module';
 
 // Audio policy is deterministic and browser-free; scene transitions use a tiny fake audio port.
 register('./ts-resolve.mjs', import.meta.url);
-const { migrateSettings, setAudioOn, audioOn, soundOn, setSoundOn, onAudioSettings } = await import('../src/game/settings.ts');
+const { migrateSettings, setAudioOn, audioOn, soundOn, setSoundOn, onAudioSettings, language, setLanguage, reloadLanguage, QUICK_TITLE_KEY, RESUME_SETTINGS_KEY } = await import('../src/game/settings.ts');
+const { default: GameClock } = await import('../src/systems/GameClock.ts');
 const { EffectLimiter, play, tone, noise } = await import('../src/game/audio.ts');
+const { createPenSound } = await import('../src/game/pen.ts');
 const { crossfadeLoop } = await import('../src/game/crowd.ts');
 const { default: Ambience, murmurVolume, roomMix } = await import('../src/systems/Ambience.ts');
 
@@ -58,6 +60,48 @@ test('crowd gain is silent before opening, increases gently, and is bounded', ()
   assert.equal(murmurVolume(10000), 0.14);
 });
 
+test('language changes request a one-time return to clinic settings, while title changes stay on title', () => {
+  const previousWindow = globalThis.window;
+  const previousSession = globalThis.sessionStorage;
+  const previousLanguage = language();
+  const values = new Map();
+  let reloads = 0;
+  globalThis.window = { location: { reload: () => reloads++ } };
+  globalThis.sessionStorage = { setItem: (k, v) => values.set(k, v), removeItem: k => values.delete(k) };
+  try {
+    setLanguage('en');
+    reloadLanguage('ms', true);
+    assert.equal(language(), 'ms');
+    assert.equal(values.get(RESUME_SETTINGS_KEY), '1');
+    assert.equal(values.get(QUICK_TITLE_KEY), '1');
+    reloadLanguage('ms', true);
+    assert.equal(reloads, 1);
+    reloadLanguage('en');
+    assert.equal(reloads, 2);
+    assert.equal(values.has(RESUME_SETTINGS_KEY), false);
+  } finally {
+    setLanguage(previousLanguage);
+    if (previousWindow === undefined) delete globalThis.window;
+    else globalThis.window = previousWindow;
+    if (previousSession === undefined) delete globalThis.sessionStorage;
+    else globalThis.sessionStorage = previousSession;
+  }
+});
+
+test('the saved clock can restore the morning checklist time during a language reload', () => {
+  const previous = globalThis.localStorage;
+  try {
+    for (const [value, expected] of [['473', 473], ['465', 465], ['464', 480], ['bad', 480]]) {
+      globalThis.localStorage = { getItem: () => value };
+      const clock = new GameClock({ onPrayerTime() {}, onShiftOver() {} });
+      assert.equal(clock.minutesOfDay, expected);
+    }
+  } finally {
+    if (previous === undefined) delete globalThis.localStorage;
+    else globalThis.localStorage = previous;
+  }
+});
+
 test('lobby is busiest, treatment quieter, private rooms quiet, arcade adds bleeps', () => {
   assert.deepEqual(roomMix('reception'), roomMix('waiting'));
   for (const room of ['consult', 'care']) assert.ok(roomMix(room).crowd < roomMix('waiting').crowd);
@@ -67,22 +111,25 @@ test('lobby is busiest, treatment quieter, private rooms quiet, arcade adds blee
   assert.ok(roomMix(null).crowd > 0);
 });
 
-test('effects throttle independently at the 80 ms boundary, with a slower scratch limit', () => {
+test('effects throttle independently at the 80 ms boundary', () => {
   const limiter = new EffectLimiter();
   assert.equal(limiter.allow('good', 0), true);
   assert.equal(limiter.allow('good', 79), false);
   assert.equal(limiter.allow('coin', 79), true);
   assert.equal(limiter.allow('good', 80), true);
   assert.equal(limiter.allow('good', 81), false);
-  assert.equal(limiter.allow('signature', 100, 130), true);
-  assert.equal(limiter.allow('signature', 229, 130), false);
-  assert.equal(limiter.allow('signature', 230, 130), true);
 });
 
 test('sound helpers are harmless without Web Audio or a gesture', () => {
   play('good')();
   tone(440, 0.1)();
   noise(0.1, { frequency: 500 })();
+  const pen = createPenSound();
+  pen.move(0.5);
+  pen.stop();
+  pen.destroy();
+  pen.move(1);
+  pen.destroy();
 });
 
 test('recording loop overlaps stereo channels and wraps through adjacent original samples', () => {

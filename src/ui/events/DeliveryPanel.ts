@@ -1,4 +1,5 @@
 import { play } from "../../game/audio";
+import { createPenSound } from "../../game/pen";
 import Overlay, { el, feedback } from "../case/Overlay";
 import { icon, type IconName } from "../icons";
 import { lang } from "../../game/i18n";
@@ -101,6 +102,7 @@ function makeLines(seed: number): { invoice: Line[]; box: Line[] } {
 
 export default class DeliveryPanel implements EventPanel {
   private overlay: Overlay;
+  private stopSignature = () => {};
 
   constructor(parent: HTMLElement) {
     this.overlay = new Overlay(parent, "event-panel delivery-event");
@@ -115,6 +117,7 @@ export default class DeliveryPanel implements EventPanel {
   }
 
   open(seed: number, rewards: EventRewards, done: (o: EventOutcome) => void): void {
+    this.stopSignature();
     const { invoice, box } = makeLines(seed);
     let outcome: EventOutcome = "later";
     this.overlay.setHeader({ title: tx(S.title), avatar: "assets/portraits/ravi.webp", subtitle: tx(S.who) });
@@ -238,7 +241,10 @@ export default class DeliveryPanel implements EventPanel {
       const confirm = el("button", "primary-btn", tx(S.confirm));
       confirm.disabled = true;
       let ink = 0;
+      let pointer: number | null = null;
+      let lastTime = 0;
       let last: { x: number; y: number } | null = null;
+      const pen = createPenSound();
       const ctx = canvas.getContext("2d")!;
       ctx.lineWidth = 4;
       ctx.lineCap = "round";
@@ -249,26 +255,43 @@ export default class DeliveryPanel implements EventPanel {
         return { x: ((e.clientX - r.left) / r.width) * canvas.width, y: ((e.clientY - r.top) / r.height) * canvas.height };
       };
       canvas.addEventListener("pointerdown", (e) => {
+        if (pointer !== null || (e.pointerType === "mouse" && e.button !== 0)) return;
+        pointer = e.pointerId;
         canvas.setPointerCapture(e.pointerId);
         last = point(e);
+        lastTime = e.timeStamp;
         placeholder.classList.add("hidden");
       });
       canvas.addEventListener("pointermove", (e) => {
-        if (!last) return;
+        if (!last || pointer !== e.pointerId) return;
         const p = point(e);
         ctx.beginPath();
         ctx.moveTo(last.x, last.y);
         ctx.lineTo(p.x, p.y);
         ctx.stroke();
-        if (Math.hypot(p.x - last.x, p.y - last.y) > 1) play("signature");
-        ink += Math.hypot(p.x - last.x, p.y - last.y);
+        const distance = Math.hypot(p.x - last.x, p.y - last.y);
+        pen.move(distance / canvas.width / (Math.max(8, e.timeStamp - lastTime) / 1000));
+        ink += distance;
         last = p;
+        lastTime = e.timeStamp;
         confirm.disabled = ink < 120; // a real squiggle, not a single tap
       });
-      const lift = () => (last = null);
-      canvas.addEventListener("pointerup", lift);
-      canvas.addEventListener("pointercancel", lift);
+      const lift = () => { last = null; pointer = null; pen.stop(); };
+      const release = (e: PointerEvent) => { if (pointer === e.pointerId) lift(); };
+      canvas.addEventListener("pointerup", release);
+      canvas.addEventListener("pointercancel", release);
+      canvas.addEventListener("lostpointercapture", release);
+      const suspend = () => { if (document.hidden) lift(); };
+      window.addEventListener("blur", lift);
+      document.addEventListener("visibilitychange", suspend);
+      this.stopSignature = () => {
+        lift();
+        pen.destroy();
+        window.removeEventListener("blur", lift);
+        document.removeEventListener("visibilitychange", suspend);
+      };
       clear.addEventListener("click", () => {
+        lift();
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ink = 0;
         confirm.disabled = true;
@@ -276,6 +299,7 @@ export default class DeliveryPanel implements EventPanel {
       });
       confirm.addEventListener("click", () => {
         if (confirm.disabled) return;
+        this.stopSignature();
         outcome = "resolved";
         const ok = el("button", "primary-btn wide", tx(S.done));
         ok.addEventListener("click", () => this.overlay.close());
@@ -288,6 +312,6 @@ export default class DeliveryPanel implements EventPanel {
     };
 
     showBox();
-    this.overlay.open(() => done(outcome));
+    this.overlay.open(() => { this.stopSignature(); done(outcome); });
   }
 }

@@ -1,12 +1,14 @@
 import { STAFF } from "../data/staff";
 import type { CharacterId } from "../data/assets";
 import { cardCloseButton, el, renderIdCard } from "./IdCard";
-import { t } from "../game/i18n";
+import { t, type Lang } from "../game/i18n";
+import SettingsPanel from "./SettingsPanel";
 
 export interface ProfileCallbacks {
   onChangeCharacter: () => void;
   onExit: () => void;
   onClose: () => void;
+  onLanguageChange: (language: Lang) => void;
 }
 
 /** "My Profile": the player's own staff ID card, opened from the avatar button in the HUD. */
@@ -19,6 +21,8 @@ export default class ProfileCard {
   private cancelButton: HTMLButtonElement;
   private previousFocus: HTMLElement | null = null;
   private callbacks: ProfileCallbacks;
+  private settings: SettingsPanel;
+  private settingsButton: HTMLButtonElement;
 
   constructor(parent: HTMLElement, callbacks: ProfileCallbacks) {
     this.callbacks = callbacks;
@@ -38,6 +42,8 @@ export default class ProfileCard {
     stage.appendChild(frame);
 
     const actions = el("div", "modal-actions staff-actions profile-actions");
+    this.settingsButton = el("button", "secondary-btn profile-settings", `⚙️ ${t("menu.settings")}`);
+    this.settingsButton.addEventListener("click", () => this.openSettings());
     const change = el("button", "primary-btn", t("profile.change"));
     change.addEventListener("click", () => {
       this.root.classList.add("hidden");
@@ -49,7 +55,7 @@ export default class ProfileCard {
       this.confirmation.classList.remove("hidden");
       this.cancelButton.focus({ preventScroll: true });
     });
-    actions.append(change, this.exitButton);
+    actions.append(this.settingsButton, change, this.exitButton);
 
     const notice = el(
       "p",
@@ -100,6 +106,19 @@ export default class ProfileCard {
       }
     });
     parent.appendChild(this.root);
+    this.settings = new SettingsPanel(parent, {
+      onLanguageChange: (language) => this.callbacks.onLanguageChange(language),
+      onClose: () => {
+        this.root.classList.remove("hidden");
+        this.settingsButton.focus({ preventScroll: true });
+      },
+    });
+  }
+
+  openSettings(): void {
+    if (!this.isOpen) return;
+    this.root.classList.add("hidden");
+    this.settings.open();
   }
 
   open(character: CharacterId): void {
@@ -114,6 +133,7 @@ export default class ProfileCard {
   }
 
   close(): void {
+    if (this.settings.isOpen) this.settings.close();
     if (!this.isOpen) return;
     this.root.classList.add("hidden");
     this.callbacks.onClose();
