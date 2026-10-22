@@ -15,6 +15,8 @@ export interface HUDCallbacks {
   onObjectiveTap: () => void;
   /** "Start shift" button, shown before the clinic opens. */
   onStartShiftTap: () => void;
+  /** Hoverboard on / off. */
+  onHoverboardTap: () => void;
 }
 
 /** Mobile HUD: top-left stats, top-right mini-map mount, bottom-left joystick, bottom-right interact. */
@@ -27,6 +29,7 @@ export default class HUD {
   /** Where the doctor queue strip goes: its own panel under the mini-map. */
   queueMount: HTMLDivElement;
   private interactBtn: HTMLButtonElement;
+  private boardBtn: HTMLButtonElement;
   private interactIcon: HTMLSpanElement;
   private interactLabel: HTMLSpanElement;
   private interactTargetId: string | null = null;
@@ -160,7 +163,16 @@ export default class HUD {
     this.queueMount.className = "queue-dock";
     right.append(this.queueMount);
 
-    this.root.append(statsBar, right, this.stack, this.toast, joystickBase, this.interactBtn);
+    // Bottom-right, above the interact button: hoverboard on / off (a little drawn board icon)
+    this.boardBtn = document.createElement("button");
+    this.boardBtn.className = "hud-board-btn";
+    this.boardBtn.innerHTML =
+      '<svg class="hud-board-icon" viewBox="0 0 40 20" aria-hidden="true"><rect x="7" y="7" width="26" height="7" rx="3.5" fill="#26324a"/><rect x="11" y="9.5" width="18" height="2" rx="1" fill="#5ee6f5"/><circle cx="6" cy="11" r="5.5" fill="#26324a"/><circle cx="6" cy="11" r="2.5" fill="#cfd8e6"/><circle cx="34" cy="11" r="5.5" fill="#26324a"/><circle cx="34" cy="11" r="2.5" fill="#cfd8e6"/></svg>' +
+      `<span class="hud-board-label">${t("hud.hoverboard")}</span>`;
+    this.boardBtn.setAttribute("aria-pressed", "false");
+    this.boardBtn.addEventListener("click", callbacks.onHoverboardTap);
+
+    this.root.append(statsBar, right, this.stack, this.toast, joystickBase, this.boardBtn, this.interactBtn);
     parent.appendChild(this.root);
 
     this.setupJoystick(joystickBase, callbacks.onJoystickMove);
@@ -272,6 +284,12 @@ export default class HUD {
   }
 
   /** Shows the Start shift button (before the clinic opens), or hides it. */
+  /** Shows whether the doctor is on the hoverboard. */
+  setHoverboard(on: boolean): void {
+    this.boardBtn.classList.toggle("on", on);
+    this.boardBtn.setAttribute("aria-pressed", String(on));
+  }
+
   setStartShift(on: boolean): void {
     this.startShiftBtn.classList.toggle("hidden", !on);
   }

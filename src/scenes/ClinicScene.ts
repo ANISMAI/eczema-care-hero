@@ -76,6 +76,15 @@ import { t } from "../game/i18n";
 /** Floating "!" / "…" bubbles over interactables. Off by design: players explore freely. */
 const SHOW_INTERACT_BUBBLES = false;
 const MARKER_LIFT = 62; // default height of an interaction bubble above its interactable
+/** Hoverboard on or off, remembered on this device (not part of the game save). */
+const HOVERBOARD_KEY = "eczema-care-hero-hoverboard";
+function loadHoverboard(): boolean {
+  try {
+    return localStorage.getItem(HOVERBOARD_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
 /** The Staff Office desk is where the player ends a shift. */
 const SHIFT_DESK = "office-desk";
 
@@ -182,6 +191,23 @@ export default class ClinicScene extends Phaser.Scene {
       this.leaveTitle();
     });
     eventBus.emit("clinic-ready");
+  }
+
+  /** HUD hoverboard button (or R): hop on or off. */
+  private toggleHoverboard(): void {
+    if (this.inputLocked) return;
+    this.setHoverboard(!this.player.riding);
+    this.hud.showRoomToast(t(this.player.riding ? "hoverboard.on" : "hoverboard.off"));
+  }
+
+  private setHoverboard(on: boolean): void {
+    this.player.setRiding(on);
+    this.hud.setHoverboard(on);
+    try {
+      localStorage.setItem(HOVERBOARD_KEY, on ? "1" : "0");
+    } catch {
+      // storage unavailable: the choice lasts for this session only
+    }
   }
 
   /** Camera zoom while playing: sharp on high-DPI screens, and closer in on tablets. */
@@ -343,6 +369,7 @@ export default class ClinicScene extends Phaser.Scene {
       onStaffTap: () => this.openStaffDirectory(),
       onObjectiveTap: () => this.goToObjective(),
       onStartShiftTap: () => this.showBriefing(),
+      onHoverboardTap: () => this.toggleHoverboard(),
     });
     this.hud.setAvatar(this.character);
     this.miniMap = new MiniMap(this.hud.miniMapMount);
@@ -554,6 +581,9 @@ export default class ClinicScene extends Phaser.Scene {
     this.input.keyboard?.on("keydown-E", () => this.handleInteract());
     this.input.keyboard?.on("keydown-SPACE", () => this.handleInteract());
     this.input.keyboard?.on("keydown-M", () => this.openFullMap());
+    this.input.keyboard?.on("keydown-R", () => this.toggleHoverboard());
+    // the hoverboard: remembered on this device
+    this.setHoverboard(loadHoverboard());
   }
 
   private handleInteract(): void {

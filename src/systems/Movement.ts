@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import Player from "../entities/Player";
 import { PLAYER_WALK_SPEED } from "../data/assets";
+import { HOVERBOARD } from "../data/gameplay";
 
 const SPEED = PLAYER_WALK_SPEED;
 
@@ -34,7 +35,8 @@ export default class MovementSystem {
 
   update(): void {
     const { x, y } = this.read();
-    this.player.setVelocity(x * SPEED, y * SPEED);
+    const speed = SPEED * (this.player.riding ? HOVERBOARD.speedBoost : 1);
+    this.player.setVelocity(x * speed, y * speed);
   }
 
   private read(): { x: number; y: number } {

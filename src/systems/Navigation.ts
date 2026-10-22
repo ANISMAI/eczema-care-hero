@@ -2,7 +2,7 @@ import Phaser from "phaser";
 import Player from "../entities/Player";
 import Pathfinder from "./Pathfinding";
 import { PAL } from "../art/palette";
-import { TRAVEL } from "../data/gameplay";
+import { HOVERBOARD, TRAVEL } from "../data/gameplay";
 import { getRoomById, isWalkable, type Point, type Rect, type RoomId } from "../data/rooms";
 
 /** Auto-walk is a brisk walk, a little faster than walking by hand so long trips don't drag. */
@@ -106,7 +106,9 @@ export default class NavigationSystem {
     const dx = next.x - this.player.x;
     const dy = next.y - this.player.y;
     const dist = Math.hypot(dx, dy);
-    const step = (AUTO_SPEED * deltaMs) / 1000;
+    // on the hoverboard the auto-walk is faster too
+    const cruise = AUTO_SPEED * (this.player.riding ? HOVERBOARD.speedBoost : 1);
+    const step = (cruise * deltaMs) / 1000;
 
     if (dist <= ARRIVE_DIST) {
       this.advance();
@@ -131,7 +133,7 @@ export default class NavigationSystem {
       return;
     }
 
-    const speed = dist < step ? dist / Math.max(deltaMs / 1000, 0.001) : AUTO_SPEED;
+    const speed = dist < step ? dist / Math.max(deltaMs / 1000, 0.001) : cruise;
     this.player.setVelocity((dx / dist) * speed, (dy / dist) * speed);
   }
 

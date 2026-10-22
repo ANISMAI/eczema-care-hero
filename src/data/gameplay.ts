@@ -3,16 +3,22 @@
 
 import type { CaseStatus } from "../mission/types";
 
-/** Nine hours on the clock take nine minutes of active play; panels still pause time. */
+/**
+ * Half an hour on the clock every 15 seconds of active play (8:00 → 8:30 → 9:00…), so the nine
+ * hours of a shift take about four and a half minutes; panels still pause time.
+ */
 export const TIME = {
-  gameMinutesPerRealMinute: 60,
+  gameMinutesPerRealMinute: 120,
   /**
    * 7:45–8:00 (after clocking in) runs slower, so the meeting and the opening checklist fit:
-   * 0.2 × 60 = 12 game minutes a minute, about 75 s of play. Once the whole checklist is done
+   * 0.1 × 120 = 12 game minutes a minute, about 75 s of play. Once the whole checklist is done
    * the clock goes at normal speed, so nobody waits around for 8:00.
    */
-  morningSpeed: 0.2,
+  morningSpeed: 0.1,
 } as const;
+
+/** Hoverboard (the HUD button): how much faster the doctor goes while riding it. */
+export const HOVERBOARD = { speedBoost: 1.7 } as const;
 
 export const TRAVEL = {
   autoSpeed: 145,
@@ -123,12 +129,13 @@ export const CLINIC = {
   firstArrivalAt: 8 * 60 + 1,
   lastArrivalAt: 16 * 60 + 15,
   /**
-   * At the current clock speed, 8–14 game minutes are 8–14 seconds of active play.
+   * At the current clock speed (2 game minutes a second), 16–28 game minutes are 8–14 seconds
+   * of active play, the same pace of visitors as before the clock was sped up.
    * Keep the existing capacity limits so frequent arrivals do not overwhelm the queue.
    */
-  arrivalEvery: { min: 8, max: 14 },
+  arrivalEvery: { min: 16, max: 28 },
   /** Retry delay when the clinic is at capacity. */
-  retryWhenFull: 3,
+  retryWhenFull: 6,
   /** Doctor patients registered or waiting (they each need a waiting seat). */
   maxDoctorWaiting: 3,
   /** Visitors being served by Nurul / Grace at once. */
@@ -146,9 +153,10 @@ export const CLINIC = {
 
 /**
  * Testing override: `?clinic=busy` brings the first visitor in at once and makes arrivals
- * frequent (5–10 in-game minutes), to try the queue and caps quickly. Caps are unchanged.
+ * frequent (10–20 in-game minutes, 5–10 s of play), to try the queue and caps quickly. Caps are
+ * unchanged.
  */
 export function clinicConfig(): typeof CLINIC {
   const busy = new URLSearchParams(window.location.search).get("clinic") === "busy";
-  return busy ? { ...CLINIC, firstArrivalAt: 8 * 60, arrivalEvery: { min: 5, max: 10 } } : CLINIC;
+  return busy ? { ...CLINIC, firstArrivalAt: 8 * 60, arrivalEvery: { min: 10, max: 20 } } : CLINIC;
 }

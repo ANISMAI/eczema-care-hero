@@ -12,8 +12,8 @@
 //   [ Reception                   ·             Waiting Area        ]
 //                                entrance
 //
-// Every room opens onto hallway A or B through a door on its hallway-facing wall; Storage,
-// Staff Lounge, Pharmacy and Staff Office have a second door onto the cross hallway. The
+// Every room opens onto hallway A or B through a door on its hallway-facing wall; Storage and
+// the Staff Lounge have a second door onto the cross hallway. The
 // hallways open into the lobby. Consultation, Pharmacy and the Care Room share hallway A, so a
 // patient's visit stays on one side. Toilet and Surau are half-height rooms sharing one slot.
 
@@ -317,11 +317,10 @@ function office() {
   const { f, wall, p } = local(O);
   return {
     furniture: [
-      // the top-left corner is the door onto the cross hallway
-      wall("whiteboard", 150),
+      wall("whiteboard", 62),
       f("officeChair", 150, 84),
       f("desk", 150, 110),
-      f("bookshelf", 34, 262),
+      f("bookshelf", 36, 150),
       f("plant", 36, 330),
       f("roundTable", 110, 290),
       f("chair", 66, 290, 2),
@@ -584,7 +583,6 @@ export const ROOMS: RoomDef[] = [
     bounds: { ...O, ...ROOM_SIZE },
     signX: 222,
     doorSide: "right",
-    extraDoors: [{ side: "top", at: 51, width: 70 }], // onto the cross hallway, clear of the desk and printer
     spawn: o.spawn,
     accessible: true,
     furniture: o.furniture,
@@ -669,9 +667,7 @@ export const ROOMS: RoomDef[] = [
     color: 0xa07ee0,
     floor: { style: "tile", a: 0xf4eefb, b: 0xdcd0ee },
     bounds: { ...P, ...ROOM_SIZE },
-    signX: 64, // the middle of the top wall is the door onto the cross hallway
     doorSide: "left",
-    extraDoors: [{ side: "top", width: 80 }], // onto the cross hallway, between the two shelves
     spawn: ph.spawn,
     accessible: true,
     furniture: ph.furniture,
