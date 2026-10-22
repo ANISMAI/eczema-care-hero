@@ -1,12 +1,17 @@
 import { CASE_001 } from "./case001";
 import { CASE_ITCHY_PATCH } from "./itchyPatch";
 import { CASE_FOLLOW_UP } from "./followUp";
+import { PHASE5_SCENARIOS } from "../phase5/scenarios";
 import type { PatientIdentity } from "../patients";
 import type { CaseDefinition, CaseTemplate } from "../../mission/types";
 
-/** Every doctor visit template, by id. */
+/**
+ * Every doctor visit template, by id. Phase 5 visits are picked from PHASE5_SCENARIOS
+ * (data/phase5/select.ts); the Phase 2–3 templates stay registered for Day 1's first patient
+ * (case001), saved cases and the dev panel.
+ */
 export const CASE_TEMPLATES: Record<string, CaseTemplate> = Object.fromEntries(
-  [CASE_001, CASE_ITCHY_PATCH, CASE_FOLLOW_UP].map((t) => [t.id, t])
+  [CASE_001, CASE_ITCHY_PATCH, CASE_FOLLOW_UP, ...PHASE5_SCENARIOS].map((t) => [t.id, t])
 );
 
 /** Replaces `{name}` / `{portrait}` in every string of a value (deep copy). */

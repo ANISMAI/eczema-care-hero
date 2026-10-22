@@ -83,6 +83,13 @@ export default class EventSchedule {
     s.opportunityPending = false;
   }
 
+  /** Request an event and let it be drawn at once (skips the global cooldown this time). */
+  requestNow(id: string, now: number): void {
+    this.request(id);
+    this.state.nextAt = Math.min(this.state.nextAt, now);
+    this.state.nextCheckAt = Math.min(this.state.nextCheckAt, now);
+  }
+
   clearPending(): void {
     this.state.pending = [];
     this.state.tutorialPending = false;

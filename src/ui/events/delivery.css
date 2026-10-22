@@ -1,0 +1,432 @@
+/* ---------- Morning delivery: open the box, check against the invoice, sign (DeliveryPanel.ts) ---------- */
+
+.case-card.delivery-event {
+  width: min(620px, 100%);
+}
+
+.delivery-event .case-body {
+  align-items: stretch;
+}
+
+/* 1. the courier's carton: tap → the taped lid lifts off, the items pop up out of the box */
+.dl-box {
+  position: relative;
+  align-self: center;
+  width: 210px;
+  height: 200px; /* room above the box for the items to pop up into */
+  margin: 4px auto 0;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  /* never squeezed by the panel's flex column (its parts are placed from the bottom, so a
+     squeezed box spilled up over the speech bubble on short landscape phones) */
+  flex: none;
+}
+
+/* short landscape phones: a smaller box, so the panel fits without covering the text */
+@media (orientation: landscape) and (max-height: 500px) {
+  .dl-box {
+    transform: scale(0.68);
+    transform-origin: center top;
+    margin: 0 auto -64px; /* give back the space the scaling frees */
+  }
+}
+
+.dl-front {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 8px;
+  z-index: 2;
+  height: 130px;
+  border: 3px solid #a0703c;
+  border-radius: 4px 4px 6px 6px;
+  background: linear-gradient(180deg, #d9a465, #c48a4b);
+  box-shadow: 0 8px 0 #8d5f30, 0 14px 22px rgba(18, 28, 44, 0.22);
+}
+
+/* the dark opening, seen once the lid is off */
+.dl-inside {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 135px;
+  z-index: 0;
+  height: 12px;
+  border-radius: 8px 8px 0 0;
+  background: #5b3a1c;
+  opacity: 0;
+  transition: opacity 0.2s ease 0.2s;
+}
+
+/* the lid: a slightly wider cardboard strip with the tape across it */
+.dl-lid {
+  position: absolute;
+  left: -6px;
+  right: -6px;
+  bottom: 128px;
+  z-index: 3;
+  height: 30px;
+  border: 3px solid #a0703c;
+  border-radius: 5px;
+  background: linear-gradient(180deg, #e7b77d, #d9a465);
+  transition: transform 0.45s ease-out, opacity 0.3s ease 0.1s;
+}
+
+.dl-tape {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  left: 50%;
+  width: 34px;
+  background: rgba(240, 225, 170, 0.9);
+  transform: translateX(-50%);
+}
+
+.dl-sticker {
+  position: absolute;
+  left: 50%;
+  bottom: 22px;
+  display: flex;
+  flex-direction: column;
+  padding: 6px 10px;
+  border-radius: 3px;
+  background: #fffef9;
+  color: #253044;
+  font-family: var(--font);
+  line-height: 1.2;
+  transform: translateX(-50%) rotate(-3deg);
+  white-space: nowrap;
+}
+
+.dl-sticker b {
+  font-size: 12px;
+}
+
+.dl-sticker small {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+/* items waiting inside, hidden behind the front */
+.dl-pop {
+  position: absolute;
+  bottom: 96px;
+  left: calc(22% + var(--i) * 28%);
+  z-index: 1;
+  width: 50px;
+  height: 50px;
+  margin-left: -25px;
+  opacity: 0;
+  transform: translateY(20px) scale(0.7);
+  transition: transform 0.5s cubic-bezier(0.25, 1.6, 0.45, 1), opacity 0.2s ease;
+  transition-delay: calc(0.35s + var(--i) * 0.14s);
+}
+
+.dl-pop svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* closed: a gentle wiggle says "tap me" */
+.dl-box:not(.opening) .dl-front,
+.dl-box:not(.opening) .dl-lid {
+  animation: dl-wiggle 2.4s ease-in-out infinite;
+}
+
+.dl-box.opening .dl-lid {
+  opacity: 0;
+  transform: translate(44px, -30px) rotate(18deg);
+}
+
+.dl-box.opening .dl-inside {
+  opacity: 1;
+}
+
+.dl-box.opening .dl-pop {
+  opacity: 1;
+  transform: translateY(-38px) rotate(calc((var(--i) - 1) * 12deg));
+}
+
+@keyframes dl-wiggle {
+  0%,
+  80%,
+  100% {
+    transform: rotate(0);
+  }
+  85% {
+    transform: rotate(-2deg);
+  }
+  90% {
+    transform: rotate(2deg);
+  }
+  95% {
+    transform: rotate(-1deg);
+  }
+}
+
+.dl-hint {
+  margin: 8px 0 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 800;
+  text-align: center;
+}
+
+/* 2. the invoice and the items from the box */
+.dl-invoice {
+  padding: 10px 12px;
+  border: 1px solid #d8dde5;
+  border-top: 5px solid #7a55d6;
+  border-radius: 4px;
+  background: #fffef9;
+  box-shadow: 0 3px 0 #d8dde5;
+  color: #253044;
+}
+
+.dl-invoice-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-bottom: 6px;
+  border-bottom: 2px dashed #c9cfd9;
+  font-size: 13px;
+}
+
+.dl-invoice-head span {
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+
+.dl-invoice ul {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 16px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.dl-invoice li {
+  display: flex;
+  justify-content: space-between;
+}
+
+.dl-qty {
+  color: var(--ink-soft);
+}
+
+.dl-count {
+  color: #35445b;
+  font-size: 13px;
+  font-weight: 800;
+  text-align: right;
+}
+
+.dl-items {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.dl-item {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 8px;
+  border: 2px solid #e2d3bd;
+  border-radius: 12px;
+  background: #f8efe2;
+  color: #253044;
+}
+
+.dl-item.crushed .dl-pic {
+  transform: rotate(-8deg) scaleY(0.82);
+  filter: sepia(0.4);
+}
+
+.dl-pic {
+  display: block;
+  width: 44px;
+  height: 44px;
+}
+
+.dl-pic svg {
+  width: 100%;
+  height: 100%;
+}
+
+.dl-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.dl-info strong {
+  font-size: 14px;
+}
+
+.dl-flag {
+  color: #b8481c;
+  font-weight: 900;
+}
+
+.dl-choice {
+  display: flex;
+  grid-column: 1 / -1;
+  gap: 6px;
+}
+
+.dl-choice button {
+  flex: 1;
+  min-height: 40px;
+  border: none;
+  border-radius: 10px;
+  color: #ffffff;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.dl-accept {
+  background: #2fb38a;
+  box-shadow: 0 3px 0 #1b8565;
+}
+
+.dl-return {
+  background: #e58a2e;
+  box-shadow: 0 3px 0 #b0631a;
+}
+
+.dl-choice button:active {
+  transform: translateY(2px);
+  box-shadow: none;
+}
+
+.dl-item.accepted {
+  border-color: #2fb38a;
+  background: #e6f7f0;
+}
+
+.dl-item.returned {
+  border-color: #e58a2e;
+  background: #fdf0e2;
+}
+
+.dl-stamp {
+  grid-column: 1 / -1;
+  justify-self: center;
+  padding: 2px 10px;
+  border: 2px solid currentColor;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+  transform: rotate(-4deg);
+}
+
+.dl-item.accepted .dl-stamp {
+  color: #1b8565;
+}
+
+.dl-item.returned .dl-stamp {
+  color: #b0631a;
+}
+
+/* 3. the delivery note to sign */
+.dl-summary {
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.dl-sum-row {
+  padding: 7px 10px;
+  border-radius: 10px;
+}
+
+.dl-sum-row.good {
+  background: #e6f7f0;
+  color: #1b6f53;
+}
+
+.dl-sum-row.back {
+  background: #fdf0e2;
+  color: #9a5214;
+}
+
+.dl-sign {
+  position: relative;
+  border: 2px dashed #9aa6b8;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.dl-sign canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 560 / 180;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.dl-sign-hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  color: #9aa6b8;
+  font-size: 16px;
+  font-weight: 800;
+  pointer-events: none;
+  transform: translate(-50%, -70%);
+}
+
+.dl-sign-hint.hidden {
+  display: none;
+}
+
+.dl-sign-line {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: 22%;
+  border-bottom: 2px solid #c9cfd9;
+  pointer-events: none;
+}
+
+.dl-clear {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+}
+
+@media (max-width: 420px) {
+  .dl-items,
+  .dl-invoice ul {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dl-box .dl-front,
+  .dl-box .dl-lid {
+    animation: none !important;
+  }
+
+  .dl-lid,
+  .dl-pop {
+    transition: none;
+  }
+}

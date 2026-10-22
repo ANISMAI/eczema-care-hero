@@ -1,19 +1,18 @@
-import { ROOMS, HALLWAY, WORLD_BOUNDS, type Point, type Rect, type RoomId } from "../data/rooms";
+import { ROOMS, HALLWAYS, WORLD_BOUNDS, type Point, type Rect, type RoomId } from "../data/rooms";
 import { shade, toCss } from "../art/palette";
 
-// CSS size of the mini-map. The floor plan is turned 90° to fit a wide card (entrance on the
-// left, hallway running across, like the full map on a landscape screen). It shows the whole
-// width of the clinic and scrolls sideways to follow the player.
+// CSS size of the mini-map. The floor plan is drawn as in the game (entrance at the bottom),
+// showing the whole width of the clinic; it scrolls up and down to follow the player.
 const MAP_W = 120;
 const MAP_H = 66;
-const SCALE = MAP_H / WORLD_BOUNDS.width;
+const SCALE = MAP_W / WORLD_BOUNDS.width;
 
 /** Always-visible top-right mini-map: simplified room shapes + a moving player arrow. */
 export default class MiniMap {
   private ctx: CanvasRenderingContext2D;
   private dpr = Math.min(3, window.devicePixelRatio || 1);
   private pulse = 0;
-  private scrollX = 0;
+  private scrollY = 0;
 
   constructor(parent: HTMLElement) {
     const canvas = document.createElement("canvas");
@@ -26,17 +25,17 @@ export default class MiniMap {
     parent.prepend(canvas);
   }
 
-  /** World point -> map point (turned: world bottom = map left). */
-  private mx(y: number): number {
-    return (WORLD_BOUNDS.height - y) * SCALE - this.scrollX;
-  }
-
-  private my(x: number): number {
+  /** World point -> map point. */
+  private mx(x: number): number {
     return x * SCALE;
   }
 
+  private my(y: number): number {
+    return y * SCALE - this.scrollY;
+  }
+
   private rect(r: Rect): [number, number, number, number] {
-    return [this.mx(r.y + r.height), this.my(r.x), r.height * SCALE, r.width * SCALE];
+    return [this.mx(r.x), this.my(r.y), r.width * SCALE, r.height * SCALE];
   }
 
   /** `quest`: next case destination (pink pin). `event`: optional clinic event (orange "!"). */
@@ -44,8 +43,8 @@ export default class MiniMap {
     const ctx = this.ctx;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.clearRect(0, 0, MAP_W, MAP_H);
-    const maxScroll = Math.max(0, WORLD_BOUNDS.height * SCALE - MAP_W);
-    this.scrollX = Math.min(maxScroll, Math.max(0, (WORLD_BOUNDS.height - playerY) * SCALE - MAP_W / 2));
+    const maxScroll = Math.max(0, WORLD_BOUNDS.height * SCALE - MAP_H);
+    this.scrollY = Math.min(maxScroll, Math.max(0, playerY * SCALE - MAP_H / 2));
 
     ctx.fillStyle = "#93cf6f";
     ctx.fillRect(0, 0, MAP_W, MAP_H);
@@ -63,7 +62,7 @@ export default class MiniMap {
       }
     };
 
-    box(HALLWAY, "#f3e9db");
+    for (const hall of HALLWAYS) box(hall, "#f3e9db");
     for (const room of ROOMS) {
       const isHere = room.id === currentRoomId;
       box(room.bounds, toCss(isHere ? room.color : shade(room.color, 0.6)), isHere ? "#ffffff" : undefined);
@@ -73,8 +72,8 @@ export default class MiniMap {
 
     // optional event: orange "!" badge (clamped to the edge when the room is off-screen)
     if (event) {
-      const ex = Math.min(MAP_W - 6, Math.max(6, this.mx(event.y)));
-      const ey = this.my(event.x);
+      const ex = this.mx(event.x);
+      const ey = Math.min(MAP_H - 6, Math.max(6, this.my(event.y)));
       const r = 5.5 + Math.sin(this.pulse * 2) * 0.8;
       ctx.beginPath();
       ctx.arc(ex, ey, r, 0, Math.PI * 2);
@@ -92,8 +91,8 @@ export default class MiniMap {
 
     // next case destination: pink pin
     if (quest) {
-      const qx = Math.min(MAP_W - 4, Math.max(4, this.mx(quest.y)));
-      const qy = this.my(quest.x);
+      const qx = this.mx(quest.x);
+      const qy = Math.min(MAP_H - 4, Math.max(4, this.my(quest.y)));
       ctx.beginPath();
       ctx.arc(qx, qy, 4.5 + Math.sin(this.pulse * 1.5) * 1.2, 0, Math.PI * 2);
       ctx.fillStyle = "rgba(240, 103, 158, 0.35)";
@@ -108,8 +107,8 @@ export default class MiniMap {
     }
 
     // player arrow with a soft pulsing halo
-    const px = this.mx(playerY);
-    const py = this.my(playerX);
+    const px = this.mx(playerX);
+    const py = this.my(playerY);
     ctx.beginPath();
     ctx.arc(px, py, 5.5 + Math.sin(this.pulse) * 1.2, 0, Math.PI * 2);
     ctx.fillStyle = "rgba(232, 51, 63, 0.3)";
@@ -117,8 +116,8 @@ export default class MiniMap {
 
     ctx.save();
     ctx.translate(px, py);
-    // the arrow points up at 0; +90 turns a world angle into it, +90 more for the turned plan
-    ctx.rotate(((facingDeg + 180) * Math.PI) / 180);
+    // the arrow points up at 0; +90 turns a world angle (0 = right) into it
+    ctx.rotate(((facingDeg + 90) * Math.PI) / 180);
     ctx.beginPath();
     ctx.moveTo(0, -5);
     ctx.lineTo(4, 4);

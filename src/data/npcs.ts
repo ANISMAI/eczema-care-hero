@@ -3,7 +3,7 @@
 // rooms.ts. Dialogue is friendly and non-clinical (Phase 1 content rules).
 
 import { NPC_POSE_SHEETS, NPC_WALKER_SHEETS, type CharacterSheet, type SheetDef } from "./assets";
-import { HALLWAY, getRoomById, type InteractableDef, type Point, type RoomId } from "./rooms";
+import { HALLWAYS, getRoomById, type InteractableDef, type Point, type RoomId } from "./rooms";
 
 /**
  * idle    – blinks now and then
@@ -147,15 +147,17 @@ export const POSE_NPCS: PoseNpcDef[] = [
   seated("visitor-tokwan", S.elderly, 1, 264, 324, CHAIR, "Tok Wan Ismail", "👴", "I always come early so I can read the newspaper here.", 2),
 ];
 
-const hallX = HALLWAY.x + HALLWAY.width / 2 + 18;
+// Nurse Jason walks up and down hallway A (Consultation, Pharmacy and the Care Room)
+const HALL_A = HALLWAYS[0];
+const hallX = HALL_A.x + HALL_A.width / 2 + 18;
 
 export const WALKER_NPCS: WalkerNpcDef[] = [
   {
     id: "nurse-jason",
     sheet: NPC_WALKER_SHEETS.nurseMan,
     path: [
-      { x: hallX, y: HALLWAY.y + 170 },
-      { x: hallX, y: HALLWAY.y + HALLWAY.height - 110 },
+      { x: hallX, y: HALL_A.y + 170 },
+      { x: hallX, y: HALL_A.y + HALL_A.height - 60 },
     ],
     speed: 62,
     pause: 1800,

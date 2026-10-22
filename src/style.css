@@ -431,17 +431,112 @@ button {
 /* ---------- Full map ---------- */
 
 .fullmap-card {
-  width: min(360px, 100%);
+  width: min(560px, 100%);
 }
 
+.fm-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* sized by its width; FullMap.ts sets the aspect ratio of the clinic */
 .fm-map {
   position: relative;
-  height: min(56vh, 560px);
-  max-width: 100%;
-  margin: 0 auto 12px;
+  width: 100%;
+  margin: 0 auto;
   border-radius: 12px;
   background: #93cf6f;
   border: 3px solid var(--ink);
+}
+
+/* the clinic seen from above (a snapshot of the game world) */
+.fm-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 9px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.fm-map.photo .fm-photo {
+  opacity: 1;
+}
+
+.fm-map.photo .fm-hall {
+  display: none;
+}
+
+/* over the photo a room is just a tappable area with a small name tag at its top */
+.fm-map.photo .fm-room {
+  border-color: transparent;
+  background: transparent;
+  color: #ffffff;
+}
+
+.fm-map.photo .fm-room-inner {
+  flex-direction: row;
+  gap: 3px;
+  width: max-content;
+  max-width: 100%;
+  height: auto;
+  margin: 2px auto 0;
+  padding: 1px 6px 1px 4px;
+  border-radius: 999px;
+  background: rgba(35, 54, 79, 0.86);
+  box-shadow: 0 1px 3px rgba(18, 28, 44, 0.35);
+}
+
+.fm-map.photo .fm-room-icon {
+  font-size: clamp(8px, 11cqmin, 12px);
+}
+
+.fm-map.photo .fm-room-label {
+  font-size: clamp(6px, 7.5cqw, 10px);
+  white-space: nowrap;
+}
+
+.fm-map.photo .fm-room.here {
+  border-color: rgba(232, 51, 63, 0.85);
+  background: rgba(232, 51, 63, 0.08);
+}
+
+.fm-map.photo .fm-room.selected {
+  border-color: var(--gold);
+  background: rgba(255, 207, 58, 0.22);
+  box-shadow: 0 0 0 2px var(--ink), 0 6px 14px rgba(18, 28, 44, 0.35);
+  transform: none;
+}
+
+/* landscape: the map on the left, the details and buttons beside it (no scrolling) */
+@media (orientation: landscape) {
+  .fullmap-card {
+    width: auto;
+    max-width: 100%;
+  }
+
+  .fm-body {
+    flex-direction: row;
+    align-items: stretch;
+  }
+
+  .fm-map {
+    flex: none;
+    width: auto;
+    height: min(calc(100dvh - 140px), 620px);
+  }
+
+  .fm-body .fm-footer {
+    width: 230px;
+    justify-content: space-between;
+  }
+
+  .fm-body .fm-footer .modal-actions {
+    flex-direction: column;
+  }
 }
 
 .fm-hall {
@@ -501,12 +596,13 @@ button {
 
 .fm-room-label {
   max-width: 100%;
-  font-size: clamp(7px, 11cqw, 11px);
+  /* small enough that a long single word ("CONSULTATION") fits a narrow room box */
+  font-size: clamp(5.5px, 9cqw, 11px);
   font-weight: 900;
   text-transform: uppercase;
   line-height: 1.05;
   text-align: center;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
 }
 
 /* short, wide rooms (Toilet / Surau): icon and label side by side */
@@ -517,6 +613,10 @@ button {
   }
   .fm-room-icon {
     font-size: clamp(10px, 50cqh, 16px);
+  }
+  /* keep a short name on one line ("TANDAS", not "TANDA S") */
+  .fm-room-label {
+    white-space: nowrap;
   }
 }
 

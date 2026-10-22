@@ -73,11 +73,10 @@ export interface PlayableCharacter {
   label: string;
   sheet: CharacterSheet;
   /**
-   * Can pray at the Surau mat (design choice: the Malay doctors). Others can still visit the
-   * Surau; they just have no Pray action there.
+   * Sitting in prayer (doa) on the surau mat: frame 0 hands raised, frame 1 hands in lap.
+   * Optional: whether the doctor can pray follows the player's prayer setting, not the
+   * character; without this sheet the prayer is shown as a soft fade instead.
    */
-  prays: boolean;
-  /** Sitting in prayer (doa) on the surau mat: frame 0 hands raised, frame 1 hands in lap. */
   pray?: SheetDef;
 }
 
@@ -92,40 +91,34 @@ export const CHARACTERS: PlayableCharacter[] = [
     id: "doctor-hijab",
     label: "Dr. Nadia",
     sheet: { key: "char-doctor-hijab", url: "assets/characters/doctor-hijab-walk.webp", frameWidth: 110, ...WALKER },
-    prays: true,
     pray: { key: "pray-doctor-hijab", url: "assets/characters/doctor-hijab-pray.webp", frameWidth: 110, ...FRAME, displayHeight: 50 },
   },
   {
     id: "doctor-man",
     label: "Dr. Faris",
     sheet: { key: "char-doctor-man", url: "assets/characters/doctor-man-walk.webp", frameWidth: 112, ...WALKER },
-    prays: true,
     pray: { key: "pray-doctor-man", url: "assets/characters/doctor-man-pray.webp", frameWidth: 100, ...FRAME, displayHeight: 50 },
   },
-  // Visit the Surau but have no Pray action there (design choice); walk sheets only.
+  // No pray-pose sheet yet: prayer falls back to a soft fade.
   {
     id: "doctor-chinese-woman",
     label: "Dr. Jasmine",
     sheet: { key: "char-doctor-chinese-woman", url: "assets/characters/doctor-chinese-woman-walk.webp", frameWidth: 122, ...WALKER },
-    prays: false,
   },
   {
     id: "doctor-chinese-man",
     label: "Dr. Wei Jie",
     sheet: { key: "char-doctor-chinese-man", url: "assets/characters/doctor-chinese-man-walk.webp", frameWidth: 110, ...WALKER },
-    prays: false,
   },
   {
     id: "doctor-indian-woman",
     label: "Dr. Kavitha",
     sheet: { key: "char-doctor-indian-woman", url: "assets/characters/doctor-indian-woman-walk.webp", frameWidth: 114, ...WALKER },
-    prays: false,
   },
   {
     id: "doctor-indian-man",
     label: "Dr. Arvind",
     sheet: { key: "char-doctor-indian-man", url: "assets/characters/doctor-indian-man-walk.webp", frameWidth: 98, ...WALKER },
-    prays: false,
   },
 ];
 

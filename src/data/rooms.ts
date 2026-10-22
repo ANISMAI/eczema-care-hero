@@ -1,18 +1,21 @@
 // Room metadata: single typed list driving layout, walls, furniture, mini-map, full map and
 // interactions. Keep this as the one source of truth for clinic geometry (per brief section 08).
 //
-// Layout (portrait, fits a phone screen; the main entrance is at the bottom of the hallway):
+// Layout: a big open lobby at the front (Reception + Waiting Area, one room with no wall
+// between them), two hallways (A and B) leading back from it, and a cross hallway (X) running
+// left to right between the two rows of rooms, like streets on a town map:
 //
-//   [ Staff Office ]  hall  [ Storage      ]   <- staff area at the back
-//   [ Staff Lounge ]  hall  [ Arcade Room  ]
-//   [ Care Room    ]  hall  [ Toilet  (1/2)]
-//                           [ Surau   (1/2)]
-//   [ Consultation ]  hall  [ Pharmacy     ]   <- see the doctor, then collect products
-//   [ Reception    ]  hall  [ Waiting Area ]   <- first rooms visitors reach
-//                  entrance
+//   [ Care Room    ] A [ Storage  ][ Staff Lounge ] B [ Arcade Room ]
+//   ════════════════ X ═══════════════════════════════ X ═══════════════
+//   [ Consultation ] A [ Pharmacy ][ Staff Office ] B [ Toilet (1/2)]
+//                                                     [ Surau  (1/2)]
+//   [ Reception                   ·             Waiting Area        ]
+//                                entrance
 //
-// Every room opens onto the central hallway through a door on its hallway-facing wall.
-// Toilet and Surau are half-height rooms sharing one slot.
+// Every room opens onto hallway A or B through a door on its hallway-facing wall; Storage,
+// Staff Lounge, Pharmacy and Staff Office have a second door onto the cross hallway. The
+// hallways open into the lobby. Consultation, Pharmacy and the Care Room share hallway A, so a
+// patient's visit stays on one side. Toilet and Surau are half-height rooms sharing one slot.
 
 import { FURNITURE, type FurnitureKind } from "./furniture";
 import { roomName, t as translate } from "../game/i18n";
@@ -78,6 +81,13 @@ export type FloorStyle = "wood" | "tile" | "carpet";
 
 export type DoorSide = "top" | "bottom" | "left" | "right";
 
+/** A door: which wall, where along it (room-local centre; default the middle) and how wide. */
+export interface DoorSpec {
+  side: DoorSide;
+  at?: number;
+  width?: number;
+}
+
 export interface RoomDef {
   id: RoomId;
   label: string;
@@ -91,6 +101,14 @@ export interface RoomDef {
   /** Room-local x of the name plaque on the top wall (defaults to the room centre). */
   signX?: number;
   doorSide: DoorSide;
+  /** Room-local position of the door's centre along its wall (default: the middle). */
+  doorAt?: number;
+  /** Width of the door gap (default DOOR_GAP). */
+  doorWidth?: number;
+  /** Sides with no wall at all, open into the neighbouring room (the lobby). */
+  openSides?: DoorSide[];
+  /** More doors besides the main one (e.g. onto the middle hallway). */
+  extraDoors?: DoorSpec[];
   spawn: Point;
   accessible: boolean;
   furniture: FurnitureDef[];
@@ -120,22 +138,47 @@ const OY = 56; // outer margin top
 const ROOM_W = 310;
 const ROOM_H = 360;
 const HALL_W = 120;
-const ROWS = 5;
+/** Rows of rooms behind the lobby. */
+const ROWS = 2;
+/** Garden below the building (the entrance path). */
+const FRONT = 90;
+/** Four columns of rooms: hallway A between the first two, B between the last two. */
+const BUILDING_W = ROOM_W * 4 + HALL_W * 2;
+/** The lobby is split down the middle: Reception on the left, Waiting Area on the right. */
+const LOBBY_W = BUILDING_W / 2;
+/** Height of the rooms and the cross hallway between the two rows. */
+const BLOCK_H = ROOM_H * ROWS + HALL_W;
+const LOBBY_Y = OY + BLOCK_H;
 
 export const WORLD_BOUNDS: Rect = {
   x: 0,
   y: 0,
-  width: OX * 2 + ROOM_W * 2 + HALL_W,
-  height: OY + ROOM_H * ROWS + 44,
+  width: OX * 2 + BUILDING_W,
+  height: LOBBY_Y + ROOM_H + FRONT,
 };
 
-export const HALLWAY: Rect = { x: OX + ROOM_W, y: OY, width: HALL_W, height: ROOM_H * ROWS };
+/**
+ * Hallways A (left) and B (right), which open into the lobby, and the cross hallway X between
+ * the two rows of rooms (the only one wider than tall).
+ */
+export const HALLWAYS: Rect[] = [
+  { x: OX + ROOM_W, y: OY, width: HALL_W, height: BLOCK_H },
+  { x: OX + ROOM_W * 3 + HALL_W, y: OY, width: HALL_W, height: BLOCK_H },
+  { x: OX, y: OY + ROOM_H, width: BUILDING_W, height: HALL_W },
+];
+
+/** Just inside the front door, in the middle of the lobby (visitors arrive and leave here). */
+export const ENTRANCE: Point = { x: OX + LOBBY_W, y: LOBBY_Y + ROOM_H - 40 };
 
 const FACE_MID = WALL_THICKNESS + WALL_FACE / 2; // y offset of wall decor from a room's top
 
-/** Top-left of a room slot. `half` 1 = the lower half of a slot split into two half rooms. */
-function origin(col: 0 | 1, row: number, half: 0 | 1 = 0): Point {
-  return { x: OX + col * (ROOM_W + HALL_W), y: OY + row * ROOM_H + half * (ROOM_H / 2) };
+/**
+ * Top-left of a room slot: column 0–3 (hallway A after column 0, B after column 2), row 0 at the
+ * back (row 1 is beyond the cross hallway). `half` 1 = the lower half of a slot split in two.
+ */
+function origin(col: 0 | 1 | 2 | 3, row: number, half: 0 | 1 = 0): Point {
+  const x = OX + col * ROOM_W + (col >= 1 ? HALL_W : 0) + (col >= 3 ? HALL_W : 0);
+  return { x, y: OY + row * (ROOM_H + HALL_W) + half * (ROOM_H / 2) };
 }
 
 /** Builds room-relative helpers so the layout below reads in local coordinates. */
@@ -159,19 +202,24 @@ function local(o: Point) {
 
 // ---------- Rooms ----------
 
-// Visitors enter from the bottom, so the public rooms sit by the entrance and the
-// staff-only rooms are at the back.
-const O = origin(0, 0);
+// Visitors enter from the bottom into the lobby; the rooms they use are in the front row, the
+// staff-only rooms at the back. (Each room keeps its door on the same side as before, so the
+// furniture inside didn't need to move.)
+const C = origin(0, 0);
 const S = origin(1, 0);
-const L = origin(0, 1);
-const A = origin(1, 1);
-const C = origin(0, 2);
-const T = origin(1, 2);
-const Q = origin(1, 2, 1);
-const K = origin(0, 3);
-const P = origin(1, 3);
-const R = origin(0, 4);
-const W = origin(1, 4);
+const L = origin(2, 0);
+const A = origin(3, 0);
+const K = origin(0, 1);
+const P = origin(1, 1);
+const O = origin(2, 1);
+const T = origin(3, 1);
+const Q = origin(3, 1, 1);
+/** The lobby: Reception on the left half, Waiting Area on the right. */
+const R = { x: OX, y: LOBBY_Y };
+const W = { x: OX + LOBBY_W, y: LOBBY_Y };
+/** Lobby openings (room-local x of each opening's centre): under hallway A, and under B. */
+const RECEPTION_DOOR_AT = HALLWAYS[0].x + HALL_W / 2 - OX;
+const WAITING_DOOR_AT = HALLWAYS[1].x + HALL_W / 2 - (OX + LOBBY_W);
 
 function reception() {
   const { f, wall, p } = local(R);
@@ -187,6 +235,11 @@ function reception() {
       f("chair", 96, 330, 1),
       f("chair", 132, 330, 1),
       f("plant", 272, 326),
+      // the open front half of the lobby
+      f("sofa", 560, 120, 1),
+      f("coffeeTable", 560, 172),
+      f("plant", 470, 70),
+      f("plant", 650, 70),
     ],
     interactable: { x: R.x + 140, y: R.y + 120 },
     spawn: p(255, 180),
@@ -197,13 +250,20 @@ function waiting() {
   const { f, wall, p } = local(W);
   return {
     furniture: [
-      wall("picture", 52),
+      wall("picture", 120),
       wall("tv", 262),
       // rows of waiting chairs facing the TV wall, with a walkway from the door on the left and
       // between the rows (seat positions in WAITING_SEATS below)
       ...WAITING_ROWS.flatMap((y) => WAITING_COLS.map((x) => f("chair", x, y, 3))),
-      f("plant", 36, 70),
       f("plant", 36, 322),
+      // the other half of the waiting area: a children's corner and more seats
+      f("rugStar", 580, 210),
+      f("beanbag", 540, 230, 0),
+      f("beanbag", 620, 230, 1),
+      f("bench", 590, 322),
+      f("plant", 470, 70),
+      f("plant", 700, 70),
+      f("plant", 700, 322),
     ],
     spawn: p(55, 180),
   };
@@ -243,9 +303,10 @@ function storage() {
       f("shelf", 246, 67),
       f("shelfSide", 276, 215),
       f("boxes", 40, 318),
-      f("trolley", 120, 318),
-      f("boxes", 200, 318),
-      f("boxes", 238, 318),
+      // the bottom middle is the door onto the cross hallway
+      f("trolley", 72, 244),
+      f("boxes", 232, 318),
+      f("boxes", 270, 318),
     ],
     interactable: { x: S.x + 64, y: S.y + 67 },
     spawn: p(55, 180),
@@ -256,10 +317,11 @@ function office() {
   const { f, wall, p } = local(O);
   return {
     furniture: [
-      wall("whiteboard", 62),
+      // the top-left corner is the door onto the cross hallway
+      wall("whiteboard", 150),
       f("officeChair", 150, 84),
       f("desk", 150, 110),
-      f("bookshelf", 36, 150),
+      f("bookshelf", 34, 262),
       f("plant", 36, 330),
       f("roundTable", 110, 290),
       f("chair", 66, 290, 2),
@@ -298,11 +360,12 @@ function lounge() {
       f("rugWelcome", 130, 175, 1),
       f("sofa", 130, 95),
       f("coffeeTable", 130, 182),
+      // the bottom middle is the door onto the cross hallway
       f("coffeeMachine", 60, 300),
-      f("fridge", 130, 300),
-      f("roundTable", 230, 300),
-      f("chair", 190, 300, 1),
-      f("chair", 270, 300, 1),
+      f("fridge", 36, 150),
+      f("roundTable", 240, 300),
+      f("chair", 212, 300, 1),
+      f("chair", 272, 300, 1),
       f("plant", 36, 232),
     ],
     interactable: { x: L.x + 60, y: L.y + 300 },
@@ -391,6 +454,7 @@ const t = toilet();
 const q = surau();
 
 const ROOM_SIZE = { width: ROOM_W, height: ROOM_H };
+const LOBBY_SIZE = { width: LOBBY_W, height: ROOM_H };
 const HALF_SIZE = { width: ROOM_W, height: ROOM_H / 2 };
 
 export const ROOMS: RoomDef[] = [
@@ -401,8 +465,12 @@ export const ROOMS: RoomDef[] = [
     description: "Front desk where visitors check in.",
     color: 0xf07f2e,
     floor: { style: "wood", a: 0xe9c08c, b: 0xb98a52 },
-    bounds: { ...R, ...ROOM_SIZE },
-    doorSide: "right",
+    bounds: { ...R, ...LOBBY_SIZE },
+    signX: 160, // clear of the hallway opening
+    doorSide: "top",
+    doorAt: RECEPTION_DOOR_AT,
+    doorWidth: HALL_W,
+    openSides: ["right"],
     spawn: r.spawn,
     accessible: true,
     furniture: r.furniture,
@@ -426,9 +494,14 @@ export const ROOMS: RoomDef[] = [
     icon: "🛋️",
     description: "A cosy spot for visitors to relax.",
     color: 0x1fa67a,
-    floor: { style: "tile", a: 0xf3e9db, b: 0xd9c7ac },
-    bounds: { ...W, ...ROOM_SIZE },
-    doorSide: "left",
+    // same floor as Reception: the lobby reads as one big room
+    floor: { style: "wood", a: 0xe9c08c, b: 0xb98a52 },
+    bounds: { ...W, ...LOBBY_SIZE },
+    signX: 590, // clear of the hallway opening
+    doorSide: "top",
+    doorAt: WAITING_DOOR_AT,
+    doorWidth: HALL_W,
+    openSides: ["left"],
     spawn: w.spawn,
     accessible: true,
     furniture: w.furniture,
@@ -483,6 +556,7 @@ export const ROOMS: RoomDef[] = [
     floor: { style: "tile", a: 0xdfe3e8, b: 0xb9c1cb },
     bounds: { ...S, ...ROOM_SIZE },
     doorSide: "left",
+    extraDoors: [{ side: "bottom" }], // onto the cross hallway
     spawn: s.spawn,
     accessible: true,
     furniture: s.furniture,
@@ -510,6 +584,7 @@ export const ROOMS: RoomDef[] = [
     bounds: { ...O, ...ROOM_SIZE },
     signX: 222,
     doorSide: "right",
+    extraDoors: [{ side: "top", at: 51, width: 70 }], // onto the cross hallway, clear of the desk and printer
     spawn: o.spawn,
     accessible: true,
     furniture: o.furniture,
@@ -594,7 +669,9 @@ export const ROOMS: RoomDef[] = [
     color: 0xa07ee0,
     floor: { style: "tile", a: 0xf4eefb, b: 0xdcd0ee },
     bounds: { ...P, ...ROOM_SIZE },
+    signX: 64, // the middle of the top wall is the door onto the cross hallway
     doorSide: "left",
+    extraDoors: [{ side: "top", width: 80 }], // onto the cross hallway, between the two shelves
     spawn: ph.spawn,
     accessible: true,
     furniture: ph.furniture,
@@ -690,6 +767,7 @@ export const ROOMS: RoomDef[] = [
     floor: { style: "wood", a: 0xe2c49a, b: 0xb48c5c },
     bounds: { ...L, ...ROOM_SIZE },
     doorSide: "right",
+    extraDoors: [{ side: "bottom", at: 150 }], // onto the cross hallway
     spawn: l.spawn,
     accessible: true,
     furniture: l.furniture,
@@ -712,13 +790,15 @@ export const ROOMS: RoomDef[] = [
 // room names in the player's language (plaques, maps, toasts)
 for (const room of ROOMS) room.label = roomName(room.id, room.label);
 
-/** Hallway decoration (plants, runner rug ends, entrance mat). */
+/** Hallway and entrance decoration (plants at the far end of each hallway, the front door mat). */
 export const HALLWAY_FURNITURE: FurnitureDef[] = [
-  { kind: "plant", x: HALLWAY.x + 18, y: HALLWAY.y + WALL_THICKNESS + WALL_FACE + 14 },
-  { kind: "plant", x: HALLWAY.x + HALL_W - 18, y: HALLWAY.y + WALL_THICKNESS + WALL_FACE + 14 },
-  { kind: "mat", x: HALLWAY.x + HALL_W / 2, y: HALLWAY.y + HALLWAY.height - 36 },
-  { kind: "plant", x: HALLWAY.x + 18, y: HALLWAY.y + HALLWAY.height - 32 },
-  { kind: "plant", x: HALLWAY.x + HALL_W - 18, y: HALLWAY.y + HALLWAY.height - 32 },
+  ...HALLWAYS.filter((h) => h.height > h.width).flatMap((h) => [
+    { kind: "plant" as const, x: h.x + 18, y: h.y + WALL_THICKNESS + WALL_FACE + 14 },
+    { kind: "plant" as const, x: h.x + HALL_W - 18, y: h.y + WALL_THICKNESS + WALL_FACE + 14 },
+  ]),
+  { kind: "mat", x: ENTRANCE.x, y: LOBBY_Y + ROOM_H - 36 },
+  { kind: "plant", x: ENTRANCE.x - 70, y: LOBBY_Y + ROOM_H - 32 },
+  { kind: "plant", x: ENTRANCE.x + 70, y: LOBBY_Y + ROOM_H - 32 },
 ];
 
 // ---------- Lookups ----------
@@ -729,35 +809,51 @@ export function getRoomById(id: RoomId): RoomDef {
   return room;
 }
 
-/** Centre of a room's door gap, on the wall line. */
-export function getDoorCenter(room: RoomDef): Point {
+/** Every door of a room (the main one first), with its position and width filled in. */
+export function getDoors(room: RoomDef): Required<DoorSpec>[] {
+  const all: DoorSpec[] = [{ side: room.doorSide, at: room.doorAt, width: room.doorWidth }, ...(room.extraDoors ?? [])];
+  return all.map((d) => {
+    const vertical = d.side === "left" || d.side === "right";
+    return { side: d.side, at: d.at ?? (vertical ? room.bounds.height : room.bounds.width) / 2, width: d.width ?? DOOR_GAP };
+  });
+}
+
+/** Centre of a door gap on its wall line (the room's main door by default). */
+export function getDoorCenter(room: RoomDef, door: Required<DoorSpec> = getDoors(room)[0]): Point {
   const { x, y, width, height } = room.bounds;
-  switch (room.doorSide) {
+  switch (door.side) {
     case "left":
-      return { x: x + WALL_THICKNESS / 2, y: y + height / 2 };
+      return { x: x + WALL_THICKNESS / 2, y: y + door.at };
     case "right":
-      return { x: x + width - WALL_THICKNESS / 2, y: y + height / 2 };
+      return { x: x + width - WALL_THICKNESS / 2, y: y + door.at };
     case "top":
-      return { x: x + width / 2, y: y + WALL_THICKNESS / 2 };
+      return { x: x + door.at, y: y + WALL_THICKNESS / 2 };
     case "bottom":
-      return { x: x + width / 2, y: y + height - WALL_THICKNESS / 2 };
+      return { x: x + door.at, y: y + height - WALL_THICKNESS / 2 };
   }
 }
 
-/** Splits one wall into two segments around a centred door gap. */
-function splitForDoor(seg: WallSegment, horizontal: boolean): WallSegment[] {
-  if (horizontal) {
-    const gapStart = seg.x + (seg.width - DOOR_GAP) / 2;
-    return [
-      { ...seg, width: gapStart - seg.x },
-      { ...seg, x: gapStart + DOOR_GAP, width: seg.x + seg.width - (gapStart + DOOR_GAP) },
-    ];
+/** Cuts one wall into the pieces between its door gaps (in order along the wall). */
+function splitForDoors(seg: WallSegment, horizontal: boolean, doors: Required<DoorSpec>[]): WallSegment[] {
+  const start = horizontal ? seg.x : seg.y;
+  const end = start + (horizontal ? seg.width : seg.height);
+  const gaps = doors.map((d) => [start + d.at - d.width / 2, start + d.at + d.width / 2]).sort((a, b) => a[0] - b[0]);
+  const pieces: WallSegment[] = [];
+  let from = start;
+  for (const [g0, g1] of [...gaps, [end, end]]) {
+    if (g0 > from) {
+      const beforeDoor = g0 < end; // a piece ending at a door
+      pieces.push(
+        horizontal
+          ? { ...seg, x: from, width: g0 - from }
+          : beforeDoor
+            ? { ...seg, y: from, height: g0 - from + WALL_FACE, jambFace: true } // its end face shows
+            : { ...seg, y: from, height: g0 - from }
+      );
+    }
+    from = Math.max(from, g1);
   }
-  const gapStart = seg.y + (seg.height - DOOR_GAP) / 2;
-  return [
-    { ...seg, height: gapStart - seg.y + WALL_FACE, jambFace: true },
-    { ...seg, y: gapStart + DOOR_GAP, height: seg.y + seg.height - (gapStart + DOOR_GAP) },
-  ];
+  return pieces;
 }
 
 /** Returns a room's wall segments (top wall includes its painted face), with a door gap. */
@@ -770,18 +866,28 @@ export function getRoomWalls(room: RoomDef): WallSegment[] {
     { side: "left", x, y, width: t, height },
     { side: "right", x: x + width - t, y, width: t, height },
   ];
-  return sides.flatMap((seg) =>
-    seg.side === room.doorSide ? splitForDoor(seg, seg.side === "top" || seg.side === "bottom") : [seg]
-  );
+  const doors = getDoors(room);
+  return sides
+    .filter((seg) => !room.openSides?.includes(seg.side))
+    .flatMap((seg) => {
+      const here = doors.filter((d) => d.side === seg.side);
+      return here.length ? splitForDoors(seg, seg.side === "top" || seg.side === "bottom", here) : [seg];
+    });
 }
 
-/** The hallway's own end walls (its long sides are the rooms' walls). */
+/**
+ * The hallways' end walls (their long sides are the rooms' walls): the far end of A and B (their
+ * near end opens into the lobby), and both ends of the cross hallway.
+ */
 export function getHallwayWalls(): WallSegment[] {
-  const { x, y, width, height } = HALLWAY;
-  return [
-    { side: "top", x, y, width, height: WALL_THICKNESS + WALL_FACE },
-    { side: "bottom", x, y: y + height - WALL_THICKNESS, width, height: WALL_THICKNESS },
-  ];
+  return HALLWAYS.flatMap(({ x, y, width, height }): WallSegment[] =>
+    width > height
+      ? [
+          { side: "left", x, y, width: WALL_THICKNESS, height },
+          { side: "right", x: x + width - WALL_THICKNESS, y, width: WALL_THICKNESS, height },
+        ]
+      : [{ side: "top", x, y, width, height: WALL_THICKNESS + WALL_FACE }]
+  );
 }
 
 export function getAllWalls(): WallSegment[] {
@@ -822,7 +928,7 @@ function circleHitsRect(cx: number, cy: number, radius: number, rect: Rect): boo
  * doorway — used for path finding.
  */
 export function bodyFits(x: number, y: number, radius = PLAYER_RADIUS): boolean {
-  const inside = [...ROOMS.map((rm) => rm.bounds), HALLWAY].some(
+  const inside = [...ROOMS.map((rm) => rm.bounds), ...HALLWAYS].some(
     (b) => x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height
   );
   if (!inside) return false;
@@ -837,7 +943,7 @@ let blockers: Rect[] | undefined;
  * any wall or furniture. Used to validate saves and spawn points.
  */
 export function isWalkable(x: number, y: number, radius = PLAYER_RADIUS): boolean {
-  const insideBuilding = [...ROOMS.map((rm) => rm.bounds), HALLWAY].some(
+  const insideBuilding = [...ROOMS.map((rm) => rm.bounds), ...HALLWAYS].some(
     (b) => x - radius >= b.x && x + radius <= b.x + b.width && y - radius >= b.y && y + radius <= b.y + b.height
   );
   if (!insideBuilding) return false;

@@ -66,6 +66,21 @@ export default class Overlay {
     }
   }
 
+  /**
+   * Phase 5: a short expression on the header portrait (smile, surprised, shy…), 0.3–1.2 s.
+   * `intensity` 1–3 scales it; null clears it. Reduced motion: no movement (the caption stays).
+   */
+  react(kind: string | null, intensity = 2): void {
+    const a = this.avatar;
+    a.classList.remove("react");
+    delete a.dataset.react;
+    if (!kind) return;
+    a.dataset.react = kind;
+    a.style.setProperty("--react-k", String(0.6 + intensity * 0.2));
+    void a.offsetWidth; // restart the animation for the same reaction twice in a row
+    a.classList.add("react");
+  }
+
   open(onClose: () => void): void {
     this.onClose = onClose;
     this.root.classList.remove("hidden");

@@ -19,4 +19,19 @@ export function viewportSize(): { width: number; height: number } {
   };
 }
 
+/** World pixels the play camera aims to show across the screen's short side. */
+const VIEW_SHORT_SIDE = 480;
+/** Never zoom in further than this (very large screens). */
+const MAX_VIEW_ZOOM = 1.8;
+
+/**
+ * Extra camera zoom on big screens, on top of RENDER_SCALE. A phone shows about one screen of
+ * clinic around the doctor (1x); a tablet or iPad would show far more and make everyone tiny,
+ * so the camera moves in until the short side shows about VIEW_SHORT_SIDE world pixels.
+ */
+export function viewZoom(): number {
+  const { width, height } = viewportSize();
+  return Math.min(MAX_VIEW_ZOOM, Math.max(1, Math.min(width, height) / VIEW_SHORT_SIDE));
+}
+
 export const FONT_FAMILY = "'Nunito', 'Segoe UI', system-ui, -apple-system, sans-serif";

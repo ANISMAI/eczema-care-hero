@@ -4,7 +4,15 @@
 import type { CaseStatus } from "../mission/types";
 
 /** Nine hours on the clock take nine minutes of active play; panels still pause time. */
-export const TIME = { gameMinutesPerRealMinute: 60 } as const;
+export const TIME = {
+  gameMinutesPerRealMinute: 60,
+  /**
+   * 7:45–8:00 (after clocking in) runs slower, so the meeting and the opening checklist fit:
+   * 0.2 × 60 = 12 game minutes a minute, about 75 s of play. Once the whole checklist is done
+   * the clock goes at normal speed, so nobody waits around for 8:00.
+   */
+  morningSpeed: 0.2,
+} as const;
 
 export const TRAVEL = {
   autoSpeed: 145,
@@ -23,6 +31,8 @@ export const REWARDS = {
   retriedCare: 10,
   /** Default reward for an optional clinic event (coins + XP, never care points). */
   event: { coins: 15, xp: 5 },
+  /** Finishing the whole morning checklist before opening (coins + XP, never care points). */
+  morningPrep: { coins: 20, xp: 10 },
   /** XP needed per level. */
   xpPerLevel: 100,
 } as const;
@@ -57,6 +67,7 @@ export const EVENT_CONFIG: EventConfig = {
     "tray-cleaning": { weight: 0, cooldownMinutes: 90 },
     "cockroach-panic": { weight: 1, cooldownMinutes: 180 },
     "printer-panic": { weight: 1, cooldownMinutes: 180 },
+    "morning-delivery": { weight: 0, cooldownMinutes: 600 },
   },
   repeatDialogue: "cycle",
   triggerOn: ["ACCEPTED", "INTERVIEWED", "DOCTOR_REVIEWED", "CARE_COMPLETED", "COMPLETED"],
@@ -129,6 +140,8 @@ export const CLINIC = {
   /** How long Nurul takes to register someone, and a staff member's reply stays up (ms). */
   registerMs: 2600,
   serviceMs: 3200,
+  /** Doctor patients already queuing at the door when the clinic opens (day 1: the minimum). */
+  morningQueue: { min: 2, max: 3 },
 };
 
 /**

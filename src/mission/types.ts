@@ -100,6 +100,38 @@ export interface InterviewPrompt {
   note: string;
 }
 
+// ---------- Phase 5: personality dialogue ----------
+
+/** A light expression on the patient's portrait (never used in serious cases). */
+export type Reaction = "smile" | "blink" | "surprised" | "shy" | "tilt" | "thinking" | "bounce";
+
+export interface DialogueChoice {
+  id: string;
+  /** What the doctor says. */
+  text: string;
+  /** The kind, safe answer moves the chat on; a weak one gets a gentle tip and a retry. */
+  good: boolean;
+  /** The patient's answer. */
+  reply: string;
+  reaction?: Reaction;
+  /** Weak choice: why it doesn't help (corrective, never harsh). */
+  feedback?: string;
+  /** Good choice: line added to the case notes. */
+  note?: string;
+}
+
+/** One branch point: the patient says something, the doctor picks one of 2–3 answers. */
+export interface DialogueTurn {
+  id: string;
+  /** The patient's line before the choice (the first turn uses the visit's opening line). */
+  line?: string;
+  reaction?: Reaction;
+  choices: DialogueChoice[];
+}
+
+/** How a visit ends (Phase 5 brief section 5). */
+export type VisitOutcome = "advice" | "followup" | "care" | "referral";
+
 /**
  * A doctor visit template (Phase 3): the case without a specific patient. Text may contain
  * `{name}`, filled in with the visiting patient's name. Any identity can come with any template.
@@ -112,7 +144,20 @@ export interface CaseTemplate {
   /** Case file shown when the doctor calls the patient in. */
   intake: { reason: string; objective: string };
   steps: StepDef[];
-  interview: { intro: string; prompts: InterviewPrompt[]; outro: string };
+  interview: {
+    intro: string;
+    prompts: InterviewPrompt[];
+    outro: string;
+    /** Phase 5: other wordings of the opening line, cycled so a returning patient varies. */
+    introVariants?: string[];
+    /** Phase 5: branching chat (used instead of `prompts` when present). */
+    turns?: DialogueTurn[];
+  };
+  /** Phase 5 scenario mood: serious visits get no comedic reactions. */
+  mood?: "funny" | "calm" | "serious";
+  outcome?: VisitOutcome;
+  /** Phase 5: short key of this visit's plan, recalled by a later follow-up. */
+  planKey?: string;
   consult: {
     doctor: string;
     portrait: string;

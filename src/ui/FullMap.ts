@@ -1,4 +1,4 @@
-import { ROOMS, HALLWAY, WORLD_BOUNDS, type Point, type Rect, type RoomId } from "../data/rooms";
+import { ROOMS, HALLWAYS, ENTRANCE, WORLD_BOUNDS, type Point, type Rect, type RoomId } from "../data/rooms";
 import { shade, toCss } from "../art/palette";
 import { t } from "../game/i18n";
 
@@ -12,17 +12,23 @@ const H = WORLD_BOUNDS.height;
 const pct = (v: number) => `${v * 100}%`;
 
 /**
- * Full map modal: a scaled floor plan. Tap a room to select it, then Go Here to travel.
+ * Full map modal: the clinic seen from above. Tap a room to select it, then Go Here to travel.
  *
- * On a portrait screen the plan is drawn as in the game (entrance at the bottom). On a
- * landscape screen it is turned 90° (entrance on the left, hallway running across) so the
- * long building uses the screen's width instead of becoming a thin strip.
+ * The picture is a snapshot of the real game world taken as the map opens (setPhoto), so the
+ * furniture and the people in each room show, like a town map; each room carries a small name
+ * tag. Until the snapshot arrives (or if it fails) the plain coloured floor plan is shown.
+ * On a landscape screen the map and the details sit side by side, so nothing needs scrolling.
+ *
+ * The plan is drawn as in the game (entrance at the bottom). It is only turned 90° when its
+ * shape and the screen's disagree (a tall building on a landscape screen), so it never shrinks
+ * to a thin strip. The current lobby-and-two-hallways clinic is wider than tall: never turned.
  */
 export default class FullMap {
   private root: HTMLDivElement;
   private card: HTMLDivElement;
   private map: HTMLDivElement;
-  private hall: HTMLDivElement;
+  private photo: HTMLImageElement;
+  private halls: HTMLDivElement[] = [];
   private entrance: HTMLDivElement;
   private roomEls = new Map<RoomId, HTMLButtonElement>();
   private youPin: HTMLDivElement;
@@ -53,10 +59,18 @@ export default class FullMap {
 
     this.map = document.createElement("div");
     this.map.className = "fm-map";
+    this.photo = document.createElement("img");
+    this.photo.className = "fm-photo";
+    this.photo.alt = "";
+    this.photo.draggable = false;
+    this.map.appendChild(this.photo);
 
-    this.hall = document.createElement("div");
-    this.hall.className = "fm-hall";
-    this.map.appendChild(this.hall);
+    for (let i = 0; i < HALLWAYS.length; i++) {
+      const hall = document.createElement("div");
+      hall.className = "fm-hall";
+      this.map.appendChild(hall);
+      this.halls.push(hall);
+    }
 
     this.entrance = document.createElement("div");
     this.entrance.className = "fm-entrance";
@@ -112,7 +126,10 @@ export default class FullMap {
     const footer = document.createElement("div");
     footer.className = "fm-footer";
     footer.append(detail, actions);
-    this.card.append(header, this.map, footer);
+    const body = document.createElement("div");
+    body.className = "fm-body";
+    body.append(this.map, footer);
+    this.card.append(header, body);
     this.root.appendChild(this.card);
     this.root.addEventListener("click", (e) => {
       if (e.target === this.root) this.close();
@@ -128,15 +145,15 @@ export default class FullMap {
 
   /** Positions everything for the current screen orientation. */
   private layout(): void {
-    this.rotated = window.innerWidth > window.innerHeight;
+    this.rotated = window.innerWidth > window.innerHeight && H > W;
     this.card.classList.toggle("rotated", this.rotated);
     this.map.style.aspectRatio = this.rotated ? `${H} / ${W}` : `${W} / ${H}`;
 
-    this.place(this.hall, HALLWAY);
+    HALLWAYS.forEach((hall, i) => this.place(this.halls[i], hall));
     for (const room of ROOMS) this.place(this.roomEls.get(room.id)!, room.bounds);
 
-    // "Entrance" tag just outside the hallway's front door
-    const door = this.toMap({ x: HALLWAY.x + HALLWAY.width / 2, y: HALLWAY.y + HALLWAY.height });
+    // "Entrance" tag just outside the lobby's front door
+    const door = this.toMap({ x: ENTRANCE.x, y: ENTRANCE.y + 40 });
     this.entrance.style.left = pct(door.x);
     this.entrance.style.top = pct(door.y);
 
@@ -204,8 +221,16 @@ export default class FullMap {
     this.detailName.textContent = t("map.choose");
     this.detailText.textContent = here ? t("map.youAreIn", { room: here.label }) : t("map.tapRoom");
     this.goHereBtn.disabled = true;
+    this.map.classList.remove("photo");
     this.root.classList.remove("hidden");
     this.layout();
+  }
+
+  /** The clinic seen from above (a snapshot of the game world), or null for the plain plan. */
+  setPhoto(src: string | null): void {
+    if (!src || !this.isOpen) return;
+    this.photo.onload = () => this.map.classList.add("photo");
+    this.photo.src = src;
   }
 
   close(): void {

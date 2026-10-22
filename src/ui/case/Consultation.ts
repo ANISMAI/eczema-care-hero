@@ -1,5 +1,6 @@
 import Overlay, { el } from "./Overlay";
 import { handSvg, nearestSign, toStage } from "./HandArt";
+import { OUTCOME_LABEL, UI } from "../../data/phase5/personalities";
 import type { CaseDefinition } from "../../mission/types";
 
 export interface ConsultationHooks {
@@ -128,7 +129,10 @@ export default class Consultation {
       this.h.done();
       this.overlay.close();
     });
-    this.overlay.body.replaceChildren(speech, card, safety);
+    // Phase 5: how this visit ends (advice only, follow-up, care, or doctor review / referral)
+    const outcome = this.h.def.outcome;
+    const badge = outcome ? [el("span", `plan-outcome ${outcome}`, `${UI.outcome}: ${OUTCOME_LABEL[outcome]}`)] : [];
+    this.overlay.body.replaceChildren(speech, ...badge, card, safety);
     this.overlay.footer.replaceChildren(ok);
   }
 }

@@ -10,6 +10,8 @@ export interface DevApi {
   openCase(identityId: string, templateId: string, stage: "interview" | "consult" | "care"): string | null;
   openEvent(id: string): void;
   clockIn(): void;
+  /** Morning routine: preview the call / meeting, or redo today from 7:45 (clock-in onwards). */
+  morning(what: "call" | "meeting" | "restart"): void;
   briefing(): void;
   summary(): void;
   title(): void;
@@ -72,6 +74,12 @@ export default class DevPanel {
       this.grid(caseBtn("Interview", "interview"), caseBtn("Consultation", "consult"), caseBtn("Care Room", "care")),
       this.heading("Events"),
       this.grid(...api.events.map((e) => this.button(e.title, () => (api.openEvent(e.id), this.close())))),
+      this.heading("Morning"),
+      this.grid(
+        this.button("Phone call", () => (api.morning("call"), this.close())),
+        this.button("Meeting", () => (api.morning("meeting"), this.close())),
+        this.button("Restart morning", () => (api.morning("restart"), this.close()))
+      ),
       this.heading("Screens"),
       this.grid(
         this.button("Title", () => (api.title(), this.close())),

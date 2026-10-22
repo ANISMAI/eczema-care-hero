@@ -3,7 +3,7 @@ import MissionController from "./MissionController";
 import CaseNpc from "../entities/CaseNpc";
 import CaseDialog from "../ui/case/CaseDialog";
 import Treatment from "../ui/case/Treatment";
-import Interview from "../ui/case/Interview";
+import Interview, { type InterviewFlavor } from "../ui/case/Interview";
 import Consultation from "../ui/case/Consultation";
 import Announcement from "../ui/case/Announcement";
 import { REWARDS } from "../data/gameplay";
@@ -59,6 +59,10 @@ export interface CaseHost {
   caseCompleted(instanceId: string): void;
   /** The patient walked out of the clinic. */
   visitorGone(instanceId: string): void;
+  /** Phase 5: this visit's greeting and opening line (by personality and visit history). */
+  visitFlavor?(identityId: string, templateId: string): InterviewFlavor;
+  /** Phase 5: a doctor visit was completed (only then is it added to the patient's history). */
+  visitDone?(identityId: string, templateId: string): void;
 }
 
 const DEFAULT_LIFT = 62; // matches the scene's default bubble height
@@ -396,8 +400,10 @@ export default class CaseRunner {
   private openInterview(step: StepDef): void {
     const m = this.mission;
     this.host.lock();
+    const visit = m.visit;
     this.interview.open({
       def: this.def,
+      flavor: visit ? this.host.visitFlavor?.(visit.identityId, m.snapshot.templateId) : undefined,
       asked: () => m.progressOf(step.id),
       ask: (id) => m.addProgress(step.id, id),
       wrongPick: () => m.mistake(step.id),
@@ -499,6 +505,7 @@ export default class CaseRunner {
     this.host.awardCare(reward.care);
     this.host.completeCase(reward.xp);
     this.host.caseCompleted(visit.instanceId);
+    this.host.visitDone?.(visit.identityId, this.mission.snapshot.templateId);
     const d = this.def;
     const rewarded = d.steps.filter((st) => st.rewarded).length;
     const points = this.mission.totalPoints();

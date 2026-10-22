@@ -32,7 +32,7 @@ const STRINGS = {
   "settings.sound": { en: "Sound", ms: "Bunyi" },
   "settings.soundHint": { en: "Announcement chimes", ms: "Loceng pengumuman" },
   "settings.prayer": { en: "Prayer time reminders", ms: "Peringatan waktu solat" },
-  "settings.prayerHint": { en: "Announcements at prayer times.", ms: "Pengumuman pada waktu solat." },
+  "settings.prayerHint": { en: "Announcements at prayer times, and a Pray action in the Surau.", ms: "Pengumuman pada waktu solat, dan aksi Solat di Surau." },
   "settings.reset": { en: "Start again", ms: "Mula semula" },
   "settings.resetHint": { en: "Back to Day 1. Your progress on this device is erased.", ms: "Kembali ke Hari 1. Kemajuan anda pada peranti ini akan dipadam." },
   "settings.resetBtn": { en: "Reset", ms: "Set semula" },
@@ -87,7 +87,10 @@ const STRINGS = {
   "brief.title": { en: "Day {day} shift", ms: "Shift Hari {day}" },
   "brief.subtitle": { en: "{time} · The clinic opens at 8:00 AM", ms: "{time} · Klinik dibuka jam 8:00 pagi" },
   "brief.today": { en: "On duty today", ms: "Bertugas hari ini" },
-  "brief.opens": { en: "Patients start arriving once you start your shift.", ms: "Pesakit mula tiba sebaik anda memulakan shift." },
+  "brief.opens": {
+    en: "Clock in at 7:45, join the morning meeting and do the checklist. The clinic opens at 8:00.",
+    ms: "Daftar masuk 7:45, sertai mesyuarat pagi dan buat senarai semak. Klinik dibuka jam 8:00.",
+  },
   "brief.patients": { en: "Call them in at the Consultation desk.", ms: "Panggil mereka masuk di meja Konsultasi." },
   "brief.trays": { en: "Care trays: {clean}/{total} clean", ms: "Dulang rawatan: {clean}/{total} bersih" },
   "brief.prayerOn": { en: "Prayer time reminders: on", ms: "Peringatan waktu solat: hidup" },
@@ -105,8 +108,8 @@ const STRINGS = {
   "picker.choose": { en: "Choose", ms: "Pilih" },
   "picker.cancel": { en: "Cancel", ms: "Batal" },
   "picker.prayerHint": {
-    en: "Gentle announcements at prayer times. You can change this later in Settings.",
-    ms: "Pengumuman lembut pada waktu solat. Boleh ditukar kemudian dalam Tetapan.",
+    en: "Gentle announcements at prayer times, and a Pray action in the Surau. You can change this later in Settings.",
+    ms: "Pengumuman lembut pada waktu solat, dan aksi Solat di Surau. Boleh ditukar kemudian dalam Tetapan.",
   },
 
   // ---------- HUD ----------
@@ -125,7 +128,108 @@ const STRINGS = {
   "toast.noPath": { en: "That route is blocked. Try a nearby spot.", ms: "Laluan itu terhalang. Cuba tempat berdekatan." },
   "toast.goingTo": { en: "Going to {name}…", ms: "Pergi ke {name}…" },
   "toast.found": { en: "Found {name}!", ms: "Jumpa {name}!" },
-  "toast.dayStart": { en: "Day {day}: the clinic is open! Patients will arrive soon", ms: "Hari {day}: klinik dibuka! Pesakit akan tiba tidak lama lagi" },
+  "toast.dayStart": { en: "Day {day}: the clinic is open! Patients are coming in", ms: "Hari {day}: klinik dibuka! Pesakit mula masuk" },
+  "morning.bonus": { en: "Checklist done before opening: +{coins} 🪙  +{xp} XP", ms: "Senarai semak siap sebelum buka: +{coins} 🪙  +{xp} XP" },
+
+  // ---------- morning: phone call, meeting, opening checklist ----------
+  "call.incoming": { en: "Incoming call from {name}", ms: "Panggilan masuk daripada {name}" },
+  "call.ringing": { en: "Incoming call…", ms: "Panggilan masuk…" },
+  "call.accept": { en: "Accept", ms: "Jawab" },
+  "call.decline": { en: "Decline", ms: "Tolak" },
+  "call.end": { en: "End call", ms: "Tamat panggilan" },
+  "call.line1": {
+    en: "Good morning, {name}! The team is gathering for a quick morning meeting before we open.",
+    ms: "Selamat pagi, {name}! Semua staf sedang berkumpul untuk mesyuarat pagi sebelum klinik dibuka.",
+  },
+  "call.line2": {
+    en: "Come to the Staff Office when you're ready. See you there!",
+    ms: "Datang ke Pejabat Staf bila dah sedia ya. Jumpa di sana!",
+  },
+  "call.texted": {
+    en: "{name}: \"Morning meeting in the Staff Office, see you there!\"",
+    ms: "{name}: \"Mesyuarat pagi di Pejabat Staf, jumpa di sana!\"",
+  },
+  "meet.title": { en: "Morning meeting", ms: "Mesyuarat pagi" },
+  "meet.open": {
+    en: "Good morning, everyone! Thanks for coming. Let's do a quick check before we open the doors.",
+    ms: "Selamat pagi semua! Terima kasih sebab datang. Jom kita semak sekejap sebelum buka pintu.",
+  },
+  "meet.nurul": {
+    en: "Morning! {n} patients are already queuing at the front door. I'll register them as soon as we open.",
+    ms: "Pagi! Dah ada {n} pesakit beratur depan pintu. Saya akan daftarkan mereka sebaik saja kita buka.",
+  },
+  "meet.amy": {
+    en: "Care trays: {clean} of {total} are clean, and the Care Room is ready for today.",
+    ms: "Dulang rawatan: {clean} daripada {total} bersih, dan Bilik Rawatan dah sedia untuk hari ini.",
+  },
+  "meet.ravi": {
+    en: "A supply delivery arrives this morning. Could someone help me check it in Storage after we open?",
+    ms: "Barang penghantaran sampai pagi ni. Boleh tolong saya semak di Stor lepas kita buka?",
+  },
+  "meet.tip1": {
+    en: "Tip of the day: after a bath, gently pat the skin dry and moisturise straight away.",
+    ms: "Tip hari ini: lepas mandi, tepuk perlahan kulit sampai kering dan terus sapu pelembap.",
+  },
+  "meet.tip2": {
+    en: "Tip of the day: soft cotton clothes are gentler on sensitive skin than rough or woolly ones.",
+    ms: "Tip hari ini: pakaian kapas yang lembut lebih selesa untuk kulit sensitif berbanding kain kasar.",
+  },
+  "meet.tip3": {
+    en: "Tip of the day: short, lukewarm showers are kinder to dry skin than long, hot ones.",
+    ms: "Tip hari ini: mandi sekejap dengan air suam lebih baik untuk kulit kering berbanding air panas.",
+  },
+  "meet.tip4": {
+    en: "Tip of the day: keeping nails short helps stop scratching from hurting the skin.",
+    ms: "Tip hari ini: kuku yang pendek membantu supaya garu tidak mencederakan kulit.",
+  },
+  "meet.tasks": {
+    en: "Before we open at 8:00, could you do the morning checklist? Finish it in time for a bonus!",
+    ms: "Sebelum klinik dibuka jam 8:00, boleh tolong siapkan senarai semak pagi? Siap awal dapat bonus!",
+  },
+  "meet.go": { en: "Let's go!", ms: "Jom mula!" },
+  "morning.checklistToast": { en: "Morning checklist added: see the task card", ms: "Senarai semak pagi ditambah: lihat kad tugasan" },
+  "morning.task.computer": { en: "Switch on the computer", ms: "Hidupkan komputer" },
+  "morning.task.stock": { en: "Check the moisturiser stock", ms: "Semak stok pelembap" },
+  "morning.task.fridge": { en: "Check the medicine fridge", ms: "Semak peti sejuk ubat" },
+  "morning.task.hands": { en: "Wash your hands", ms: "Basuh tangan" },
+  "morning.task.computer.done": {
+    en: "The computer is on and today's patient list is ready.",
+    ms: "Komputer dah hidup dan senarai pesakit hari ini dah sedia.",
+  },
+  "morning.task.stock.done": {
+    en: "Plenty of moisturiser on the shelf. Moisturising every day is one of the best ways to care for eczema skin!",
+    ms: "Stok pelembap mencukupi. Sapu pelembap setiap hari ialah antara cara terbaik menjaga kulit ekzema!",
+  },
+  "morning.task.fridge.done": {
+    en: "Grace shows you the fridge: 2–8 °C, just right. Some products must stay cool to keep working well.",
+    ms: "Grace tunjukkan peti sejuk: 2–8 °C, tepat. Sesetengah produk perlu disimpan sejuk supaya kekal berkesan.",
+  },
+  "morning.task.hands.done": {
+    en: "Squeaky clean! Clean hands protect your patients' sensitive skin from germs.",
+    ms: "Bersih! Tangan yang bersih melindungi kulit sensitif pesakit daripada kuman.",
+  },
+  "morning.objMeetingTag": { en: "Morning meeting", ms: "Mesyuarat pagi" },
+  "morning.objMeeting": { en: "Join the team in the Staff Office", ms: "Sertai pasukan di Pejabat Staf" },
+  "morning.objPrepTag": { en: "Morning checklist {done}/{total}", ms: "Senarai semak pagi {done}/{total}" },
+  "morning.objReadyTag": { en: "All set", ms: "Semua siap" },
+  "morning.objReady": { en: "The clinic opens at 8:00", ms: "Klinik dibuka jam 8:00" },
+  "morning.readyAnnounce": { en: "Checklist done before 8:00! The clinic opens soon", ms: "Senarai semak siap sebelum 8:00! Klinik akan dibuka" },
+  "morning.missedMeeting": {
+    en: "8:00, the clinic is open! The team started without you, so here's the morning checklist.",
+    ms: "8:00, klinik dah dibuka! Pasukan dah mula tanpa anda, jadi ini senarai semak pagi.",
+  },
+  "morning.carryOver": {
+    en: "8:00, the clinic is open! {n} checklist task(s) left: fit them in between patients.",
+    ms: "8:00, klinik dah dibuka! Tinggal {n} tugasan senarai semak: buat di celah-celah pesakit.",
+  },
+  "morning.lateDone": { en: "Morning checklist done. Good job!", ms: "Senarai semak pagi siap. Syabas!" },
+  "delivery.title": { en: "Morning delivery", ms: "Penghantaran pagi" },
+  "delivery.action": { en: "❗ Check the delivery", ms: "❗ Semak penghantaran" },
+  "delivery.notice": {
+    en: "The morning delivery is here! Could you help me check it against the invoice before the courier leaves?",
+    ms: "Penghantaran pagi dah sampai! Boleh tolong saya semak dengan invois sebelum kurier balik?",
+  },
+  "delivery.expired": { en: "✅  Ravi checked the delivery himself. All good!", ms: "✅  Ravi dah semak sendiri barang penghantaran. Semua beres!" },
 
   // ---------- event notice ----------
   "event.optional": { en: "Optional · bonus coins", ms: "Pilihan · syiling bonus" },

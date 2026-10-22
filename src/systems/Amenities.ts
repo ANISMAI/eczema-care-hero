@@ -5,7 +5,7 @@ import { getRoomById } from "../data/rooms";
 /** What the toilet and surau need from the scene. */
 export interface AmenitiesHost {
   uiRoot: HTMLElement;
-  /** The chosen doctor can pray at the Surau mat (otherwise the mat is just a quiet place). */
+  /** The player turned prayer on in Settings (otherwise the mat is just a quiet place). */
   canPray(): boolean;
   lock(): void;
   unlock(): void;
@@ -30,42 +30,6 @@ export interface AmenitiesHost {
  * Toilet and surau: private, respectful moments shown with a soft fade, never scored
  * (brief section 05). After using the toilet the player must wash their hands before leaving.
  */
-/** Doa for healing the sick (shown while the doctor prays). */
-const DOA = {
-  arabic:
-    "اللَّهُمَّ رَبَّ النَّاسِ أَذْهِبِ الْبَأْسَ اشْفِهِ وَأَنْتَ الشَّافِي لَا شِفَاءَ إِلَّا شِفَاؤُكَ شِفَاءً لَا يُغَادِرُ سَقَمًا",
-  meaning:
-    "Wahai Allah, Tuhan sekalian alam. Hilangkanlah kesusahan. Sembuhkanlah pesakit ini, sesungguhnya Engkau Maha Menyembuhkan. Tiada kesembuhan melainkan kesembuhan dariMu. Kesembuhan sempurna yang tidak meninggalkan kesan.",
-};
-
-/** Card with the doa, shown for `ms`; resolves when it has gone. */
-function doaCard(parent: HTMLElement, ms: number): Promise<void> {
-  const card = document.createElement("div");
-  card.className = "doa-card";
-  card.setAttribute("role", "dialog");
-  card.setAttribute("aria-label", "Doa");
-  const ar = document.createElement("p");
-  ar.className = "doa-arabic";
-  ar.lang = "ar";
-  ar.dir = "rtl";
-  ar.textContent = DOA.arabic;
-  const meaning = document.createElement("p");
-  meaning.className = "doa-meaning";
-  meaning.lang = "ms";
-  meaning.textContent = `“${DOA.meaning}”`;
-  card.append(ar, meaning);
-  parent.appendChild(card);
-  return new Promise((resolve) =>
-    window.setTimeout(() => {
-      card.classList.add("out");
-      window.setTimeout(() => {
-        card.remove();
-        resolve();
-      }, 300);
-    }, ms)
-  );
-}
-
 export default class Amenities {
   private host: AmenitiesHost;
   private fader: Fader;
@@ -151,12 +115,12 @@ export default class Amenities {
     }
     const pose = this.host.showPrayPose({ x: mat.x, y: mat.y + 18 });
     if (pose) {
-      // fully automatic: prayer (5 s), then the doa card while the doctor raises her hands (3 s)
+      // fully automatic: prayer (5 s), then the doctor raises her hands (3 s)
       this.host.setPlayerVisible(false);
       pose.setFrame(1);
       await this.fader.show("", "🕌  Praying…", 5000, undefined, true);
       pose.setFrame(0);
-      await doaCard(this.host.uiRoot, 3000);
+      await new Promise((resolve) => window.setTimeout(resolve, 3000));
       pose.stop();
       this.host.setPlayerVisible(true);
     } else {

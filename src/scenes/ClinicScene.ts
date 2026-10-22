@@ -13,6 +13,10 @@ import ProfileCard from "../ui/ProfileCard";
 import CaseRunner from "../mission/CaseRunner";
 import GameClock from "../systems/GameClock";
 import Amenities from "../systems/Amenities";
+import MorningRoutine from "../systems/MorningRoutine";
+import PatientHistory from "../systems/PatientHistory";
+import { asksFollowUp, pickScenario, visitFlavor } from "../data/phase5/select";
+import { personalityOf } from "../data/phase5/personalities";
 import Announcement from "../ui/case/Announcement";
 import CaseDialog from "../ui/case/CaseDialog";
 import ShiftSummary from "../ui/ShiftSummary";
@@ -31,13 +35,13 @@ import CareTrays from "../systems/CareTrays";
 import ClinicFlow from "../clinic/ClinicFlow";
 import QueuePanel from "../ui/QueuePanel";
 import Pathfinder from "../systems/Pathfinding";
-import { amyBusyChance, TRAYS } from "../data/gameplay";
+import { amyBusyChance, REWARDS, TIME, TRAYS } from "../data/gameplay";
 import { runTap, stallSequence } from "../art/amenityFx";
 import type { StaffCard } from "../data/staff";
 import { CHARACTERS, getCharacter, type CharacterId, type PlayableCharacter } from "../data/assets";
 import {
   ROOMS,
-  HALLWAY,
+  HALLWAYS,
   HALLWAY_FURNITURE,
   WORLD_BOUNDS,
   getRoomWalls,
@@ -51,7 +55,7 @@ import {
   type Rect,
 } from "../data/rooms";
 import { loadSave, saveGame, SAVE_VERSION } from "../data/save";
-import { RENDER_SCALE } from "../game/display";
+import { RENDER_SCALE, viewZoom } from "../game/display";
 import { createFurniture } from "../art/furniture";
 import { PoseNpc, WalkerNpc } from "../entities/Npc";
 import { NPC_INTERACTABLES, POSE_NPCS, WALKER_NPCS } from "../data/npcs";
@@ -90,8 +94,15 @@ export default class ClinicScene extends Phaser.Scene {
   private caseRunner!: CaseRunner;
   private clock!: GameClock;
   private amenities!: Amenities;
+  /** Before opening: the phone call, the Staff Office meeting and the opening checklist. */
+  private morning!: MorningRoutine;
+  /** Task card texts: the patient case's, and the morning checklist's (shown when the case has none). */
+  private caseObjective: [string | null, number] = [null, 0];
+  private morningObjective: [string | null, number] = [null, 0];
   private announcer!: Announcement;
   private progress = new Progress();
+  /** Phase 5: who has visited before (today's visits are committed when the shift completes). */
+  private history = new PatientHistory();
   private clinicEvents!: EventDirector;
   private flow!: ClinicFlow;
   private queuePanel!: QueuePanel;
@@ -141,7 +152,7 @@ export default class ClinicScene extends Phaser.Scene {
     this.physics.add.collider(this.player, solids);
 
     const cam = this.cameras.main;
-    cam.setZoom(RENDER_SCALE);
+    cam.setZoom(this.playZoom);
     cam.startFollow(this.player, true, 0.12, 0.12);
     cam.setRoundPixels(false);
     this.fitCamera();
@@ -173,6 +184,11 @@ export default class ClinicScene extends Phaser.Scene {
     eventBus.emit("clinic-ready");
   }
 
+  /** Camera zoom while playing: sharp on high-DPI screens, and closer in on tablets. */
+  private get playZoom(): number {
+    return RENDER_SCALE * viewZoom();
+  }
+
   /**
    * Matches the camera to the (possibly rotated) screen. If the screen shows more than the
    * whole clinic along one axis — e.g. a wide landscape tablet — the bounds grow evenly on both
@@ -182,8 +198,10 @@ export default class ClinicScene extends Phaser.Scene {
     if (this.onTitle) return this.showOverview();
     const cam = this.cameras.main;
     cam.setSize(this.scale.width, this.scale.height);
-    const viewW = this.scale.width / RENDER_SCALE;
-    const viewH = this.scale.height / RENDER_SCALE;
+    // closer in on big screens (tablets), the same as before on phones; follows rotation too
+    cam.setZoom(this.playZoom);
+    const viewW = this.scale.width / this.playZoom;
+    const viewH = this.scale.height / this.playZoom;
     const padX = Math.max(0, (viewW - WORLD_BOUNDS.width) / 2);
     const padY = Math.max(0, (viewH - WORLD_BOUNDS.height) / 2);
     cam.setBounds(-padX, -padY, WORLD_BOUNDS.width + padX * 2, WORLD_BOUNDS.height + padY * 2);
@@ -226,15 +244,16 @@ export default class ClinicScene extends Phaser.Scene {
       // otherwise the day's briefing card (the clinic opens when the player starts the shift)
       if (!this.character) this.openCharacterSelect(true);
       else if (this.progress.snapshot.shiftEnded) this.showShiftSummary();
+      else if (this.preShift && this.morning.active) this.morning.resume(); // already clocked in today
       else if (this.preShift) this.showBriefing();
     };
     if (!ms) {
-      cam.setZoom(RENDER_SCALE);
+      cam.setZoom(this.playZoom);
       return start();
     }
     // a moment to take in the whole clinic after stepping inside, then down to the doctor
     this.time.delayedCall(900, () => {
-      cam.zoomTo(RENDER_SCALE, ms, "Sine.easeInOut");
+      cam.zoomTo(this.playZoom, ms, "Sine.easeInOut");
       cam.pan(this.player.x, this.player.y, ms, "Sine.easeInOut", false, (_c, progress) => {
         if (progress >= 1) start();
       });
@@ -246,7 +265,7 @@ export default class ClinicScene extends Phaser.Scene {
   private drawWorld(): void {
     drawGarden(this);
 
-    drawFloor(this, HALLWAY, HALLWAY_FLOOR);
+    for (const hall of HALLWAYS) drawFloor(this, hall, HALLWAY_FLOOR);
     drawHallwayRunner(this);
     for (const wall of getHallwayWalls()) drawWall(this, wall, HALLWAY_WALL);
     for (const item of HALLWAY_FURNITURE) createFurniture(this, item);
@@ -364,6 +383,7 @@ export default class ClinicScene extends Phaser.Scene {
         leftWaiting: () => this.progress.countVisit("doctorLeft"),
         serviceDone: () => this.progress.countVisit("serviceServed"),
         rebooked: () => this.progress.countVisit("doctorRebooked"),
+        pickVisit: (identityId) => pickScenario(identityId, this.history.get(identityId)),
       },
       this.progress.shift
     );
@@ -377,12 +397,35 @@ export default class ClinicScene extends Phaser.Scene {
       removeInteractable: (id) => this.removeInteractable(id),
       findInteractable: (id) => this.interactables.find((i) => i.id === id),
       toast: (text) => this.hud.showRoomToast(text),
-      setObjective: (text, progress) => this.hud.setObjective(text, progress),
+      setObjective: (text, progress) => {
+        this.caseObjective = [text, progress ?? 0];
+        this.showObjective();
+      },
       nextInQueue: () => this.flow.queue()[0] ?? null,
       callNext: () => this.flow.callNext(),
       patientNpc: (id) => this.flow.npc(id),
       caseCompleted: (id) => this.flow.caseCompleted(id),
       visitorGone: (id) => this.flow.remove(id),
+      visitFlavor: (identityId, templateId) => {
+        const f = visitFlavor(identityId, CASE_TEMPLATES[templateId], this.history.get(identityId), this.doctorRef());
+        const greetReaction = personalityOf(identityId)?.greetReaction ?? null;
+        return { greeting: f.greeting, greetReaction, intro: f.intro, serious: f.serious, intensity: f.intensity };
+      },
+      visitDone: (identityId, templateId) => {
+        const template = CASE_TEMPLATES[templateId];
+        const doctor = this.doctorRef();
+        // the same (deterministic) lines that were shown, so the next visit picks different ones
+        const f = visitFlavor(identityId, template, this.history.get(identityId), doctor);
+        this.history.record(identityId, {
+          scenarioId: templateId,
+          planKey: template.planKey ?? templateId,
+          followUp: asksFollowUp(template),
+          shift: this.progress.shift,
+          doctorId: doctor.id,
+          greeting: f.greetingKey,
+          introIndex: f.introIndex,
+        });
+      },
       awardCare: (points) => this.progress.addCare(points),
       completeCase: (xp) => this.progress.completeCase(xp),
       onStatus: (status) => this.clinicEvents.trigger(status, this.progress.shift),
@@ -442,12 +485,32 @@ export default class ClinicScene extends Phaser.Scene {
     // First run of the living clinic on an older save: the saved clock may be late in the day
     // (after the last arrival), so start this day fresh at 8:00 AM for a full day of patients.
     if (this.flow.isNewSave && !this.progress.snapshot.shiftEnded) this.clock.reset();
+    this.morning = new MorningRoutine(
+      {
+        uiRoot,
+        lock: () => this.lockInput(),
+        unlock: () => (this.inputLocked = false),
+        toast: (text) => this.hud.showRoomToast(text),
+        announce: (text) => this.announcer.show(text, 4500),
+        setObjective: (text, progress) => {
+          this.morningObjective = [text, progress ?? 0];
+          this.showObjective();
+        },
+        findInteractable: (id) => this.interactables.find((i) => i.id === id),
+        dialog: (title, text, icon, onClose) => this.dialog.open(title, text, icon, onClose),
+        character: () => this.character?.id,
+        trays: () => ({ clean: this.trays.clean, total: TRAYS.count }),
+        clinicOpen: () => !this.preShift,
+      },
+      this.progress.shift
+    );
     // left the game during a shift: that day starts over (from 7:45, at the entrance)
     if (this.progress.shiftUnfinished) this.restartDay();
     if (this.preShift) this.clock.setBeforeOpening();
+    else this.morning.reset(this.progress.shift);
     this.amenities = new Amenities({
       uiRoot,
-      canPray: () => (this.character ?? CHARACTERS[0]).prays,
+      canPray: () => prayerReminders(),
       lock: () => this.lockInput(),
       unlock: () => (this.inputLocked = false),
       toast: (text) => this.hud.showRoomToast(text),
@@ -498,9 +561,12 @@ export default class ClinicScene extends Phaser.Scene {
     const item = this.nearestInteractable;
     this.navigation.cancel();
     // the patient case's current step decides first, then an optional event at this spot,
-    // then a hint for a later case step; otherwise the item's own line
+    // then a hint for a later case step; otherwise the item's own line. The morning checklist
+    // goes first before opening, and after the patient case once the clinic is open.
+    if (this.preShift && this.morning.handle(item)) return;
     if (this.amenities.handle(item)) return;
     if (this.caseRunner.handle(item)) return;
+    if (this.morning.handle(item)) return;
     if (this.clinicEvents.handle(item)) return;
     if (this.trays.handle(item)) return;
     if (item.id === SHIFT_DESK && !this.preShift) return this.confirmEndShift();
@@ -513,8 +579,10 @@ export default class ClinicScene extends Phaser.Scene {
 
   private actionLabel(item: InteractableDef): string | null {
     return (
+      (this.preShift ? this.morning.actionLabel(item) : null) ??
       this.amenities.actionLabel(item) ??
       this.caseRunner.actionLabel(item) ??
+      this.morning.actionLabel(item) ??
       this.clinicEvents.actionLabel(item) ??
       this.trays.actionLabel(item) ??
       (item.id === SHIFT_DESK && !this.preShift ? t("close.action") : null)
@@ -556,6 +624,8 @@ export default class ClinicScene extends Phaser.Scene {
     this.flow.closeDay();
     this.clinicEvents.endShift();
     this.progress.endShift();
+    this.history.commit(); // a completed shift: today's visits join the saved history
+    this.morning.reset(this.progress.shift);
     this.showShiftSummary();
   }
 
@@ -575,6 +645,7 @@ export default class ClinicScene extends Phaser.Scene {
     this.flow.openDay(this.progress.shift);
     this.clinicEvents.startShift(this.progress.shift);
     this.trays.reset();
+    this.morning.reset(this.progress.shift);
     this.clock.setBeforeOpening();
     this.inputLocked = false;
     this.caseRunner.refreshObjective();
@@ -586,9 +657,11 @@ export default class ClinicScene extends Phaser.Scene {
   private restartDay(): void {
     this.caseRunner.closeDay();
     this.progress.restartDay();
+    this.history.discardPending(); // rolled back with the day's points and coins
     this.flow.openDay(this.progress.shift);
     this.clinicEvents.startShift(this.progress.shift);
     this.trays.reset();
+    this.morning.reset(this.progress.shift);
     this.clock.setBeforeOpening();
     this.caseRunner.refreshObjective(); // the old "call the next patient" banner goes too
     const start = ROOMS.find((r) => r.id === "reception")!.spawn;
@@ -609,7 +682,7 @@ export default class ClinicScene extends Phaser.Scene {
     if (this.onTitle) {
       this.onTitle = false;
       const cam = this.cameras.main;
-      cam.setZoom(RENDER_SCALE);
+      cam.setZoom(this.playZoom);
       cam.startFollow(this.player, true, 0.12, 0.12);
       this.fitCamera();
       this.hud.root.classList.remove("hud-off");
@@ -621,8 +694,10 @@ export default class ClinicScene extends Phaser.Scene {
     }
     if (this.progress.snapshot.shiftEnded) this.progress.startNextShift();
     if (this.preShift) {
+      this.morning.reset(this.progress.shift);
       this.progress.startShift();
       this.clock.reset();
+      this.caseRunner.refreshObjective();
     }
     this.navigation.cancel();
     this.inputLocked = false;
@@ -656,6 +731,17 @@ export default class ClinicScene extends Phaser.Scene {
         this.lockInput();
         const card = STAFF.find((c) => c.characterId === this.character?.id);
         void playClockIn(document.getElementById("game-container")!, card?.name ?? "", "8:00 AM").then(() => (this.inputLocked = false));
+      },
+      morning: (what) => {
+        if (what !== "restart") {
+          this.devReady();
+          return this.morning.devPreview(what);
+        }
+        // redo today from before opening (today's points roll back), then clock in again
+        this.devReady();
+        this.navigation.cancel();
+        this.restartDay();
+        this.startShift();
       },
       briefing: () => {
         this.devReady();
@@ -708,6 +794,12 @@ export default class ClinicScene extends Phaser.Scene {
     };
   }
 
+  /** The player's doctor, as patients greet them. */
+  private doctorRef(): { id: string | null; name: string } {
+    const card = STAFF.find((c) => c.characterId === this.character?.id);
+    return { id: this.character?.id ?? null, name: card?.name ?? this.character?.label ?? "Doctor" };
+  }
+
   /** Before the day's shift has started (the clinic is closed, nothing runs yet). */
   private get preShift(): boolean {
     const p = this.progress.snapshot;
@@ -745,21 +837,40 @@ export default class ClinicScene extends Phaser.Scene {
     this.showBriefing();
   }
 
-  /** "Start shift": the fingerprint clock-in, then the clinic opens at 8:00. */
+  /**
+   * "Start shift": the fingerprint clock-in at 7:45, then the morning routine (phone call,
+   * meeting, checklist) while the clock runs on. The clinic opens by itself at 8:00.
+   */
   private startShift(): void {
+    if (this.morning.active) return this.morning.resume();
     this.lockInput();
     const card = STAFF.find((c) => c.characterId === this.character?.id);
     const name = card?.name ?? this.character?.label ?? "";
-    void playClockIn(document.getElementById("game-container")!, name, "8:00 AM").then(() => this.openClinic());
+    void playClockIn(document.getElementById("game-container")!, name, this.clock.label()).then(() => {
+      this.inputLocked = false;
+      this.morning.begin();
+    });
   }
 
-  /** The clinic opens at 8:00, patients start arriving. */
+  /**
+   * The clinic opens at 8:00: the patients queuing at the door walk in, Ravi's morning delivery
+   * arrives, and the usual arrivals follow. Checklist tasks still left stay on as extra work;
+   * the whole list done before 8:00 earns the bonus.
+   */
   private openClinic(): void {
     this.progress.startShift();
     this.clock.reset();
+    const complete = this.morning.clinicOpened();
     this.inputLocked = false;
     this.caseRunner.refreshObjective();
     this.announcer.show(`☀️  ${t("toast.dayStart", { day: this.progress.shift })}`, 4500);
+    this.flow.morningRush(this.morning.queueSize);
+    this.clinicEvents.offerNow("morning-delivery");
+    if (complete) {
+      const { coins, xp } = REWARDS.morningPrep;
+      this.progress.addEventReward(coins, xp);
+      this.time.delayedCall(2200, () => this.hud.showRoomToast(`🎉  ${t("morning.bonus", { coins, xp })}`));
+    }
     this.persist();
   }
 
@@ -789,12 +900,24 @@ export default class ClinicScene extends Phaser.Scene {
     this.markers.delete(id);
   }
 
-  /** Objective banner: walk to whatever the active case needs next. */
+  /** The task card: the patient case's step when there is one, otherwise the morning checklist. */
+  private showObjective(): void {
+    const [text, progress] = this.caseObjective[0] ? this.caseObjective : this.morningObjective;
+    this.hud.setObjective(text, progress);
+  }
+
+  /** Where the task card points: the patient case first, then the morning checklist. */
+  private objectiveTarget(): { item: InteractableDef | null; room: RoomId } | null {
+    const room = this.caseRunner.questRoom();
+    return room ? { item: this.caseRunner.questTarget(), room } : this.morning.target();
+  }
+
+  /** Objective banner: walk to whatever the active case (or the morning checklist) needs next. */
   private goToObjective(): void {
     if (this.inputLocked) return;
-    const target = this.caseRunner.questTarget();
-    const room = this.caseRunner.questRoom();
-    if (!room) return;
+    const goal = this.objectiveTarget();
+    if (!goal) return;
+    const { item: target, room } = goal;
     const label = this.roomLabel(room);
     if (target) this.walkToItem(target, room, () => this.persist());
     else this.navigation.walkToRoom(room, () => this.persist());
@@ -912,10 +1035,41 @@ export default class ClinicScene extends Phaser.Scene {
     this.fullMap.open(
       here,
       { x: this.player.x, y: this.player.y },
-      this.caseRunner.questRoom(),
+      this.objectiveTarget()?.room ?? null,
       prayerReminders() && this.clock.currentPrayer() ? "surau" : null,
       this.clinicEvents.markerRoom()
     );
+    this.snapshotClinic((src) => this.fullMap.setPhoto(src));
+  }
+
+  /**
+   * The full map's picture: for one frame a second camera sees the whole clinic (the main view
+   * is hidden), and that frame is captured. Shows the rooms' furniture and everyone where they
+   * are right now. Calls back with a data URL, or null if the renderer can't take a snapshot.
+   */
+  private snapshotClinic(done: (src: string | null) => void): void {
+    const { width, height } = this.scale;
+    const zoom = Math.min(width / WORLD_BOUNDS.width, height / WORLD_BOUNDS.height);
+    const w = Math.floor(WORLD_BOUNDS.width * zoom);
+    const h = Math.floor(WORLD_BOUNDS.height * zoom);
+    const main = this.cameras.main;
+    const cam = this.cameras.add(0, 0, w, h);
+    cam.setZoom(zoom);
+    cam.centerOn(WORLD_BOUNDS.width / 2, WORLD_BOUNDS.height / 2);
+    main.setVisible(false);
+    const restore = () => {
+      this.cameras.remove(cam);
+      main.setVisible(true);
+    };
+    try {
+      this.game.renderer.snapshotArea(0, 0, w, h, (image) => {
+        restore();
+        done(image instanceof HTMLImageElement ? image.src : null);
+      }, "image/jpeg", 0.9);
+    } catch {
+      restore();
+      done(null);
+    }
   }
 
   private handleGoHere(roomId: RoomId): void {
@@ -973,9 +1127,21 @@ export default class ClinicScene extends Phaser.Scene {
     this.trays.update(simDelta, paused);
     if (this.shiftEndPending && !this.inputLocked) this.endShift();
     if (!paused) this.clock.tick(simDelta);
-    this.hud.setStartShift(this.preShift && !this.onTitle && !this.briefing.isOpen);
+    else if (this.preShift && this.morning.active && !this.inputLocked) {
+      // clocked in, clinic not open yet: 7:45 → 8:00 runs slowly (normal speed once the
+      // checklist is done), then the clinic opens by itself
+      this.clock.tick(simDelta * (this.morning.ready ? 1 : TIME.morningSpeed));
+      if (this.clock.minutesOfDay >= 8 * 60) this.openClinic();
+    }
+    this.hud.setStartShift(this.preShift && !this.morning.active && !this.onTitle && !this.briefing.isOpen);
     this.hud.setClock(`${t("hud.day", { day: this.progress.shift })} · ${this.clock.label()}`);
     this.amenities.update(room?.id ?? null);
+    if (this.preShift) this.morning.update(room?.id ?? null, this.inputLocked);
+    else if (this.morning.beforeOpeningOnly) {
+      // a step that only belongs before opening is still set (e.g. the clinic was opened from
+      // the dev panel while the phone rang): settle it the way 8:00 would
+      this.morning.clinicOpened();
+    }
     for (const item of [...WALKER_NPCS.map((d) => d.talk), ...this.dynamic]) {
       this.markers.get(item.id)?.setPosition(item.x, item.y - (item.markerLift ?? MARKER_LIFT));
     }
@@ -986,7 +1152,7 @@ export default class ClinicScene extends Phaser.Scene {
     const action = near ? this.actionLabel(near) : null;
     this.hud.setInteractTarget(near && action ? { ...near, label: action } : near);
 
-    const quest = this.caseRunner.questTarget();
+    const quest = this.objectiveTarget()?.item ?? null;
     // No "!" bubbles over objects: players explore and find things themselves; the Interact
     // button appears when they are close. (Markers are kept so they can be switched back on.)
     this.markers.forEach((m) => m.setHidden(SHOW_INTERACT_BUBBLES ? this.inputLocked : true));

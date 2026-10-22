@@ -151,6 +151,16 @@ export default class EventDirector {
     return true;
   }
 
+  /** Like offer(), but the event may start right away instead of after the usual cooldown. */
+  offerNow(id: string): boolean {
+    const def = getEvent(id);
+    if (!this.enabled || this.ended || !this.host.shiftActive() || !def || !this.eligible(def)) return false;
+    if (this.isActive(id)) return true;
+    this.schedule.requestNow(id, this.host.minutes());
+    this.commit();
+    return true;
+  }
+
   isActive(id: string): boolean {
     return this.state.active?.id === id;
   }

@@ -1,10 +1,12 @@
 import Phaser from "phaser";
 import {
-  HALLWAY,
+  ENTRANCE,
+  HALLWAYS,
   WALL_FACE,
   WALL_THICKNESS,
   WORLD_BOUNDS,
   getDoorCenter,
+  getDoors,
   type FloorStyle,
   type Rect,
   type RoomDef,
@@ -55,9 +57,9 @@ export function drawGarden(scene: Phaser.Scene): void {
       g.fillEllipse(x, y, 6, 3);
     }
 
-    // entrance path from the hallway's front door to the bottom edge
-    const pathX = HALLWAY.x + HALLWAY.width / 2;
-    const pathTop = HALLWAY.y + HALLWAY.height;
+    // entrance path from the lobby's front door to the bottom edge
+    const pathX = ENTRANCE.x;
+    const pathTop = ENTRANCE.y + 40;
     rr(g, pathX - 34, pathTop - 4, 68, height - pathTop + 10, 6, 0xd9d3c9);
     for (let y = pathTop + 6; y < height; y += 16) {
       g.fillStyle(0xc4bcae, 1);
@@ -165,15 +167,26 @@ export function drawFloor(
   }).setDepth(-100);
 }
 
-/** Coloured wayfinding guide lines down the hallway floor, like in real clinics. */
+/** Coloured wayfinding guide lines along each hallway floor, like in real clinics. */
 export function drawHallwayRunner(scene: Phaser.Scene): void {
-  addBaked(scene, "hallway-runner", 0, 0, (g) => {
-    const top = HALLWAY.y + WALL_THICKNESS + WALL_FACE + 30;
-    const bottom = HALLWAY.y + HALLWAY.height - 70;
-    const cx = HALLWAY.x + HALLWAY.width / 2;
-    rr(g, cx - 10, top, 7, bottom - top, 3.5, PAL.sky);
-    rr(g, cx + 3, top, 7, bottom - top, 3.5, PAL.yellow);
-  }).setDepth(-60);
+  HALLWAYS.forEach((hall, i) => {
+    addBaked(scene, `hallway-runner-${i}`, 0, 0, (g) => {
+      if (hall.width > hall.height) {
+        // the cross hallway: lines running left to right
+        const left = hall.x + WALL_THICKNESS + 30;
+        const right = hall.x + hall.width - WALL_THICKNESS - 30;
+        const cy = hall.y + hall.height / 2;
+        rr(g, left, cy - 10, right - left, 7, 3.5, PAL.sky);
+        rr(g, left, cy + 3, right - left, 7, 3.5, PAL.yellow);
+        return;
+      }
+      const top = hall.y + WALL_THICKNESS + WALL_FACE + 30;
+      const bottom = hall.y + hall.height - 20;
+      const cx = hall.x + hall.width / 2;
+      rr(g, cx - 10, top, 7, bottom - top, 3.5, PAL.sky);
+      rr(g, cx + 3, top, 7, bottom - top, 3.5, PAL.yellow);
+    }).setDepth(-60);
+  });
 }
 
 // ---------- Walls ----------
@@ -225,21 +238,23 @@ export function drawWall(scene: Phaser.Scene, seg: WallSegment, accent: number):
   }).setDepth(seg.y + seg.height);
 }
 
-/** Threshold strip and door posts. Rooms are named by the plaque on their own wall. */
+/** Threshold strip and door posts for each of a room's doors. Rooms are named by the plaque on their own wall. */
 export function drawDoor(scene: Phaser.Scene, room: RoomDef): void {
-  const door = getDoorCenter(room);
-  const vertical = room.doorSide === "left" || room.doorSide === "right";
-  const half = 48;
-  addBaked(scene, `door-${room.id}`, 0, 0, (g) => {
-    g.fillStyle(0xb9c2cf, 1);
-    if (vertical) g.fillRect(door.x - WALL_THICKNESS / 2, door.y - half, WALL_THICKNESS, half * 2);
-    else g.fillRect(door.x - half, door.y - WALL_THICKNESS / 2, half * 2, WALL_THICKNESS);
-  }).setDepth(-40);
+  getDoors(room).forEach((d, i) => {
+    const door = getDoorCenter(room, d);
+    const vertical = d.side === "left" || d.side === "right";
+    const half = d.width / 2;
+    addBaked(scene, `door-${room.id}-${i}`, 0, 0, (g) => {
+      g.fillStyle(0xb9c2cf, 1);
+      if (vertical) g.fillRect(door.x - WALL_THICKNESS / 2, door.y - half, WALL_THICKNESS, half * 2);
+      else g.fillRect(door.x - half, door.y - WALL_THICKNESS / 2, half * 2, WALL_THICKNESS);
+    }).setDepth(-40);
 
-  addBaked(scene, `door-posts-${room.id}`, 0, 0, (posts) => {
-    posts.fillStyle(room.color, 1);
-    if (vertical) posts.fillRoundedRect(door.x - 9, door.y + half - 2, 18, 8, 3);
-  }).setDepth(door.y + half + 1);
+    addBaked(scene, `door-posts-${room.id}-${i}`, 0, 0, (posts) => {
+      posts.fillStyle(room.color, 1);
+      if (vertical) posts.fillRoundedRect(door.x - 9, door.y + half - 2, 18, 8, 3);
+    }).setDepth(door.y + half + 1);
+  });
 }
 
 /** Dark navy pill sign with white capitals and a thin room-colour accent underline. */

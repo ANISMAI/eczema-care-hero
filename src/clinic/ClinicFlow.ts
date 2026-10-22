@@ -7,7 +7,7 @@ import { PATIENTS, getPatient, type PatientIdentity } from "../data/patients";
 import { DOCTOR_VISITS, SERVICE_VISITS, getServiceVisit, type ServiceLine, type VisitType } from "../data/visits";
 import { CASE_TEMPLATES } from "../data/cases";
 import { CASE_001 } from "../data/cases/case001";
-import { HALLWAY, getRoomById, waitingSeat, type InteractableDef, type Point, type RoomId } from "../data/rooms";
+import { ENTRANCE, getRoomById, waitingSeat, type InteractableDef, type Point, type RoomId } from "../data/rooms";
 
 // Phase 3: the living clinic (brief sections 5–8). One scheduler creates visitors through the
 // open hours, paced and capped. Each visitor has exactly one owner at a time (explicit state):
@@ -93,6 +93,8 @@ export interface FlowHost {
   leftWaiting(): void;
   serviceDone(): void;
   rebooked(): void;
+  /** Phase 5: which visit template a doctor patient comes with (by their personality and history). */
+  pickVisit?(identityId: string): string;
 }
 
 // ---------- places ----------
@@ -102,7 +104,8 @@ function at(room: RoomId, dx: number, dy: number): Point {
   return { x: b.x + dx, y: b.y + dy };
 }
 
-export const ENTRANCE: Point = { x: HALLWAY.x + HALLWAY.width / 2, y: HALLWAY.y + HALLWAY.height - 40 };
+/** Where visitors arrive and leave: just inside the lobby's front door (data/rooms.ts). */
+export { ENTRANCE };
 /**
  * Waiting seats (feet of a seated visitor): the chairs not taken by the decorative visitors in
  * data/npcs.ts (row 1 cols 0,1,3,4 and row 4 cols 3,4), front rows first.
@@ -124,6 +127,8 @@ const NURUL_AT: Point = at("reception", 85, 30);
 const GRACE_AT: Point = at("pharmacy", 190, 54);
 
 const CFG = clinicConfig();
+/** Gap between the morning-queue patients walking in at opening (ms of play time). */
+const RUSH_GAP_MS = 1400;
 
 const LIVE: VisitorState[] = ["to-reception", "at-reception", "to-seat", "waiting"];
 
@@ -140,6 +145,9 @@ export default class ClinicFlow {
   private state: FlowState;
   private npcs = new Map<string, CaseNpc>();
   private saveIn = 0;
+  /** Morning queue still to walk in, one every RUSH_GAP_MS (play time; not saved). */
+  private rushLeft = 0;
+  private rushInMs = 0;
 
   /** No clinic save existed yet (first run of Phase 3 on this device, or after a reset). */
   readonly isNewSave: boolean;
@@ -303,20 +311,32 @@ export default class ClinicFlow {
   }
 
   private pickDoctorTemplate(identityId: string): string {
+    if (this.host.pickVisit) return this.host.pickVisit(identityId);
     const options = DOCTOR_VISITS.filter((o) => !o.returning || (this.state.history[identityId] ?? 0) > 0);
     let r = Math.random() * options.reduce((a, o) => a + o.weight, 0);
     for (const o of options) if ((r -= o.weight) < 0) return o.templateId;
     return options[0].templateId;
   }
 
+  /**
+   * Opening time: `count` doctor patients were already queuing at the door, so they walk in
+   * together (Nurul registers them two at a time). The next ordinary arrival comes a bit later.
+   */
+  morningRush(count: number): void {
+    this.rushLeft = count;
+    this.rushInMs = 0;
+    this.state.nextArrivalAt = this.host.minutes() + rand(CFG.arrivalEvery.min, CFG.arrivalEvery.max);
+    this.save();
+  }
+
   /** Tries to bring in one visitor now. Returns false if the clinic is at capacity. */
-  private spawnOne(): boolean {
+  private spawnOne(only?: VisitType): boolean {
     const doctorRoom = this.doctorWaitingCount() < CFG.maxDoctorWaiting && this.freeSeat() !== null;
-    const serviceRoom = this.serviceCount() < CFG.maxNpcService;
+    const serviceRoom = only !== "DOCTOR" && this.serviceCount() < CFG.maxNpcService;
     const free = this.freeIdentities();
     if (!free.length || (!doctorRoom && !serviceRoom)) return false;
 
-    let type: VisitType = Math.random() < CFG.doctorShare ? "DOCTOR" : "NPC_SERVICE";
+    let type: VisitType = only ?? (Math.random() < CFG.doctorShare ? "DOCTOR" : "NPC_SERVICE");
     if (type === "DOCTOR" && !doctorRoom) type = "NPC_SERVICE";
     if (type === "NPC_SERVICE" && !serviceRoom) type = "DOCTOR";
 
@@ -578,6 +598,10 @@ export default class ClinicFlow {
     if (locked) return;
     for (const v of [...this.state.visitors]) this.tick(v, deltaMs);
 
+    if (this.rushLeft > 0 && !this.state.closed && (this.rushInMs -= deltaMs) <= 0) {
+      this.rushLeft = this.spawnOne("DOCTOR") ? this.rushLeft - 1 : 0;
+      this.rushInMs = RUSH_GAP_MS;
+    }
     const now = this.host.minutes();
     if (!this.state.closed && now >= this.state.nextArrivalAt && now <= CFG.lastArrivalAt) {
       const ok = this.spawnOne();
@@ -596,6 +620,7 @@ export default class ClinicFlow {
    * and everyone is cleared away. The patient with the doctor is handled by CaseRunner first.
    */
   closeDay(): void {
+    this.rushLeft = 0;
     this.state.closed = true;
     for (const v of [...this.state.visitors]) {
       if (v.visitType === "NPC_SERVICE" && v.state !== "leaving") this.host.serviceDone();
@@ -607,6 +632,7 @@ export default class ClinicFlow {
 
   /** A new day: the clinic opens again (identities and follow-up history are kept). */
   openDay(day: number): void {
+    this.rushLeft = 0;
     for (const id of [...this.npcs.keys()]) this.remove(id);
     this.state = { ...fresh(day), history: this.state.history, firstDone: this.state.firstDone, counter: this.state.counter };
     this.save();

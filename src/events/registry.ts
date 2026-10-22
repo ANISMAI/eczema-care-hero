@@ -2,13 +2,14 @@ import { REWARDS } from "../data/gameplay";
 import RegistrationPanel from "../ui/events/RegistrationPanel";
 import ShelfPanel, { PHARMACY_SORT, RESTOCK } from "../ui/events/ShelfPanel";
 import PharmacyCheckPanel from "../ui/events/PharmacyCheckPanel";
+import DeliveryPanel from "../ui/events/DeliveryPanel";
 import TrayCleanPanel from "../ui/events/TrayCleanPanel";
 import CockroachPanel from "../ui/events/CockroachPanel";
 import PrinterPanel from "../ui/events/PrinterPanel";
 import { t } from "../game/i18n";
 import type { ClinicEventDef } from "./types";
 
-// The seven optional incidents share one scheduler and reward channel.
+// The eight optional incidents share one scheduler and reward channel.
 // The tray is condition-driven; all other incidents participate in weighted draws.
 
 export const EVENTS: ClinicEventDef[] = [
@@ -94,6 +95,23 @@ export const EVENTS: ClinicEventDef[] = [
     rewards: { ...REWARDS.event },
     random: false,
     createPanel: (parent) => new TrayCleanPanel(parent),
+  },
+  {
+    // not random: offered once when the clinic opens (ClinicScene.openClinic), so the first
+    // half hour of the day has something to do besides the patients queuing at the door
+    id: "morning-delivery",
+    title: t("delivery.title"),
+    icon: "🚚",
+    category: "routine",
+    room: "storage",
+    targets: ["storage-shelf", "storekeeper"],
+    actionLabel: t("delivery.action"),
+    from: { name: "Ravi · Storage", portrait: "assets/portraits/ravi.webp" },
+    notice: t("delivery.notice"),
+    expired: t("delivery.expired"),
+    rewards: { ...REWARDS.event },
+    random: false,
+    createPanel: (parent) => new DeliveryPanel(parent),
   },
 ];
 
