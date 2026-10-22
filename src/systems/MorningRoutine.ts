@@ -1,3 +1,4 @@
+import { play } from "../game/audio";
 import CaseDialog from "../ui/case/CaseDialog";
 import IncomingCall from "../ui/IncomingCall";
 import { el } from "../ui/case/Overlay";
@@ -273,6 +274,8 @@ export default class MorningRoutine {
     this.busy = true;
     this.host.lock();
     this.state.done.push(task.id);
+    play("tick");
+    if (task.id === "hands") play("water");
     this.save();
     this.host.dialog(`${task.icon} ${label(task)}`, t(`morning.task.${task.id}.done` as StringKey), "✅", () => {
       this.busy = false;

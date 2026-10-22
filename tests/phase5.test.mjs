@@ -125,3 +125,10 @@ test('history from an unfinished shift is rolled back; a completed shift commits
   h.discardPending();
   assert.equal(new PatientHistory(store).get('siti').priorVisitCount, 1);
 });
+
+test('queue numbers are read out digit by digit in English and Bahasa Melayu', async () => {
+  const { spokenDigits } = await import('../src/game/voice.ts');
+  assert.equal(spokenDigits('001', 'en'), 'zero, zero, one');
+  assert.equal(spokenDigits('001', 'ms'), 'kosong, kosong, satu');
+  assert.equal(spokenDigits('109', 'ms'), 'satu, kosong, sembilan');
+});

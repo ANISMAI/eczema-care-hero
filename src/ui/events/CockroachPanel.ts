@@ -1,3 +1,4 @@
+import { play as playSound } from "../../game/audio";
 import IncidentPanel from "./IncidentPanel";
 import { el } from "../case/Overlay";
 import { createVisitor, guideVisitor, ROACH_GUIDE } from "../../events/RoachGuide";
@@ -102,6 +103,7 @@ export default class CockroachPanel extends IncidentPanel {
       visitor.style.top = `${roach.y * 100}%`;
       visitor.style.setProperty("--heading", `${roach.heading}deg`);
       visitor.classList.toggle("walking", roach.walking);
+      if (roach.walking && !wasWalking) playSound("scuttle");
       const frame = roach.walking && !reduced ? Math.floor(walkTime * VISITOR_SHEET.fps) % VISITOR_SHEET.frames : 0;
       if (frame !== lastFrame) {
         sprite.style.backgroundPosition = `${frame % VISITOR_SHEET.columns / (VISITOR_SHEET.columns - 1) * 100}% ${Math.floor(frame / VISITOR_SHEET.columns) * 100}%`;

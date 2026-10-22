@@ -23,6 +23,8 @@ export interface PatientRecord {
   /** Last greeting / opening-line wording used, so the next visit picks another one. */
   lastGreeting: string | null;
   lastIntro: Record<string, number>;
+  /** Clothes colour worn last time (the next visit wears the next one). */
+  lastOutfit?: number;
 }
 
 interface HistoryState {
@@ -40,6 +42,7 @@ export interface VisitEntry {
   doctorId: string | null;
   greeting: string | null;
   introIndex: number;
+  outfit?: number;
 }
 
 export interface KeyValueStore {
@@ -100,6 +103,7 @@ export default class PatientHistory {
       lastDoctorId: v.doctorId,
       lastGreeting: v.greeting,
       lastIntro: { ...(prev?.lastIntro ?? {}), [v.scenarioId]: v.introIndex },
+      lastOutfit: v.outfit ?? prev?.lastOutfit,
     };
     this.save();
   }

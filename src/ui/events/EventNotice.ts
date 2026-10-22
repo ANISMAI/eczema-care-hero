@@ -1,3 +1,4 @@
+import { play } from "../../game/audio";
 import { el } from "../case/Overlay";
 import type { ClinicEventDef } from "../../events/types";
 import { t } from "../../game/i18n";
@@ -31,6 +32,7 @@ export default class EventNotice {
   }
 
   show(def: ClinicEventDef, expanded: boolean): void {
+    if (expanded) play("pop");
     window.clearTimeout(this.timer);
     this.root.classList.remove("hidden");
     this.hud.classList.add("has-event");

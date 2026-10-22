@@ -1,3 +1,4 @@
+import { play } from "../../game/audio";
 import Overlay, { el } from "./Overlay";
 import { handSvg, nearestSign, toStage } from "./HandArt";
 import { OUTCOME_LABEL, UI } from "../../data/phase5/personalities";
@@ -70,6 +71,7 @@ export default class Consultation {
     stage.addEventListener("click", (e) => {
       if ((e.target as HTMLElement).closest(".inspect-spot")) return;
       const r = stage.getBoundingClientRect();
+      play("gentle");
       const miss = el("span", "miss-ring");
       miss.style.left = `${((e.clientX - r.left) / r.width) * 100}%`;
       miss.style.top = `${((e.clientY - r.top) / r.height) * 100}%`;
@@ -81,12 +83,14 @@ export default class Consultation {
 
     for (const s of c.spots) {
       const b = el("button", "inspect-spot hidden-spot");
+      b.dataset.audio = "own";
       b.style.left = `${toStage(s.x)}%`;
       b.style.top = `${toStage(s.y)}%`;
       b.setAttribute("aria-label", `Inspect: ${s.label}`);
       b.append(el("span", "found-label", s.label));
       b.classList.toggle("seen", this.h.inspected().includes(s.id));
       b.addEventListener("click", () => {
+        if (!this.h.inspected().includes(s.id)) play("good");
         this.h.inspect(s.id);
         b.classList.add("seen");
         stage.querySelectorAll(".inspect-spot").forEach((o) => o.classList.toggle("focus", o === b));

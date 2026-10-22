@@ -16,6 +16,7 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
   parent: "app",
   backgroundColor: toCss(PAL.grass),
   antialias: true,
+  audio: { noAudio: true }, // the shared Web Audio synth owns the only context
   scale: {
     mode: Phaser.Scale.NONE,
     width: initial.width * RENDER_SCALE,

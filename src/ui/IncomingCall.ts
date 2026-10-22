@@ -1,5 +1,5 @@
 import { el } from "./case/Overlay";
-import { soundOn } from "../game/settings";
+import { play } from "../game/audio";
 import { t } from "../game/i18n";
 
 // Morning phone call (systems/MorningRoutine.ts): a phone slides up with the caller ringing.
@@ -16,25 +16,6 @@ export type CallResult = "accepted" | "declined";
 
 const HANDSET =
   '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z"/></svg>';
-
-/** Two short trills, repeated by the caller while the phone rings. */
-function trill(ctx: AudioContext): void {
-  const now = ctx.currentTime;
-  for (let i = 0; i < 2; i++) {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "sine";
-    osc.frequency.value = i ? 1180 : 940;
-    const t0 = now + i * 0.32;
-    gain.gain.setValueAtTime(0.0001, t0);
-    gain.gain.exponentialRampToValueAtTime(0.09, t0 + 0.02);
-    gain.gain.setValueAtTime(0.09, t0 + 0.2);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.28);
-    osc.connect(gain).connect(ctx.destination);
-    osc.start(t0);
-    osc.stop(t0 + 0.3);
-  }
-}
 
 export default class IncomingCall {
   private parent: HTMLElement;
@@ -63,22 +44,11 @@ export default class IncomingCall {
     this.parent.append(root);
     requestAnimationFrame(() => root.classList.add("in"));
 
-    let audio: AudioContext | null = null;
-    let ringTimer = 0;
-    if (soundOn()) {
-      try {
-        audio = new AudioContext();
-        const ctx = audio;
-        trill(ctx);
-        ringTimer = window.setInterval(() => trill(ctx), 1800);
-      } catch {
-        audio = null; // no sound: the rings on screen are enough
-      }
-    }
+    let stopSound = play("trill");
+    const ringTimer = window.setInterval(() => { stopSound = play("trill"); }, 1800);
     const stopRinging = () => {
       window.clearInterval(ringTimer);
-      if (audio) void audio.close();
-      audio = null;
+      stopSound();
       root.classList.add("connected");
     };
     const hangUp = (result: CallResult, resolve: (r: CallResult) => void) => {

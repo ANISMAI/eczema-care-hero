@@ -1,3 +1,4 @@
+import { play as playSound } from "../../game/audio";
 import IncidentPanel from "./IncidentPanel";
 import { el } from "../case/Overlay";
 import { COMEDY } from "../../data/gameplay";
@@ -35,6 +36,8 @@ export default class PrinterPanel extends IncidentPanel {
 
   open(seed: number, rewards: EventRewards, done: (outcome: EventOutcome) => void, occurrence = 1): void {
     this.begin({ title: t("printer.title"), avatar: "assets/portraits/nurul.webp", subtitle: t("printer.from") }, rewards, done);
+    playSound("printer");
+    this.every(() => { if (!stopped) playSound("printer"); }, 1100);
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let stopped = false;
     let collecting = false;

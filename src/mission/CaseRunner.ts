@@ -1,3 +1,4 @@
+import { play } from "../game/audio";
 import Phaser from "phaser";
 import MissionController from "./MissionController";
 import CaseNpc from "../entities/CaseNpc";
@@ -13,7 +14,8 @@ import { spritePortrait } from "../ui/spritePortrait";
 import { buildCase } from "../data/cases";
 import { PATIENT } from "../data/cases/steps";
 import { getPatient } from "../data/patients";
-import { COLLECT_SPOT, ENTRANCE, type QueueEntry } from "../clinic/ClinicFlow";
+import { COLLECT_SPOT, ENTRANCE, ticketLabel, type QueueEntry } from "../clinic/ClinicFlow";
+import { announceTicket } from "../game/voice";
 import { getRoomById, type InteractableDef, type Point, type RoomId } from "../data/rooms";
 import type { CharacterDirection } from "../data/assets";
 import { CASE_FLOW, type CaseDefinition, type CaseStatus, type StepDef } from "./types";
@@ -364,6 +366,7 @@ export default class CaseRunner {
     details.className = "intake-card";
     card.append(figure, details);
     const rows: [string, string][] = [
+      [t("queue.ticket"), ticketLabel(next.ticket)],
       ["Patient", `${d.patient.fullName}, ${d.patient.age}`],
       ["Visit", d.title],
       ["Reason", d.intake.reason],
@@ -390,7 +393,10 @@ export default class CaseRunner {
       const step = this.mission.currentStep;
       if (!step || !this.advance(step)) return;
       this.listPatient(true);
-      this.announcement.show(`${this.def.patient.fullName}, please come to Consultation.`);
+      // like a real clinic: the chime, the queue number on the banner, and the number called out
+      const no = ticketLabel(called.ticket);
+      this.announcement.show(t("queue.call", { no, name: this.def.patient.fullName }));
+      announceTicket(no);
       this.walkPatientForState(() => this.host.toast(`🙂  ${this.def.patient.name} is here`));
     });
   }
@@ -500,6 +506,7 @@ export default class CaseRunner {
     }
     const visit = this.mission.visit;
     if (this.mission.status !== "COMPLETED" || !visit) return;
+    play("fanfare");
     const reward = REWARDS.caseComplete;
     this.mission.recordCompletion(reward.care);
     this.host.awardCare(reward.care);

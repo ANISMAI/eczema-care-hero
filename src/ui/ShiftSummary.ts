@@ -1,3 +1,4 @@
+import { shiftJingle } from "../game/audio";
 import Overlay, { el } from "./case/Overlay";
 import type { ProgressState } from "../systems/Progress";
 import { t as tr } from "../game/i18n";
@@ -26,6 +27,7 @@ export default class ShiftSummary {
   }
 
   open(o: ShiftSummaryOptions): void {
+    shiftJingle();
     const p = o.progress;
     const t = p.current;
     this.overlay.setHeader({ title: tr("summary.title", { day: p.shift }), avatar: "🌇", subtitle: tr("summary.subtitle") });

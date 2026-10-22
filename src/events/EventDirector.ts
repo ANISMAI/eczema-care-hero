@@ -1,3 +1,4 @@
+import { play } from "../game/audio";
 import Phaser from "phaser";
 import EventNotice from "../ui/events/EventNotice";
 import { EVENTS, getEvent } from "./registry";
@@ -302,6 +303,7 @@ export default class EventDirector {
       this.host.unlock();
     }
     if (outcome === "resolved") {
+      play("coin");
       this.host.reward(def.rewards.coins, def.rewards.xp);
       this.host.toast(`🎉  +${def.rewards.coins} 🪙  +${def.rewards.xp} XP`);
       this.host.resolved(def.id);

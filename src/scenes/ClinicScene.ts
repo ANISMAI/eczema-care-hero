@@ -1,4 +1,6 @@
 import Phaser from "phaser";
+import Ambience from "../systems/Ambience";
+import { play, titleMusic } from "../game/audio";
 import Player from "../entities/Player";
 import MovementSystem from "../systems/Movement";
 import InteractionSystem from "../systems/Interaction";
@@ -17,6 +19,7 @@ import MorningRoutine from "../systems/MorningRoutine";
 import PatientHistory from "../systems/PatientHistory";
 import { asksFollowUp, pickScenario, visitFlavor } from "../data/phase5/select";
 import { personalityOf } from "../data/phase5/personalities";
+import { nextOutfit } from "../systems/Outfits";
 import Announcement from "../ui/case/Announcement";
 import CaseDialog from "../ui/case/CaseDialog";
 import ShiftSummary from "../ui/ShiftSummary";
@@ -89,6 +92,7 @@ function loadHoverboard(): boolean {
 const SHIFT_DESK = "office-desk";
 
 export default class ClinicScene extends Phaser.Scene {
+  private soundscape = new Ambience();
   private player!: Player;
   private movement!: MovementSystem;
   private interaction!: InteractionSystem;
@@ -147,6 +151,7 @@ export default class ClinicScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.soundscape.stop());
     const save = loadSave();
     this.currentRoomId = save.currentRoomId;
 
@@ -197,6 +202,7 @@ export default class ClinicScene extends Phaser.Scene {
   private toggleHoverboard(): void {
     if (this.inputLocked) return;
     this.setHoverboard(!this.player.riding);
+    play("whoosh");
     this.hud.showRoomToast(t(this.player.riding ? "hoverboard.on" : "hoverboard.off"));
   }
 
@@ -411,6 +417,8 @@ export default class ClinicScene extends Phaser.Scene {
         serviceDone: () => this.progress.countVisit("serviceServed"),
         rebooked: () => this.progress.countVisit("doctorRebooked"),
         pickVisit: (identityId) => pickScenario(identityId, this.history.get(identityId)),
+        // a returning patient comes in different clothes than last time
+        pickOutfit: (identityId) => nextOutfit(identityId, this.history.get(identityId)?.lastOutfit),
       },
       this.progress.shift
     );
@@ -451,6 +459,7 @@ export default class ClinicScene extends Phaser.Scene {
           doctorId: doctor.id,
           greeting: f.greetingKey,
           introIndex: f.introIndex,
+          outfit: this.flow.present.find((v) => v.identityId === identityId)?.outfit ?? 0,
         });
       },
       awardCare: (points) => this.progress.addCare(points),
@@ -555,6 +564,7 @@ export default class ClinicScene extends Phaser.Scene {
         const sink = this.interactables.find((i) => i.id === "toilet-sink")!;
         if (!(await this.walkPlayerTo({ x: sink.x - 6, y: sink.y + (sink.area?.h ?? 0) / 2 + 22 }))) return false;
         this.player.face("up"); // facing the sink
+        play("water");
         await runTap(this, { x: sink.x, y: sink.y + (sink.area?.h ?? 0) / 2 }, ms);
         return true;
       },
@@ -708,6 +718,7 @@ export default class ClinicScene extends Phaser.Scene {
    */
   private devReady(): void {
     document.querySelector(".title-screen")?.remove();
+    titleMusic(false);
     document.querySelectorAll("#ui-root .modal-overlay:not(.hidden)").forEach((o) => o.classList.add("hidden"));
     if (this.onTitle) {
       this.onTitle = false;
@@ -899,6 +910,7 @@ export default class ClinicScene extends Phaser.Scene {
     if (complete) {
       const { coins, xp } = REWARDS.morningPrep;
       this.progress.addEventReward(coins, xp);
+      play("coin");
       this.time.delayedCall(2200, () => this.hud.showRoomToast(`🎉  ${t("morning.bonus", { coins, xp })}`));
     }
     this.persist();
@@ -1131,6 +1143,15 @@ export default class ClinicScene extends Phaser.Scene {
       this.movement.update();
     }
     this.player.tick(delta);
+    this.soundscape.update(delta, {
+      title: this.onTitle,
+      open: !this.preShift && !this.progress.snapshot.shiftEnded,
+      visitors: this.flow.present.length,
+      room: findRoomAt(this.player.x, this.player.y)?.id ?? null,
+      panel: this.inputLocked,
+      riding: this.player.riding,
+      speed: this.player.body.velocity.length(),
+    });
 
     const room = findRoomAt(this.player.x, this.player.y);
     if (room && room.id !== this.currentRoomId) {

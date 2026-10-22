@@ -1,3 +1,4 @@
+import { play } from "../../game/audio";
 import Overlay, { el, feedback } from "../case/Overlay";
 import { icon, type IconName } from "../icons";
 import { lang } from "../../game/i18n";
@@ -135,6 +136,7 @@ export default class DeliveryPanel implements EventPanel {
     // ---------- 1. the box ----------
     const showBox = () => {
       const carton = el("button", "dl-box");
+      carton.dataset.audio = "own";
       carton.type = "button";
       carton.setAttribute("aria-label", tx(S.tapBox));
       // back to front: the dark opening, the items (hidden behind the front until they pop
@@ -145,6 +147,7 @@ export default class DeliveryPanel implements EventPanel {
         '<span class="dl-front"><span class="dl-sticker"><b>ECZEMA CARE CLINIC</b><small>STORAGE · FRAGILE ☂</small></span></span>' +
         '<span class="dl-lid"><span class="dl-tape"></span></span>';
       carton.addEventListener("click", () => {
+        play("box");
         carton.classList.add("opening");
         carton.disabled = true;
         window.setTimeout(showCheck, 1300);
@@ -257,6 +260,7 @@ export default class DeliveryPanel implements EventPanel {
         ctx.moveTo(last.x, last.y);
         ctx.lineTo(p.x, p.y);
         ctx.stroke();
+        if (Math.hypot(p.x - last.x, p.y - last.y) > 1) play("signature");
         ink += Math.hypot(p.x - last.x, p.y - last.y);
         last = p;
         confirm.disabled = ink < 120; // a real squiggle, not a single tap

@@ -1,3 +1,4 @@
+import { play } from "../../game/audio";
 import Overlay, { el } from "./Overlay";
 import { STAGE_ZONE, WATER_HTML, handSvg, toStage } from "./HandArt";
 import { face, icon, type IconName, type Mood } from "../icons";
@@ -196,6 +197,7 @@ export default class Treatment {
     this.tray.setAttribute("aria-label", "Care tools");
     for (const tool of this.h.session.tools) {
       const b = el("button", "treat-tool");
+      if (tool.wrong) b.dataset.audio = "own";
       b.type = "button";
       b.dataset.tool = tool.id;
       b.setAttribute("aria-label", tool.label);
@@ -344,6 +346,7 @@ export default class Treatment {
   }
 
   private mistake(stepId: string, key: string, why: string): void {
+    play("gentle");
     if (!this.penalised.has(`${stepId}:${key}`)) {
       this.penalised.add(`${stepId}:${key}`);
       this.h.wrongPick(stepId);
@@ -355,6 +358,7 @@ export default class Treatment {
   }
 
   private stepDone(stepId: string, msg: string): void {
+    play("good");
     this.active = null;
     this.flash(msg, "good");
     this.h.complete(stepId);

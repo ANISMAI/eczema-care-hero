@@ -1,3 +1,4 @@
+import { play } from "../../game/audio";
 import Overlay, { el, feedback } from "./Overlay";
 import { POOR_QUESTIONS, seedOf, type PoorQuestion } from "../../data/cases/poorQuestions";
 import { REACTION_LABEL } from "../../data/phase5/personalities";
@@ -180,9 +181,11 @@ export default class Interview {
     for (const c of current.choices) {
       const used = !c.good && asked.includes(`weak:${current.id}:${c.id}`);
       const b = el("button", used ? "ask-btn poor" : "ask-btn");
+      b.dataset.audio = "own";
       b.append(el("span", "ask-icon", used ? "😟" : "💬"), el("span", "", c.text));
       b.disabled = used;
       b.addEventListener("click", () => {
+        play(c.good ? "good" : "gentle");
         if (c.good) {
           this.h.ask(`turn:${current.id}`);
           return this.renderTurns({ text: c.reply, reaction: c.reaction });
@@ -249,9 +252,11 @@ export default class Interview {
       for (const c of this.rounds[index]) {
         const usedPoor = c.kind === "poor" && asked.includes(`poor:${c.p.id}`);
         const b = el("button", usedPoor ? "ask-btn poor" : "ask-btn");
+        b.dataset.audio = "own";
         b.append(el("span", "ask-icon", usedPoor ? "😟" : "💬"), el("span", "", c.p.question));
         b.disabled = usedPoor;
         b.addEventListener("click", () => {
+          play(c.kind === "good" ? "good" : "gentle");
           if (c.kind === "good") {
             this.h.ask(c.p.id);
             return this.render(c.p.answer);

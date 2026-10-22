@@ -1,5 +1,6 @@
+import { titleMusic } from "../game/audio";
 import { eventBus } from "../game/EventBus";
-import { prayerReminders, resetAllProgress, setPrayerReminders, setSoundOn, soundOn } from "../game/settings";
+import { prayerReminders, resetAllProgress, setPrayerReminders, audioOn, setAudioOn, type AudioBus } from "../game/settings";
 import { buildTown, type Town } from "../art/town";
 import TownTraffic from "./TownTraffic";
 import { LANGUAGES, lang, t, type StringKey } from "../game/i18n";
@@ -117,6 +118,7 @@ export default class TitleScreen {
     this.panels = [this.settings, howTo, badges, language];
     this.root.append(...this.panels, this.flash);
     parent.append(this.root);
+    titleMusic(true);
     this.layoutTown();
     window.addEventListener("resize", () => this.layoutTown());
 
@@ -254,6 +256,7 @@ export default class TitleScreen {
   private play(): void {
     if (this.root.classList.contains("entering")) return;
     this.root.classList.add("entering");
+    titleMusic(false);
     if (this.root.classList.contains("skipped") || this.reduced) {
       eventBus.emit("title-play");
       this.root.classList.add("leaving");
@@ -290,11 +293,12 @@ export default class TitleScreen {
     box.innerHTML = `
       <div class="ts-card">
         <h2>⚙️ ${t("menu.settings")}</h2>
+        ${(["ambience", "effects", "music"] as const).map((bus) => `
         <label class="ts-row">
-          <span><strong>${t("settings.sound")}</strong><small>${t("settings.soundHint")}</small></span>
-          <input type="checkbox" class="ts-toggle ts-sound" />
+          <span><strong>${t(`settings.${bus}`)}</strong><small>${t(`settings.${bus}Hint`)}</small></span>
+          <input type="checkbox" class="ts-toggle ts-${bus}" />
           <span class="ts-switch" aria-hidden="true"></span>
-        </label>
+        </label>`).join("")}
         <label class="ts-row">
           <span><strong>${t("settings.prayer")}</strong><small>${t("settings.prayerHint")}</small></span>
           <input type="checkbox" class="ts-toggle ts-prayer" />
@@ -306,8 +310,10 @@ export default class TitleScreen {
         </div>
         <button type="button" class="primary-btn wide ts-close">${t("menu.done")}</button>
       </div>`;
-    const sound = box.querySelector<HTMLInputElement>(".ts-sound")!;
-    sound.addEventListener("change", () => setSoundOn(sound.checked));
+    for (const bus of ["ambience", "effects", "music"] as AudioBus[]) {
+      const toggle = box.querySelector<HTMLInputElement>(`.ts-${bus}`)!;
+      toggle.addEventListener("change", () => setAudioOn(bus, toggle.checked));
+    }
     const prayer = box.querySelector<HTMLInputElement>(".ts-prayer")!;
     prayer.addEventListener("change", () => setPrayerReminders(prayer.checked));
     const reset = box.querySelector<HTMLButtonElement>(".ts-reset")!;
@@ -329,7 +335,9 @@ export default class TitleScreen {
   }
 
   private openSettings(): void {
-    this.settings.querySelector<HTMLInputElement>(".ts-sound")!.checked = soundOn();
+    for (const bus of ["ambience", "effects", "music"] as AudioBus[]) {
+      this.settings.querySelector<HTMLInputElement>(`.ts-${bus}`)!.checked = audioOn(bus);
+    }
     this.settings.querySelector<HTMLInputElement>(".ts-prayer")!.checked = prayerReminders();
     const reset = this.settings.querySelector<HTMLButtonElement>(".ts-reset")!;
     delete reset.dataset.confirm;

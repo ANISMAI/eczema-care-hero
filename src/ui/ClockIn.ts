@@ -1,4 +1,4 @@
-import { soundOn } from "../game/settings";
+import { play } from "../game/audio";
 import { t } from "../game/i18n";
 
 // "Start shift" moment: the screen dims and a fingerprint scanner clocks the doctor in (ridges
@@ -21,29 +21,6 @@ const RIDGES = [
 
 const SCAN_MS = 1500;
 const DONE_MS = 900;
-
-function beep(): void {
-  if (!soundOn()) return;
-  try {
-    const ctx = new AudioContext();
-    [1046.5, 1568].forEach((freq, i) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.value = freq;
-      const t0 = ctx.currentTime + i * 0.12;
-      gain.gain.setValueAtTime(0.0001, t0);
-      gain.gain.exponentialRampToValueAtTime(0.12, t0 + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.25);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(t0);
-      osc.stop(t0 + 0.3);
-    });
-    window.setTimeout(() => void ctx.close(), 800);
-  } catch {
-    // audio unavailable: the tick is enough
-  }
-}
 
 export function playClockIn(parent: HTMLElement, doctor: string, time: string): Promise<void> {
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -84,7 +61,7 @@ export function playClockIn(parent: HTMLElement, doctor: string, time: string): 
     const done = () => {
       root.classList.add("done");
       root.querySelector(".ci-status")!.textContent = t("clockin.done");
-      beep();
+      play("beep");
       timers.push(window.setTimeout(finish, DONE_MS));
     };
     root.addEventListener("click", () => {

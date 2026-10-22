@@ -1169,6 +1169,33 @@
   box-shadow: 0 0 0 2px #fff;
 }
 
+.queue-ring {
+  position: relative;
+}
+
+/* today's queue number, a small tag under each face */
+.queue-no {
+  position: absolute;
+  left: 50%;
+  bottom: -7px;
+  padding: 0 3px;
+  border-radius: 4px;
+  background: #23364f;
+  color: #ffffff;
+  font-size: 8px;
+  font-weight: 900;
+  line-height: 11px;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.queue-ring.first .queue-no {
+  background: #ffcf3a;
+  color: #23364f;
+}
+
 
 
 .queue-face {

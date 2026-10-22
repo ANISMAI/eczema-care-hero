@@ -13,6 +13,8 @@ import "./ui/phone.css";
 import "./ui/events/incident.css";
 import TitleScreen from "./ui/TitleScreen";
 import { resetAllProgress } from "./game/settings";
+import { prepareAudio } from "./game/audio";
+import { prepareVoice } from "./game/voice";
 
 // `?reset=1`: wipe this game's saved progress (all its localStorage keys) and start over.
 // The flag is removed from the address bar so a later reload doesn't wipe again.
@@ -24,10 +26,14 @@ if (params.has("reset")) {
   window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : "") + window.location.hash);
 }
 
+prepareAudio();
+
 // Opening clouds + title, on screen from the very first frame (covers asset loading too)
 new TitleScreen(document.getElementById("game-container")!);
 
 const game = new Phaser.Game(gameConfig);
+// spoken queue numbers: start loading voices and unlock speech on the first tap
+prepareVoice();
 
 // Keep the canvas matched to the screen on rotation / window resize.
 let pending = 0;

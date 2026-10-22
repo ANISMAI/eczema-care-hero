@@ -1,5 +1,5 @@
 import { el } from "./case/Overlay";
-import type { QueueEntry } from "../clinic/ClinicFlow";
+import { ticketLabel, type QueueEntry } from "../clinic/ClinicFlow";
 import { t } from "../game/i18n";
 
 /**
@@ -36,7 +36,7 @@ export default class QueuePanel {
     if (key !== this.key) {
       this.key = key;
       this.count.textContent = String(queue.length);
-      this.root.setAttribute("aria-label", `Waiting for the doctor: ${queue.map((q) => `${q.name} (${q.reason})`).join(", ")}. Tap to go to the Consultation desk.`);
+      this.root.setAttribute("aria-label", `Waiting for the doctor: ${queue.map((q) => `${ticketLabel(q.ticket)} ${q.name} (${q.reason})`).join(", ")}. Tap to go to the Consultation desk.`);
       this.faces.replaceChildren(
         ...queue.map((q, i) => {
           const ring = el("span", i === 0 ? "queue-ring first" : "queue-ring");
@@ -49,7 +49,8 @@ export default class QueuePanel {
             img.alt = "";
             face.append(img);
           } else face.textContent = q.portrait;
-          ring.append(face);
+          // today's queue number under the face
+          ring.append(face, el("span", "queue-no", ticketLabel(q.ticket)));
           return ring;
         })
       );

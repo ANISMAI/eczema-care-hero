@@ -1,7 +1,9 @@
+import { play } from "../game/audio";
 import Phaser from "phaser";
 import CaseNpc from "../entities/CaseNpc";
 import Pathfinder from "../systems/Pathfinding";
 import { speechBubble } from "../art/bubble";
+import { outfitSheets } from "../systems/Outfits";
 import { clinicConfig } from "../data/gameplay";
 import { PATIENTS, getPatient, type PatientIdentity } from "../data/patients";
 import { DOCTOR_VISITS, SERVICE_VISITS, getServiceVisit, type ServiceLine, type VisitType } from "../data/visits";
@@ -42,6 +44,10 @@ export interface Visitor {
   state: VisitorState;
   /** Arrival order (queue order). */
   order: number;
+  /** Doctor patients: today's queue number (1 → "001"), called out when the doctor calls them in. */
+  ticket?: number;
+  /** Clothes colour for this visit (0 = the original art; see art/outfits.ts). */
+  outfit?: number;
   /** Waiting seat index (doctor patients). */
   seat: number | null;
   /** 1 → 0 while waiting in the doctor queue; null otherwise. */
@@ -62,6 +68,8 @@ interface FlowState {
   nextArrivalAt: number;
   closed: boolean;
   counter: number;
+  /** Queue numbers handed out to doctor patients today (the next one is tickets + 1). */
+  tickets: number;
   visitors: Visitor[];
   /** Completed doctor visits per identity (follow-ups need at least one). */
   history: Record<string, number>;
@@ -78,8 +86,15 @@ export interface QueueEntry {
   portrait: string;
   reason: string;
   order: number;
+  /** Today's queue number (see ticketLabel). */
+  ticket: number;
   /** 0..1 */
   patience: number;
+}
+
+/** A queue number as shown and called out: 1 → "001". */
+export function ticketLabel(n: number): string {
+  return String(n).padStart(3, "0");
 }
 
 export interface FlowHost {
@@ -95,6 +110,8 @@ export interface FlowHost {
   rebooked(): void;
   /** Phase 5: which visit template a doctor patient comes with (by their personality and history). */
   pickVisit?(identityId: string): string;
+  /** Which clothes colour this person wears today (a returning patient changes outfit). */
+  pickOutfit?(identityId: string): number;
 }
 
 // ---------- places ----------
@@ -133,7 +150,7 @@ const RUSH_GAP_MS = 1400;
 const LIVE: VisitorState[] = ["to-reception", "at-reception", "to-seat", "waiting"];
 
 function fresh(day: number): FlowState {
-  return { version: VERSION, day, nextArrivalAt: CFG.firstArrivalAt, closed: false, counter: 0, visitors: [], history: {}, firstDone: false };
+  return { version: VERSION, day, nextArrivalAt: CFG.firstArrivalAt, closed: false, counter: 0, tickets: 0, visitors: [], history: {}, firstDone: false };
 }
 
 function rand(min: number, max: number): number {
@@ -199,6 +216,8 @@ export default class ClinicFlow {
     const keep: Visitor[] = [];
     for (const v of this.state.visitors) {
       if (!getPatient(v.identityId)) continue;
+      // a save from before queue numbers existed: number them now
+      if (v.visitType === "DOCTOR" && v.ticket === undefined) v.ticket = ++this.state.tickets;
       if (v.visitType === "DOCTOR" && LIVE.includes(v.state)) {
         const seat = v.seat ?? this.freeSeat(keep);
         if (seat === null) continue;
@@ -240,6 +259,7 @@ export default class ClinicFlow {
           portrait: p.portrait,
           reason: CASE_TEMPLATES[v.templateId]?.reason ?? "",
           order: v.order,
+          ticket: v.ticket ?? 0,
           patience: v.doctorPatience ?? 1,
         };
       });
@@ -367,12 +387,17 @@ export default class ClinicFlow {
       slot: null,
       timerMs: 0,
       line: 0,
+      outfit: this.host.pickOutfit?.(identity.id) ?? 0,
     };
     this.state.visitors.push(v);
     // a doctor patient reserves a seat now, so the cap and the seats always agree
-    if (type === "DOCTOR") v.seat = this.freeSeat();
+    if (type === "DOCTOR") {
+      v.seat = this.freeSeat();
+      v.ticket = ++this.state.tickets;
+    }
     const npc = this.npcFor(v);
     npc.standAt(ENTRANCE, "up");
+    play("door");
     this.goToReception(v);
     this.host.arrived(type);
     this.save();
@@ -396,12 +421,14 @@ export default class ClinicFlow {
       templateId,
       state: "waiting",
       order: this.state.counter,
+      ticket: ++this.state.tickets,
       seat,
       doctorPatience: 1,
       patienceMs: rand(CFG.patienceMs.min, CFG.patienceMs.max),
       slot: null,
       timerMs: 0,
       line: 0,
+      outfit: this.host.pickOutfit?.(identityId) ?? 0,
     };
     this.state.visitors.push(v);
     this.npcFor(v).sitAt(SEATS[seat]);
@@ -439,7 +466,8 @@ export default class ClinicFlow {
       dialogText: "",
     };
     // placeholder art looks alike, so placeholder visitors wear a name tag until real art exists
-    npc = new CaseNpc(this.host.scene, p.walk, p.sit, talk, this.host.pathfinder, p.tint, p.tint !== undefined ? p.name : undefined);
+    const clothes = outfitSheets(this.host.scene, p, v.outfit ?? 0);
+    npc = new CaseNpc(this.host.scene, clothes.walk, clothes.sit, talk, this.host.pathfinder, p.tint, p.tint !== undefined ? p.name : undefined);
     this.npcs.set(v.instanceId, npc);
     return npc;
   }
