@@ -1,4 +1,5 @@
 import { language } from "./settings";
+import { hostLanguage } from "./host";
 
 // Interface translations (title menu, HUD, panels, room names). Patient dialogue, case content
 // and event stories are still English only; they are content and get translated in a later
@@ -385,7 +386,7 @@ const STRINGS = {
 
 export type StringKey = keyof typeof STRINGS;
 
-const current: Lang = language() === "ms" ? "ms" : "en";
+const current: Lang = hostLanguage() ?? (language() === "ms" ? "ms" : "en");
 
 export function lang(): Lang {
   return current;

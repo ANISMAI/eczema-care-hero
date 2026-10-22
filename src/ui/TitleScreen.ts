@@ -6,6 +6,7 @@ import TownTraffic from "./TownTraffic";
 import { t, type StringKey } from "../game/i18n";
 import SettingsPanel from "./SettingsPanel";
 import { howToScene } from "./howToScenes";
+import { isEmbedded } from "../game/host";
 
 // Opening sequence (shown on top of everything from the first frame):
 //   1. the screen is full of fluffy clouds drifting gently (also covers asset loading)
@@ -102,7 +103,7 @@ export default class TitleScreen {
         <div class="title-menu">
           <button class="title-menu-btn" data-open="howto" type="button"><span>❓</span>${t("menu.howTo")}</button>
           <button class="title-menu-btn" data-open="badges" type="button"><span>🏅</span>${t("menu.badges")}</button>
-          <button class="title-menu-btn" data-open="language" type="button"><span>🌐</span>${t("menu.language")}</button>
+          ${isEmbedded() ? "" : `<button class="title-menu-btn" data-open="language" type="button"><span>🌐</span>${t("menu.language")}</button>`}
           <button class="title-menu-btn title-settings" data-open="settings" type="button"><span>⚙️</span>${t("menu.settings")}</button>
         </div>
       </div>`;

@@ -34,6 +34,7 @@ import Progress from "../systems/Progress";
 import EventDirector from "../events/EventDirector";
 import { eventBus } from "../game/EventBus";
 import { prayerReminders, resetAllProgress, reloadLanguage, RESUME_SETTINGS_KEY } from "../game/settings";
+import { exitToHost } from "../game/host";
 import CareTrays from "../systems/CareTrays";
 import ClinicFlow from "../clinic/ClinicFlow";
 import QueuePanel from "../ui/QueuePanel";
@@ -1055,6 +1056,7 @@ export default class ClinicScene extends Phaser.Scene {
     this.navigation.cancel();
     this.persist();
     this.clock.save();
+    if (exitToHost()) return;
     // Return to the normal title even when the opening was skipped for testing.
     const url = new URL(window.location.href);
     if (url.searchParams.get("title") === "off") url.searchParams.delete("title");

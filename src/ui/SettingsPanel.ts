@@ -2,6 +2,7 @@ import { LANGUAGES, lang, t, type Lang } from "../game/i18n";
 import { audioOn, prayerReminders, resetAllProgress, setAudioOn, setPrayerReminders } from "../game/settings";
 import { el } from "./IdCard";
 import "./settings.css";
+import { isEmbedded } from "../game/host";
 
 // The title and in-game profile share controls and saved values. Only the title exposes reset;
 // closing in-game settings returns to the profile while the scene remains paused.
@@ -37,10 +38,10 @@ export default class SettingsPanel {
         <input type="checkbox" class="ts-toggle ts-prayer" />
         <span class="ts-switch" aria-hidden="true"></span>
       </label>
-      <label class="ts-row ts-language-row">
+      ${isEmbedded() ? "" : `<label class="ts-row ts-language-row">
         <span><strong>${t("menu.language")}</strong><small>${t("settings.languageHint")}</small></span>
         <select class="ts-language">${LANGUAGES.map((l) => `<option value="${l.id}">${l.name}</option>`).join("")}</select>
-      </label>
+      </label>`}
       ${options.allowReset ? `
       <div class="ts-row ts-reset-row">
         <span><strong>${t("settings.reset")}</strong><small>${t("settings.resetHint")}</small></span>
@@ -53,8 +54,8 @@ export default class SettingsPanel {
     }
     const prayer = card.querySelector<HTMLInputElement>(".ts-prayer")!;
     prayer.addEventListener("change", () => setPrayerReminders(prayer.checked));
-    const language = card.querySelector<HTMLSelectElement>(".ts-language")!;
-    language.addEventListener("change", () => {
+    const language = card.querySelector<HTMLSelectElement>(".ts-language");
+    language?.addEventListener("change", () => {
       if (language.value !== lang()) options.onLanguageChange(language.value as Lang);
     });
     const reset = card.querySelector<HTMLButtonElement>(".ts-reset");
@@ -89,7 +90,8 @@ export default class SettingsPanel {
     this.previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     for (const bus of ["ambience", "effects", "music"] as const) this.root.querySelector<HTMLInputElement>(`.ts-${bus}`)!.checked = audioOn(bus);
     this.root.querySelector<HTMLInputElement>(".ts-prayer")!.checked = prayerReminders();
-    this.root.querySelector<HTMLSelectElement>(".ts-language")!.value = lang();
+    const language = this.root.querySelector<HTMLSelectElement>(".ts-language");
+    if (language) language.value = lang();
     const reset = this.root.querySelector<HTMLButtonElement>(".ts-reset");
     if (reset) {
       delete reset.dataset.confirm;
@@ -97,7 +99,7 @@ export default class SettingsPanel {
       reset.classList.remove("confirm");
     }
     this.root.classList.remove("hidden");
-    this.root.querySelector<HTMLElement>(focusLanguage ? ".ts-language" : ".ts-ambience")!.focus();
+    this.root.querySelector<HTMLElement>(focusLanguage && language ? ".ts-language" : ".ts-ambience")!.focus();
   }
 
   close(): void {
