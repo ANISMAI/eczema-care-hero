@@ -1207,7 +1207,7 @@ export default class ClinicScene extends Phaser.Scene {
       if (this.clock.minutesOfDay >= 8 * 60) this.openClinic();
     }
     this.hud.setStartShift(this.preShift && !this.morning.active && !this.onTitle && !this.briefing.isOpen);
-    this.hud.setClock(`${t("hud.day", { day: this.progress.shift })} · ${this.clock.label()}`);
+    this.hud.setClock(this.clock.label());
     this.amenities.update(room?.id ?? null);
     if (this.preShift) this.morning.update(room?.id ?? null, this.inputLocked);
     else if (this.morning.beforeOpeningOnly) {
